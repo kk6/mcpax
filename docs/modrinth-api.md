@@ -20,7 +20,7 @@
 **必須**。適切な User-Agent を設定しないとブロックされる可能性がある。
 
 ```
-User-Agent: kk6/modrinth-mod-manager/0.1.0 (github.com/kk6)
+User-Agent: kk6/mcpax/0.1.0 (github.com/kk6)
 ```
 
 ### 1.4 レートリミット

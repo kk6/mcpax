@@ -2,7 +2,7 @@
 
 ## 概要
 
-このドキュメントは、mmm の CLI インターフェースを定義する。
+このドキュメントは、mcpax の CLI インターフェースを定義する。
 行動シナリオ（04_user_scenarios.md）を元に、利用者が実行するコマンドを整理した。
 
 ---
@@ -11,24 +11,24 @@
 
 | コマンド | 説明 | 対応シナリオ |
 |---------|------|-------------|
-| `mmm init` | 初期セットアップ | S-005 |
-| `mmm add <slug>` | プロジェクトを追加 | S-002 |
-| `mmm remove <slug>` | プロジェクトを削除 | S-003 |
-| `mmm list` | 管理対象の一覧表示 | S-004 |
-| `mmm search <query>` | プロジェクトを検索 | S-006 |
-| `mmm update` | 更新を確認して適用 | S-001 |
-| `mmm install` | プロジェクトをインストール | S-001 |
+| `mcpax init` | 初期セットアップ | S-005 |
+| `mcpax add <slug>` | プロジェクトを追加 | S-002 |
+| `mcpax remove <slug>` | プロジェクトを削除 | S-003 |
+| `mcpax list` | 管理対象の一覧表示 | S-004 |
+| `mcpax search <query>` | プロジェクトを検索 | S-006 |
+| `mcpax update` | 更新を確認して適用 | S-001 |
+| `mcpax install` | プロジェクトをインストール | S-001 |
 
 ---
 
 ## コマンド詳細
 
-### mmm init
+### mcpax init
 
 初期設定ファイルを作成する。
 
 ```
-mmm init
+mcpax init
 ```
 
 #### 動作
@@ -56,7 +56,7 @@ Minecraft directory [~/.minecraft]:
 ✓ Created config.toml
 ✓ Created projects.toml
 
-Run `mmm add <slug>` to add projects.
+Run `mcpax add <slug>` to add projects.
 ```
 
 #### エラーケース
@@ -67,12 +67,12 @@ Run `mmm add <slug>` to add projects.
 
 ---
 
-### mmm add \<slug\>
+### mcpax add \<slug\>
 
 プロジェクトを管理対象に追加する。
 
 ```
-mmm add <slug>
+mcpax add <slug>
 ```
 
 #### 引数
@@ -98,10 +98,10 @@ mmm add <slug>
 #### 出力例
 
 ```
-$ mmm add sodium
+$ mcpax add sodium
 ✓ sodium (mod) を追加しました
 
-Run `mmm install sodium` to install.
+Run `mcpax install sodium` to install.
 ```
 
 #### エラーケース
@@ -110,16 +110,16 @@ Run `mmm install sodium` to install.
 |------|-----------|-----------|
 | プロジェクトが見つからない | `Project 'xxx' not found on Modrinth.` | 1 |
 | 既に追加済み | `Project 'sodium' is already in the list.` | 1 |
-| config.toml がない | `config.toml not found. Run 'mmm init' first.` | 1 |
+| config.toml がない | `config.toml not found. Run 'mcpax init' first.` | 1 |
 
 ---
 
-### mmm remove \<slug\>
+### mcpax remove \<slug\>
 
 プロジェクトを管理対象から削除する。
 
 ```
-mmm remove <slug>
+mcpax remove <slug>
 ```
 
 #### 引数
@@ -145,13 +145,13 @@ mmm remove <slug>
 #### 出力例
 
 ```
-$ mmm remove sodium
+$ mcpax remove sodium
 Remove sodium from the list? [y/N]: y
 ✓ sodium を削除しました
 ```
 
 ```
-$ mmm remove sodium --delete-file
+$ mcpax remove sodium --delete-file
 Remove sodium from the list? [y/N]: y
 Delete installed file? [y/N]: y
 ✓ sodium を削除しました
@@ -166,12 +166,12 @@ Delete installed file? [y/N]: y
 
 ---
 
-### mmm list
+### mcpax list
 
 管理対象のプロジェクト一覧を表示する。
 
 ```
-mmm list
+mcpax list
 ```
 
 #### オプション
@@ -191,7 +191,7 @@ mmm list
 #### 出力例
 
 ```
-$ mmm list
+$ mcpax list
 
 MOD (3):
   ✓ fabric-api      0.97.0    installed
@@ -216,12 +216,12 @@ Resource Pack (1):
 
 ---
 
-### mmm search \<query\>
+### mcpax search \<query\>
 
 Modrinth でプロジェクトを検索する。
 
 ```
-mmm search <query>
+mcpax search <query>
 ```
 
 #### 引数
@@ -245,7 +245,7 @@ mmm search <query>
 #### 出力例
 
 ```
-$ mmm search sodium
+$ mcpax search sodium
 
 Search results for "sodium":
 
@@ -261,17 +261,17 @@ Search results for "sodium":
    Alternative options menu for Sodium
    Downloads: 987,654
 
-Run `mmm add <slug>` to add a project.
+Run `mcpax add <slug>` to add a project.
 ```
 
 ---
 
-### mmm update
+### mcpax update
 
 更新を確認し、適用する。
 
 ```
-mmm update [options]
+mcpax update [options]
 ```
 
 #### オプション
@@ -299,7 +299,7 @@ mmm update [options]
 #### 出力例（--check）
 
 ```
-$ mmm update --check
+$ mcpax update --check
 
 Checking for updates...
 
@@ -313,13 +313,13 @@ Not compatible (1):
 Up to date (5):
   fabric-api, iris, ...
 
-Run `mmm update` to apply updates.
+Run `mcpax update` to apply updates.
 ```
 
 #### 出力例（更新適用）
 
 ```
-$ mmm update
+$ mcpax update
 
 Checking for updates...
 
@@ -345,12 +345,12 @@ Downloading...
 
 ---
 
-### mmm install
+### mcpax install
 
 プロジェクトをインストールする。
 
 ```
-mmm install [slug] [options]
+mcpax install [slug] [options]
 ```
 
 #### 引数
@@ -375,7 +375,7 @@ mmm install [slug] [options]
 #### 出力例
 
 ```
-$ mmm install sodium
+$ mcpax install sodium
 
 Downloading...
   [████████████████████] sodium 0.6.0
@@ -385,7 +385,7 @@ Downloading...
 ```
 
 ```
-$ mmm install --all
+$ mcpax install --all
 
 Installing 5 projects...
 
@@ -404,7 +404,7 @@ Downloading...
 | 状況 | メッセージ | 終了コード |
 |------|-----------|-----------|
 | slug もオプションもなし | `Specify a slug or use --all` | 1 |
-| プロジェクトがリストにない | `Project 'xxx' is not in the list. Use 'mmm add' first.` | 1 |
+| プロジェクトがリストにない | `Project 'xxx' is not in the list. Use 'mcpax add' first.` | 1 |
 | 対応バージョンなし | `No compatible version found for sodium (1.21.4 + fabric)` | 1 |
 
 ---
@@ -437,6 +437,6 @@ Downloading...
 
 1. `--config` オプションで指定されたパス
 2. カレントディレクトリの `config.toml`
-3. （将来）`~/.config/mmm/config.toml`
+3. （将来）`~/.config/mcpax/config.toml`
 
 `projects.toml` は `config.toml` と同じディレクトリに配置する。

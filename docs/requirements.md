@@ -4,7 +4,7 @@
 
 ### 1.1 プロジェクト名
 
-Modrinth Mod Manager (mmm)
+mcpax
 
 ### 1.2 目的
 

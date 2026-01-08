@@ -2,7 +2,7 @@
 
 ## 概要
 
-このドキュメントは、mmm の機能を定義する。
+このドキュメントは、mcpax の機能を定義する。
 UI 定義（06_ui_definition.md）で定義した各コマンドを実現するために必要な機能を整理した。
 
 ---
@@ -147,8 +147,8 @@ config.toml を読み込み、AppConfig オブジェクトを返す。
 #### 生成されるファイル
 
 ```toml
-# Modrinth Mod Manager - Project List
-# Add projects with: mmm add <slug>
+# mcpax - Project List
+# Add projects with: mcpax add <slug>
 ```
 
 ---
@@ -535,7 +535,7 @@ URL からファイルをダウンロードする。
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
 | file_path | Path | ✓ | バックアップ対象ファイル |
-| backup_dir | Path | - | バックアップ先（デフォルト: .mmm-backup） |
+| backup_dir | Path | - | バックアップ先（デフォルト: .mcpax-backup） |
 
 #### 出力
 
@@ -616,7 +616,7 @@ slug からインストール済みファイルを特定する。
 
 #### 処理
 
-1. 状態管理ファイル（.mmm-state.json）を読み込む
+1. 状態管理ファイル（.mcpax-state.json）を読み込む
 2. slug に対応するファイル情報を返す
 
 ---
@@ -708,10 +708,10 @@ class UpdateCheckResult:
 
 | コマンド | 使用する機能 |
 |---------|-------------|
-| mmm init | F-101, F-103 |
-| mmm add | F-102, F-104, F-105, F-201 |
-| mmm remove | F-102, F-104, F-105, F-404, F-406 |
-| mmm list | F-102, F-104, F-405 |
-| mmm search | F-102, F-202 |
-| mmm update | F-102, F-104, F-501, F-502, F-503, F-301, F-302, F-303, F-403, F-402 |
-| mmm install | F-102, F-104, F-201, F-203, F-204, F-301, F-302, F-303, F-402, F-401 |
+| mcpax init | F-101, F-103 |
+| mcpax add | F-102, F-104, F-105, F-201 |
+| mcpax remove | F-102, F-104, F-105, F-404, F-406 |
+| mcpax list | F-102, F-104, F-405 |
+| mcpax search | F-102, F-202 |
+| mcpax update | F-102, F-104, F-501, F-502, F-503, F-301, F-302, F-303, F-403, F-402 |
+| mcpax install | F-102, F-104, F-201, F-203, F-204, F-301, F-302, F-303, F-402, F-401 |

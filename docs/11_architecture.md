@@ -3,7 +3,7 @@
 ## 1. 全体構成
 
 ```
-modrinth-mod-manager/
+mcpax/
 ├── pyproject.toml           # プロジェクト設定・依存関係
 ├── README.md
 ├── docs/                    # ドキュメント
@@ -359,19 +359,19 @@ channel = "beta"   # ベータ版も許可
 ### 6.1 例外クラス
 
 ```python
-class MMMError(Exception):
+class McpaxError(Exception):
     """基底例外クラス"""
     pass
 
-class ProjectNotFoundError(MMMError):
+class ProjectNotFoundError(McpaxError):
     """プロジェクトが見つからない"""
     pass
 
-class VersionNotFoundError(MMMError):
+class VersionNotFoundError(McpaxError):
     """対応バージョンが見つからない"""
     pass
 
-class DownloadError(MMMError):
+class DownloadError(McpaxError):
     """ダウンロード失敗"""
     pass
 
@@ -379,7 +379,7 @@ class HashMismatchError(DownloadError):
     """ハッシュ検証失敗"""
     pass
 
-class RateLimitError(MMMError):
+class RateLimitError(McpaxError):
     """レートリミット超過"""
     pass
 ```

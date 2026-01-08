@@ -1,4 +1,4 @@
-# Modrinth Mod Manager (mmm)
+# mcpax
 
 Minecraft の MOD/シェーダー/リソースパックを Modrinth API 経由で管理する CLI ツール。
 
@@ -53,7 +53,7 @@ uv run pytest
 ## アーキテクチャ
 
 ```
-src/mmm/
+src/mcpax/
 ├── __init__.py
 ├── core/                # ビジネスロジック層
 │   ├── __init__.py
@@ -101,14 +101,14 @@ slug = "complementary-unbound"  # シェーダー
 ## CLI コマンド体系
 
 ```bash
-mmm init                    # 設定ファイル初期化
-mmm add <slug>              # プロジェクト追加
-mmm remove <slug>           # プロジェクト削除
-mmm list                    # 登録プロジェクト一覧
-mmm search <query>          # Modrinth 検索（別コマンド）
-mmm install [--all]         # インストール
-mmm update [--check]        # 更新確認・適用
-mmm status                  # インストール状態表示
+mcpax init                    # 設定ファイル初期化
+mcpax add <slug>              # プロジェクト追加
+mcpax remove <slug>           # プロジェクト削除
+mcpax list                    # 登録プロジェクト一覧
+mcpax search <query>          # Modrinth 検索（別コマンド）
+mcpax install [--all]         # インストール
+mcpax update [--check]        # 更新確認・適用
+mcpax status                  # インストール状態表示
 ```
 
 ## テスト方針

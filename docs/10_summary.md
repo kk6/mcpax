@@ -62,12 +62,12 @@
 
 | ID | シナリオ | 主要コマンド |
 |----|---------|-------------|
-| S-001 | 更新確認・インストール | mmm update, mmm install |
-| S-002 | プロジェクト追加 | mmm add |
-| S-003 | プロジェクト削除 | mmm remove |
-| S-004 | 一覧確認 | mmm list |
-| S-005 | 初期セットアップ | mmm init |
-| S-006 | プロジェクト検索 | mmm search |
+| S-001 | 更新確認・インストール | mcpax update, mcpax install |
+| S-002 | プロジェクト追加 | mcpax add |
+| S-003 | プロジェクト削除 | mcpax remove |
+| S-004 | 一覧確認 | mcpax list |
+| S-005 | 初期セットアップ | mcpax init |
+| S-006 | プロジェクト検索 | mcpax search |
 
 ---
 
@@ -75,13 +75,13 @@
 
 | コマンド | 説明 | 主要オプション |
 |---------|------|---------------|
-| mmm init | 初期セットアップ | --non-interactive |
-| mmm add \<slug\> | プロジェクト追加 | --version, --channel |
-| mmm remove \<slug\> | プロジェクト削除 | --delete-file, --yes |
-| mmm list | 一覧表示 | --type, --status, --json |
-| mmm search \<query\> | 検索 | --type, --limit |
-| mmm update | 更新確認・適用 | --check, --yes |
-| mmm install | インストール | --all |
+| mcpax init | 初期セットアップ | --non-interactive |
+| mcpax add \<slug\> | プロジェクト追加 | --version, --channel |
+| mcpax remove \<slug\> | プロジェクト削除 | --delete-file, --yes |
+| mcpax list | 一覧表示 | --type, --status, --json |
+| mcpax search \<query\> | 検索 | --type, --limit |
+| mcpax update | 更新確認・適用 | --check, --yes |
+| mcpax install | インストール | --all |
 
 ---
 
@@ -148,7 +148,7 @@
 |-------------|---------|
 | AppConfig | config.toml |
 | ProjectConfig | projects.toml |
-| InstalledFile | .mmm-state.json |
+| InstalledFile | .mcpax-state.json |
 
 ### Modrinth API データ
 

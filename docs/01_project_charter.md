@@ -2,7 +2,7 @@
 
 ## プロジェクト名称
 
-**Modrinth Mod Manager（mmm）**
+**mcpax**
 
 ## なぜ（目的）
 

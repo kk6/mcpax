@@ -20,15 +20,15 @@
 
 ## コマンド × データ
 
-| コマンド | config.toml | projects.toml | .mmm-state.json | Modrinth API | ファイル |
+| コマンド | config.toml | projects.toml | .mcpax-state.json | Modrinth API | ファイル |
 |---------|-------------|---------------|-----------------|--------------|---------|
-| mmm init | C | C | - | - | - |
-| mmm add | R | RU | - | R | - |
-| mmm remove | R | RU | RU | - | D |
-| mmm list | R | R | R | - | - |
-| mmm search | R | - | - | R | - |
-| mmm update | R | R | RU | R | CUD |
-| mmm install | R | R | CU | R | C |
+| mcpax init | C | C | - | - | - |
+| mcpax add | R | RU | - | R | - |
+| mcpax remove | R | RU | RU | - | D |
+| mcpax list | R | R | R | - | - |
+| mcpax search | R | - | - | R | - |
+| mcpax update | R | R | RU | R | CUD |
+| mcpax install | R | R | CU | R | C |
 
 ---
 
@@ -36,7 +36,7 @@
 
 ### 設定管理機能
 
-| 機能 | config.toml | projects.toml | .mmm-state.json |
+| 機能 | config.toml | projects.toml | .mcpax-state.json |
 |-----|-------------|---------------|-----------------|
 | F-101 設定ファイル生成 | C | - | - |
 | F-102 設定ファイル読み込み | R | - | - |
@@ -68,7 +68,7 @@
 
 ### ファイル管理機能
 
-| 機能 | .mmm-state.json | ファイル（mods 等） | バックアップ |
+| 機能 | .mcpax-state.json | ファイル（mods 等） | バックアップ |
 |-----|-----------------|-------------------|-------------|
 | F-401 ディレクトリ判定 | - | - | - |
 | F-402 ファイル配置 | U | C | - |
@@ -79,7 +79,7 @@
 
 ### 更新管理機能
 
-| 機能 | .mmm-state.json | Modrinth API |
+| 機能 | .mcpax-state.json | Modrinth API |
 |-----|-----------------|--------------|
 | F-501 更新確認 | R | R |
 | F-502 バージョン比較 | R | - |
@@ -95,7 +95,7 @@
 ┌─────────┐     ┌─────────┐
 │ 未作成  │────►│  存在   │
 └─────────┘     └────┬────┘
-   mmm init          │
+   mcpax init          │
                      │ 手動編集
                      ▼
                 ┌─────────┐
@@ -103,7 +103,7 @@
                 └─────────┘
 ```
 
-- 作成: `mmm init`
+- 作成: `mcpax init`
 - 読み取り: 全コマンド（init 以外）
 - 更新: 手動編集のみ（ツールからは更新しない）
 - 削除: 手動削除のみ
@@ -114,18 +114,18 @@
 ┌─────────┐     ┌─────────┐     ┌─────────┐
 │ 未作成  │────►│  存在   │◄───►│ 更新中  │
 └─────────┘     └────┬────┘     └─────────┘
-   mmm init          │              ▲
+   mcpax init          │              ▲
                      │              │
                      └──────────────┘
-                        mmm add / remove
+                        mcpax add / remove
 ```
 
-- 作成: `mmm init`
+- 作成: `mcpax init`
 - 読み取り: 全コマンド（init 以外）
-- 更新: `mmm add`, `mmm remove`
+- 更新: `mcpax add`, `mcpax remove`
 - 削除: 手動削除のみ
 
-### .mmm-state.json
+### .mcpax-state.json
 
 ```
 ┌─────────┐     ┌─────────┐     ┌─────────┐
@@ -137,9 +137,9 @@
                      install / update / remove
 ```
 
-- 作成: 初回 `mmm install` 時に自動作成
-- 読み取り: `mmm list`, `mmm update`, `mmm install`
-- 更新: `mmm install`, `mmm update`, `mmm remove`
+- 作成: 初回 `mcpax install` 時に自動作成
+- 読み取り: `mcpax list`, `mcpax update`, `mcpax install`
+- 更新: `mcpax install`, `mcpax update`, `mcpax remove`
 - 削除: 手動削除のみ
 
 ### インストールファイル（MOD / Shader / Resource Pack）
@@ -161,16 +161,16 @@
                    remove
 ```
 
-- 作成: `mmm install`
+- 作成: `mcpax install`
 - 読み取: ハッシュ検証時
-- 更新: `mmm update`（古いファイル → バックアップ → 新しいファイル）
-- 削除: `mmm remove --delete-file`
+- 更新: `mcpax update`（古いファイル → バックアップ → 新しいファイル）
+- 削除: `mcpax remove --delete-file`
 
 ---
 
 ## トランザクション境界
 
-### mmm install
+### mcpax install
 
 ```
 1. config.toml 読み込み (R)
@@ -179,15 +179,15 @@
 4. ファイルダウンロード (C) ← 失敗時はロールバック
 5. ハッシュ検証 (R) ← 失敗時はファイル削除
 6. ファイル配置 (C)
-7. .mmm-state.json 更新 (CU) ← 成功時のみ
+7. .mcpax-state.json 更新 (CU) ← 成功時のみ
 ```
 
-### mmm update
+### mcpax update
 
 ```
 1. config.toml 読み込み (R)
 2. projects.toml 読み込み (R)
-3. .mmm-state.json 読み込み (R)
+3. .mcpax-state.json 読み込み (R)
 4. Modrinth API 問い合わせ (R)
 5. 更新対象の特定
 6. for each 更新対象:
@@ -195,37 +195,37 @@
    b. ハッシュ検証 (R) ← 失敗時はファイル削除・スキップ
    c. 古いファイルバックアップ (R→C)
    d. 新しいファイル配置 (C)
-   e. .mmm-state.json 更新 (U)
+   e. .mcpax-state.json 更新 (U)
 7. 結果レポート
 ```
 
-### mmm remove
+### mcpax remove
 
 ```
 1. config.toml 読み込み (R)
 2. projects.toml 読み込み (R)
-3. .mmm-state.json 読み込み (R)
+3. .mcpax-state.json 読み込み (R)
 4. projects.toml から削除 (U)
 5. if --delete-file:
    a. ファイル削除 (D)
-   b. .mmm-state.json から削除 (U)
+   b. .mcpax-state.json から削除 (U)
 ```
 
 ---
 
 ## 整合性ルール
 
-### projects.toml と .mmm-state.json
+### projects.toml と .mcpax-state.json
 
-- `projects.toml` に存在するが `.mmm-state.json` にない → 未インストール
-- `projects.toml` に存在し `.mmm-state.json` にもある → インストール済み
-- `projects.toml` にないが `.mmm-state.json` にある → 孤立（警告を出す）
+- `projects.toml` に存在するが `.mcpax-state.json` にない → 未インストール
+- `projects.toml` に存在し `.mcpax-state.json` にもある → インストール済み
+- `projects.toml` にないが `.mcpax-state.json` にある → 孤立（警告を出す）
 
-### .mmm-state.json とファイルシステム
+### .mcpax-state.json とファイルシステム
 
-- `.mmm-state.json` に記録があるがファイルが存在しない → 不整合（エラー）
-- ファイルが存在するが `.mmm-state.json` に記録がない → mmm 管理外
+- `.mcpax-state.json` に記録があるがファイルが存在しない → 不整合（エラー）
+- ファイルが存在するが `.mcpax-state.json` に記録がない → mcpax 管理外
 
 ### ハッシュ整合性
 
-- インストール済みファイルのハッシュと `.mmm-state.json` のハッシュが一致しない → 改竄または破損
+- インストール済みファイルのハッシュと `.mcpax-state.json` のハッシュが一致しない → 改竄または破損

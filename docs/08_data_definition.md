@@ -2,7 +2,7 @@
 
 ## 概要
 
-このドキュメントは、mmm で扱うデータの詳細を定義する。
+このドキュメントは、mcpax で扱うデータの詳細を定義する。
 概念データモデル（05_conceptual_data_model.md）を元に、具体的なデータ構造を整理した。
 
 ---
@@ -15,7 +15,7 @@
 |-------------|------|--------|
 | AppConfig | アプリケーション設定 | config.toml |
 | ProjectConfig | プロジェクト設定 | projects.toml |
-| InstalledFile | インストール済みファイル情報 | .mmm-state.json |
+| InstalledFile | インストール済みファイル情報 | .mcpax-state.json |
 
 ### Modrinth API データ
 
@@ -128,7 +128,7 @@ channel = "beta"  # ベータ版も許可
 
 ### InstalledFile
 
-インストール済みファイル情報。.mmm-state.json で管理。
+インストール済みファイル情報。.mcpax-state.json で管理。
 
 ```python
 @dataclass
@@ -502,7 +502,7 @@ class InstallStatus(str, Enum):
 .
 ├── config.toml           # AppConfig
 ├── projects.toml         # ProjectConfig[]
-└── .mmm-state.json       # InstalledFile[]
+└── .mcpax-state.json       # InstalledFile[]
 ```
 
 ---
@@ -518,7 +518,7 @@ projects.toml ┘                              │
                                              ▼
                                     ProjectVersion[]
                                              │
-.mmm-state.json ◄──────────────────────────┬─┘
+.mcpax-state.json ◄──────────────────────────┬─┘
                                            │
                                            ▼
                                     UpdateCheckResult[]

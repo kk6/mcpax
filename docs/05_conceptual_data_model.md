@@ -2,7 +2,7 @@
 
 ## 概要
 
-このドキュメントは、mmm で扱うデータの概要を整理したものである。
+このドキュメントは、mcpax で扱うデータの概要を整理したものである。
 厳密な正規化やリレーションシップは後工程で行う。ここでは「こんなデータを使う」という全体像を把握する。
 
 ---
@@ -19,12 +19,12 @@
 │ minecraft_dir   │     │ version_pin     │     │ project_slug    │
 │ mods_dir        │     │ channel         │     │ installed_at    │
 │ shaders_dir     │     └─────────────────┘     └─────────────────┘
-│ resourcepacks_dir│
+│ resourcepacks_dir │
 └─────────────────┘
 
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │ ModrinthProject │     │ ModrinthVersion │     │  ModrinthFile   │
-│ (API: プロジェクト)│     │ (API: バージョン) │     │  (API: ファイル) │
+│ (API: プロジェクト) │     │ (API: バージョン) │     │  (API: ファイル) │
 ├─────────────────┤     ├─────────────────┤     ├─────────────────┤
 │ id              │     │ id              │     │ filename        │
 │ slug            │     │ project_id      │     │ url             │
@@ -193,7 +193,7 @@ channel = "beta"   # beta 版を使用
 my-minecraft-project/
 ├── config.toml
 ├── projects.toml
-└── .mmm-state.json  # インストール状態（自動生成）
+└── .mcpax-state.json  # インストール状態（自動生成）
 ```
 
 ### プロジェクト種別の判定
@@ -210,7 +210,7 @@ Modrinth API でバージョン一覧を取得する際、`loaders` パラメー
 
 ### インストール状態の管理
 
-インストール済みファイルの情報は別ファイル（例: `.mmm-state.json`）で管理する案と、
+インストール済みファイルの情報は別ファイル（例: `.mcpax-state.json`）で管理する案と、
 ファイルハッシュを都度計算して Modrinth API のハッシュと比較する案がある。
 
 後者の方がシンプルだが、パフォーマンスに影響する可能性あり。実装時に検討。

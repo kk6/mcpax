@@ -1,4 +1,4 @@
-# Modrinth Mod Manager
+# mcpax
 
 Minecraft の MOD / Shader / Resource Pack を Modrinth API 経由で管理する CLI ツール。
 
@@ -19,8 +19,8 @@ Minecraft の MOD / Shader / Resource Pack を Modrinth API 経由で管理す�
 
 ```bash
 # 開発版
-git clone https://github.com/kk6/modrinth-mod-manager.git
-cd modrinth-mod-manager
+git clone https://github.com/kk6/mcpax.git
+cd mcpax
 uv sync
 ```
 
@@ -29,7 +29,7 @@ uv sync
 ### 1. 初期セットアップ
 
 ```bash
-mmm init
+mcpax init
 ```
 
 ### 2. 設定ファイルの作成
@@ -62,36 +62,36 @@ slug = "complementary-reimagined"
 
 ```bash
 # slug がわかっている場合
-mmm add sodium
+mcpax add sodium
 
 # slug がわからない場合は検索
-mmm search shader
+mcpax search shader
 ```
 
 ### 4. プロジェクトのインストール
 
 ```bash
 # 全プロジェクトをインストール
-mmm install --all
+mcpax install --all
 
 # 特定のプロジェクトをインストール
-mmm install sodium
+mcpax install sodium
 ```
 
 ### 5. 更新確認・適用
 
 ```bash
 # 更新を確認
-mmm update --check
+mcpax update --check
 
 # 更新を適用
-mmm update
+mcpax update
 ```
 
 ### 6. 一覧確認
 
 ```bash
-mmm list
+mcpax list
 ```
 
 ## 開発
