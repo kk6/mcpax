@@ -1,0 +1,88 @@
+name: Task
+description: 実装タスクを作成する
+title: "[Task] "
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        実装タスクを作成します。以下の情報を入力してください。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: タスクの説明
+      description: 実装するタスクの内容を説明してください
+      placeholder: 何を実装しますか？
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件
+      description: このタスクが完了したと判断する条件を記載してください
+      placeholder: |
+        - [ ] 機能が実装されている
+        - [ ] テストが追加されている
+        - [ ] ドキュメントが更新されている
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical
+    attributes:
+      label: 技術的な詳細
+      description: 実装に関する技術的な詳細や方針があれば記載してください
+      placeholder: |
+        - 対象ファイル: src/mcpax/core/api.py
+        - 使用ライブラリ: httpx
+        - 参考: docs/modrinth-api.md
+    validations:
+      required: false
+
+  - type: textarea
+    id: related
+    attributes:
+      label: 関連 Issue / PR
+      description: 関連する Issue や PR があればリンクを記載してください
+      placeholder: |
+        - #123 - 親 Issue
+        - #124 - 依存タスク
+    validations:
+      required: false
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: タスク種別
+      description: タスクの種別を選択してください
+      options:
+        - 機能実装
+        - バグ修正
+        - リファクタリング
+        - テスト追加
+        - ドキュメント
+        - その他
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      description: このタスクの優先度を選択してください
+      options:
+        - 高
+        - 中
+        - 低
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 補足情報
+      description: その他の関連情報があれば記載してください
+    validations:
+      required: false
