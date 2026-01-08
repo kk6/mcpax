@@ -3,13 +3,32 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
+from mcpax.core.models import (
+    AppConfig,
+    Dependency,
+    DependencyType,
+    DownloadResult,
+    DownloadTask,
+    InstalledFile,
+    InstallStatus,
+    Loader,
+    ModrinthProject,
+    ProjectConfig,
+    ProjectFile,
+    ProjectType,
+    ProjectVersion,
+    ReleaseChannel,
+    SearchHit,
+    SearchResult,
+    UpdateCheckResult,
+)
+
 
 class TestLoader:
     """Tests for Loader enum."""
 
     def test_loader_values(self) -> None:
         """Loader enum has correct values."""
-        from mcpax.core.models import Loader
 
         assert Loader.FABRIC.value == "fabric"
         assert Loader.FORGE.value == "forge"
@@ -18,7 +37,6 @@ class TestLoader:
 
     def test_loader_is_str(self) -> None:
         """Loader enum values are strings."""
-        from mcpax.core.models import Loader
 
         assert isinstance(Loader.FABRIC, str)
         assert Loader.FABRIC == "fabric"
@@ -29,7 +47,6 @@ class TestProjectType:
 
     def test_project_type_values(self) -> None:
         """ProjectType enum has correct values."""
-        from mcpax.core.models import ProjectType
 
         assert ProjectType.MOD.value == "mod"
         assert ProjectType.SHADER.value == "shader"
@@ -37,7 +54,6 @@ class TestProjectType:
 
     def test_project_type_is_str(self) -> None:
         """ProjectType enum values are strings."""
-        from mcpax.core.models import ProjectType
 
         assert isinstance(ProjectType.MOD, str)
         assert ProjectType.MOD == "mod"
@@ -48,7 +64,6 @@ class TestReleaseChannel:
 
     def test_release_channel_values(self) -> None:
         """ReleaseChannel enum has correct values."""
-        from mcpax.core.models import ReleaseChannel
 
         assert ReleaseChannel.RELEASE.value == "release"
         assert ReleaseChannel.BETA.value == "beta"
@@ -56,10 +71,27 @@ class TestReleaseChannel:
 
     def test_release_channel_is_str(self) -> None:
         """ReleaseChannel enum values are strings."""
-        from mcpax.core.models import ReleaseChannel
 
         assert isinstance(ReleaseChannel.RELEASE, str)
         assert ReleaseChannel.RELEASE == "release"
+
+
+class TestDependencyType:
+    """Tests for DependencyType enum."""
+
+    def test_dependency_type_values(self) -> None:
+        """DependencyType enum has correct values."""
+
+        assert DependencyType.REQUIRED.value == "required"
+        assert DependencyType.OPTIONAL.value == "optional"
+        assert DependencyType.INCOMPATIBLE.value == "incompatible"
+        assert DependencyType.EMBEDDED.value == "embedded"
+
+    def test_dependency_type_is_str(self) -> None:
+        """DependencyType enum values are strings."""
+
+        assert isinstance(DependencyType.REQUIRED, str)
+        assert DependencyType.REQUIRED == "required"
 
 
 class TestInstallStatus:
@@ -67,7 +99,6 @@ class TestInstallStatus:
 
     def test_install_status_values(self) -> None:
         """InstallStatus enum has correct values."""
-        from mcpax.core.models import InstallStatus
 
         assert InstallStatus.NOT_INSTALLED.value == "not_installed"
         assert InstallStatus.INSTALLED.value == "installed"
@@ -76,10 +107,28 @@ class TestInstallStatus:
 
     def test_install_status_is_str(self) -> None:
         """InstallStatus enum values are strings."""
-        from mcpax.core.models import InstallStatus
 
         assert isinstance(InstallStatus.INSTALLED, str)
         assert InstallStatus.INSTALLED == "installed"
+
+
+class TestDependency:
+    """Tests for Dependency model."""
+
+    def test_create_with_all_fields(self) -> None:
+        """Dependency can be created with all fields."""
+
+        dependency = Dependency(
+            version_id="ABC123",
+            project_id="XYZ789",
+            file_name="optional-addon.jar",
+            dependency_type=DependencyType.OPTIONAL,
+        )
+
+        assert dependency.version_id == "ABC123"
+        assert dependency.project_id == "XYZ789"
+        assert dependency.file_name == "optional-addon.jar"
+        assert dependency.dependency_type == DependencyType.OPTIONAL
 
 
 class TestAppConfig:
@@ -87,7 +136,6 @@ class TestAppConfig:
 
     def test_create_with_required_fields(self) -> None:
         """AppConfig can be created with required fields."""
-        from mcpax.core.models import AppConfig, Loader
 
         config = AppConfig(
             minecraft_version="1.21.4",
@@ -101,7 +149,6 @@ class TestAppConfig:
 
     def test_default_values(self) -> None:
         """AppConfig has correct default values."""
-        from mcpax.core.models import AppConfig, Loader
 
         config = AppConfig(
             minecraft_version="1.21.4",
@@ -117,7 +164,6 @@ class TestAppConfig:
 
     def test_custom_values(self) -> None:
         """AppConfig accepts custom values."""
-        from mcpax.core.models import AppConfig, Loader
 
         config = AppConfig(
             minecraft_version="1.21.4",
@@ -144,7 +190,6 @@ class TestProjectConfig:
 
     def test_create_with_slug_only(self) -> None:
         """ProjectConfig can be created with slug only."""
-        from mcpax.core.models import ProjectConfig, ReleaseChannel
 
         config = ProjectConfig(slug="sodium")
 
@@ -154,7 +199,6 @@ class TestProjectConfig:
 
     def test_create_with_all_fields(self) -> None:
         """ProjectConfig can be created with all fields."""
-        from mcpax.core.models import ProjectConfig, ReleaseChannel
 
         config = ProjectConfig(
             slug="sodium",
@@ -172,7 +216,6 @@ class TestInstalledFile:
 
     def test_create_with_all_fields(self) -> None:
         """InstalledFile can be created with all fields."""
-        from mcpax.core.models import InstalledFile, ProjectType
 
         installed_at = datetime(2024, 1, 15, 10, 30, 0, tzinfo=UTC)
         installed = InstalledFile(
@@ -205,7 +248,6 @@ class TestModrinthProject:
 
     def test_create_with_all_fields(self) -> None:
         """ModrinthProject can be created with all fields."""
-        from mcpax.core.models import ModrinthProject, ProjectType
 
         project = ModrinthProject(
             id="AANobbMI",
@@ -229,7 +271,6 @@ class TestModrinthProject:
 
     def test_create_without_icon_url(self) -> None:
         """ModrinthProject can be created without icon_url."""
-        from mcpax.core.models import ModrinthProject, ProjectType
 
         project = ModrinthProject(
             id="AANobbMI",
@@ -250,20 +291,21 @@ class TestProjectFile:
 
     def test_create_with_all_fields(self) -> None:
         """ProjectFile can be created with all fields."""
-        from mcpax.core.models import ProjectFile
 
+        hashes = {"sha512": "abc123def456", "sha1": "def789ghi012"}
         file = ProjectFile(
             url="https://cdn.modrinth.com/data/xxx/versions/yyy/sodium.jar",
             filename="sodium-fabric-0.6.0+mc1.21.4.jar",
             size=1234567,
-            sha512="abc123def456",
+            hashes=hashes,
             primary=True,
         )
 
         assert file.url == "https://cdn.modrinth.com/data/xxx/versions/yyy/sodium.jar"
         assert file.filename == "sodium-fabric-0.6.0+mc1.21.4.jar"
         assert file.size == 1234567
-        assert file.sha512 == "abc123def456"
+        assert file.hashes["sha512"] == "abc123def456"
+        assert file.hashes["sha1"] == "def789ghi012"
         assert file.primary is True
 
 
@@ -272,15 +314,21 @@ class TestProjectVersion:
 
     def test_create_with_all_fields(self) -> None:
         """ProjectVersion can be created with all fields."""
-        from mcpax.core.models import ProjectFile, ProjectVersion, ReleaseChannel
 
         date_published = datetime(2024, 1, 15, 10, 0, 0, tzinfo=UTC)
+        hashes = {"sha512": "abc123def456", "sha1": "def789ghi012"}
         file = ProjectFile(
             url="https://cdn.modrinth.com/data/xxx/versions/yyy/sodium.jar",
             filename="sodium-fabric-0.6.0+mc1.21.4.jar",
             size=1234567,
-            sha512="abc123def456",
+            hashes=hashes,
             primary=True,
+        )
+        dependency = Dependency(
+            version_id=None,
+            project_id="XYZ789",
+            file_name=None,
+            dependency_type=DependencyType.OPTIONAL,
         )
 
         version = ProjectVersion(
@@ -291,6 +339,7 @@ class TestProjectVersion:
             game_versions=["1.21.4", "1.21.3"],
             loaders=["fabric", "quilt"],
             files=[file],
+            dependencies=[dependency],
             date_published=date_published,
         )
 
@@ -302,6 +351,7 @@ class TestProjectVersion:
         assert version.loaders == ["fabric", "quilt"]
         assert len(version.files) == 1
         assert version.files[0].filename == "sodium-fabric-0.6.0+mc1.21.4.jar"
+        assert version.dependencies == [dependency]
         assert version.date_published == date_published
 
 
@@ -310,7 +360,6 @@ class TestSearchHit:
 
     def test_create_with_all_fields(self) -> None:
         """SearchHit can be created with all fields."""
-        from mcpax.core.models import ProjectType, SearchHit
 
         hit = SearchHit(
             slug="sodium",
@@ -334,7 +383,6 @@ class TestSearchResult:
 
     def test_create_with_hits(self) -> None:
         """SearchResult can be created with hits."""
-        from mcpax.core.models import ProjectType, SearchHit, SearchResult
 
         hit = SearchHit(
             slug="sodium",
@@ -364,13 +412,6 @@ class TestUpdateCheckResult:
 
     def test_create_with_update_available(self) -> None:
         """UpdateCheckResult can be created with update available."""
-        from mcpax.core.models import (
-            InstalledFile,
-            InstallStatus,
-            ProjectFile,
-            ProjectType,
-            UpdateCheckResult,
-        )
 
         installed_at = datetime(2024, 1, 10, 10, 0, 0, tzinfo=UTC)
         current_file = InstalledFile(
@@ -385,11 +426,12 @@ class TestUpdateCheckResult:
                 "/home/user/.minecraft/mods/sodium-fabric-0.5.0+mc1.21.4.jar"
             ),
         )
+        hashes = {"sha512": "new_hash", "sha1": "new_hash_sha1"}
         latest_file = ProjectFile(
             url="https://cdn.modrinth.com/data/xxx/versions/yyy/sodium.jar",
             filename="sodium-fabric-0.6.0+mc1.21.4.jar",
             size=1234567,
-            sha512="new_hash",
+            hashes=hashes,
             primary=True,
         )
 
@@ -411,7 +453,6 @@ class TestUpdateCheckResult:
 
     def test_create_not_installed(self) -> None:
         """UpdateCheckResult can be created for not installed project."""
-        from mcpax.core.models import InstallStatus, UpdateCheckResult
 
         result = UpdateCheckResult(
             slug="sodium",
@@ -432,7 +473,6 @@ class TestDownloadTask:
 
     def test_create_with_all_fields(self) -> None:
         """DownloadTask can be created with all fields."""
-        from mcpax.core.models import DownloadTask
 
         task = DownloadTask(
             url="https://cdn.modrinth.com/data/xxx/versions/yyy/sodium.jar",
@@ -450,7 +490,6 @@ class TestDownloadTask:
 
     def test_create_without_expected_hash(self) -> None:
         """DownloadTask can be created without expected_hash."""
-        from mcpax.core.models import DownloadTask
 
         task = DownloadTask(
             url="https://cdn.modrinth.com/data/xxx/versions/yyy/sodium.jar",
@@ -468,7 +507,6 @@ class TestDownloadResult:
 
     def test_create_success(self) -> None:
         """DownloadResult can be created for successful download."""
-        from mcpax.core.models import DownloadResult, DownloadTask
 
         task = DownloadTask(
             url="https://cdn.modrinth.com/data/xxx/versions/yyy/sodium.jar",
@@ -492,7 +530,6 @@ class TestDownloadResult:
 
     def test_create_failure(self) -> None:
         """DownloadResult can be created for failed download."""
-        from mcpax.core.models import DownloadResult, DownloadTask
 
         task = DownloadTask(
             url="https://cdn.modrinth.com/data/xxx/versions/yyy/sodium.jar",

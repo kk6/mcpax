@@ -32,6 +32,15 @@ class ReleaseChannel(str, Enum):
     ALPHA = "alpha"
 
 
+class DependencyType(str, Enum):
+    """Dependency types for Modrinth versions."""
+
+    REQUIRED = "required"
+    OPTIONAL = "optional"
+    INCOMPATIBLE = "incompatible"
+    EMBEDDED = "embedded"
+
+
 class InstallStatus(str, Enum):
     """Installation status of a project."""
 
@@ -100,8 +109,17 @@ class ProjectFile(BaseModel):
     url: str
     filename: str
     size: int
-    sha512: str
+    hashes: dict[str, str]
     primary: bool
+
+
+class Dependency(BaseModel):
+    """A dependency for a project version."""
+
+    version_id: str | None = None
+    project_id: str | None = None
+    file_name: str | None = None
+    dependency_type: DependencyType
 
 
 class ProjectVersion(BaseModel):
@@ -114,6 +132,7 @@ class ProjectVersion(BaseModel):
     game_versions: list[str]
     loaders: list[str]
     files: list[ProjectFile]
+    dependencies: list[Dependency]
     date_published: datetime
 
 
