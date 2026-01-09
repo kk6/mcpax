@@ -1,3 +1,5 @@
+<!-- This file is for OpenAI Codex. See CLAUDE.md for the authoritative project guidelines. -->
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization
