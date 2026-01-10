@@ -223,11 +223,13 @@
 | パッケージ管理 | uv |
 | 型チェック | ty |
 | リンター | ruff |
-| テスト | pytest |
+| テスト | pytest, pytest-asyncio, pytest-httpx |
 | HTTP クライアント | httpx |
 | CLI フレームワーク | typer |
 | TUI フレームワーク | textual（将来） |
 | 出力装飾 | rich |
+| TOML 処理 | tomllib (stdlib), tomlkit |
+| バリデーション | pydantic |
 
 ---
 
