@@ -24,7 +24,7 @@ mcpax/
 │   ├── test_downloader.py
 │   └── test_manager.py
 └── src/
-    └── modrinth_mod_manager/
+    └── mcpax/
         ├── __init__.py
         ├── core/            # ビジネスロジック層
         │   ├── __init__.py
@@ -153,6 +153,14 @@ class ModrinthProject:
     versions: list[str]
 
 @dataclass
+class SearchResult:
+    """検索結果"""
+    hits: list[ModrinthProject]
+    offset: int
+    limit: int
+    total_hits: int
+
+@dataclass
 class InstalledFile:
     """インストール済みファイル情報"""
     filename: str
@@ -166,28 +174,78 @@ class InstalledFile:
 Modrinth API クライアント。
 
 ```python
+from dataclasses import dataclass
+
+@dataclass
+class RateLimitInfo:
+    """Rate limit tracking information."""
+    remaining: int
+    limit: int
+    reset: int  # Unix timestamp
+
 class ModrinthClient:
+    """Async client for Modrinth API v2."""
+
     BASE_URL = "https://api.modrinth.com/v2"
-    
+    DEFAULT_TIMEOUT = 30.0
+    DEFAULT_MAX_RETRIES = 3
+    DEFAULT_BACKOFF_FACTOR = 1.0
+
+    def __init__(
+        self,
+        client: httpx.AsyncClient | None = None,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
+    ) -> None:
+        """Initialize the client."""
+        ...
+
+    @property
+    def rate_limit_info(self) -> RateLimitInfo | None:
+        """Current rate limit information.
+
+        Returns None when:
+        - No API request has been made yet
+        - Response headers lack rate limit information
+        - Using an externally injected client without rate limit tracking
+        """
+        ...
+
     async def get_project(self, slug: str) -> ModrinthProject:
         """プロジェクト情報を取得"""
         ...
-    
-    async def get_versions(
-        self,
-        slug: str,
-        game_versions: list[str] | None = None,
-        loaders: list[str] | None = None,  # MOD の場合のみ指定
-    ) -> list[ProjectVersion]:
+
+    async def get_versions(self, slug: str) -> list[ProjectVersion]:
         """バージョン一覧を取得"""
         ...
-    
-    async def search_projects(
+
+    async def search(
         self,
         query: str,
-        facets: list[list[str]] | None = None,
-    ) -> list[ModrinthProject]:
+        limit: int = 10,
+        offset: int = 0,
+    ) -> SearchResult:
         """プロジェクトを検索"""
+        ...
+
+    def filter_compatible_versions(
+        self,
+        versions: list[ProjectVersion],
+        minecraft_version: str,
+        loader: Loader,
+        channel: ReleaseChannel = ReleaseChannel.RELEASE,
+    ) -> list[ProjectVersion]:
+        """MC バージョン・Loader に対応するバージョンをフィルタ"""
+        ...
+
+    def get_latest_compatible_version(
+        self,
+        versions: list[ProjectVersion],
+        minecraft_version: str,
+        loader: Loader,
+        channel: ReleaseChannel = ReleaseChannel.RELEASE,
+    ) -> ProjectVersion | None:
+        """最新の互換バージョンを取得"""
         ...
 ```
 
@@ -359,28 +417,40 @@ channel = "beta"   # ベータ版も許可
 ### 6.1 例外クラス
 
 ```python
-class McpaxError(Exception):
+class MCPAXError(Exception):
     """基底例外クラス"""
     pass
 
-class ProjectNotFoundError(McpaxError):
-    """プロジェクトが見つからない"""
+class APIError(MCPAXError):
+    """一般的な API エラー"""
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        ...
+    status_code: int | None
+
+class ProjectNotFoundError(APIError):
+    """プロジェクトが見つからない（404）"""
+    def __init__(self, slug: str) -> None:
+        ...
+    slug: str
+
+class RateLimitError(APIError):
+    """レートリミット超過（429）"""
+    def __init__(self, retry_after: int | None = None) -> None:
+        ...
+    retry_after: int | None
+
+# 以下は未実装（Phase 2: downloader.py で実装予定）
+# 実装完了までは利用不可
+class VersionNotFoundError(MCPAXError):
+    """対応バージョンが見つからない（未実装）"""
     pass
 
-class VersionNotFoundError(McpaxError):
-    """対応バージョンが見つからない"""
-    pass
-
-class DownloadError(McpaxError):
-    """ダウンロード失敗"""
+class DownloadError(MCPAXError):
+    """ダウンロード失敗（未実装）"""
     pass
 
 class HashMismatchError(DownloadError):
-    """ハッシュ検証失敗"""
-    pass
-
-class RateLimitError(McpaxError):
-    """レートリミット超過"""
+    """ハッシュ検証失敗（未実装）"""
     pass
 ```
 
