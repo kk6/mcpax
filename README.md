@@ -110,6 +110,20 @@ ty check src
 ruff check src
 ```
 
+## 開発状況
+
+### Phase 1: Core 実装 🚧
+
+| モジュール | 状態 | テスト |
+|-----------|------|--------|
+| models.py | ✅ 完了 | 34/34 パス |
+| config.py | ✅ 完了 | 55/55 パス |
+| api.py | ⏳ 未実装 | - |
+| downloader.py | ⏳ 未実装 | - |
+| manager.py | ⏳ 未実装 | - |
+
+**完了した機能**: F-101～F-107（設定管理機能 7件）
+
 ## ドキュメント
 
 ### 要件定義（「はじめよう！要件定義」準拠）
@@ -119,13 +133,16 @@ ruff check src
 - [実現したいこと一覧](docs/03_requirements_list.md)
 - [行動シナリオ](docs/04_user_scenarios.md)
 - [概念データモデル](docs/05_conceptual_data_model.md)
+- [UI 定義](docs/06_ui_definition.md)
+- [機能定義](docs/07_function_definition.md)
+- [データ定義](docs/08_data_definition.md)
+- [CRUD マトリックス](docs/09_crud_matrix.md)
+- [一覧](docs/10_summary.md)
+- [アーキテクチャ設計書](docs/11_architecture.md)
 
 ### 技術ドキュメント
 
-- [要件定義書](docs/requirements.md)
-- [アーキテクチャ設計書](docs/architecture.md)
 - [Modrinth API 仕様メモ](docs/modrinth-api.md)
-- [開発ロードマップ](docs/roadmap.md)
 
 ## ライセンス
 
