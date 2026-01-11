@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Loader(str, Enum):
@@ -48,6 +48,7 @@ class InstallStatus(str, Enum):
     INSTALLED = "installed"
     OUTDATED = "outdated"
     NOT_COMPATIBLE = "not_compatible"
+    CHECK_FAILED = "check_failed"
 
 
 # Local data models
@@ -168,6 +169,7 @@ class UpdateCheckResult(BaseModel):
     current_file: InstalledFile | None
     latest_version: str | None
     latest_file: ProjectFile | None
+    error: str | None = None
 
 
 class DownloadTask(BaseModel):
@@ -187,3 +189,18 @@ class DownloadResult(BaseModel):
     success: bool
     file_path: Path | None
     error: str | None
+
+
+class StateFile(BaseModel):
+    """State file structure for tracking installed files."""
+
+    version: int = 1
+    files: dict[str, InstalledFile] = Field(default_factory=dict)
+
+
+class UpdateResult(BaseModel):
+    """Result of applying updates."""
+
+    successful: list[str]
+    failed: list[tuple[str, str]]
+    backed_up: list[Path]
