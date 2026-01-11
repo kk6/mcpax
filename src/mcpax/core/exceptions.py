@@ -50,3 +50,43 @@ class RateLimitError(APIError):
             message += f", retry after {retry_after} seconds"
         super().__init__(message, status_code=429)
         self.retry_after = retry_after
+
+
+class DownloadError(MCPAXError):
+    """Error during file download."""
+
+    def __init__(self, message: str, url: str | None = None) -> None:
+        """Initialize DownloadError.
+
+        Args:
+            message: Error message
+            url: URL that caused the error
+        """
+        super().__init__(message)
+        self.url = url
+
+
+class HashMismatchError(DownloadError):
+    """File hash does not match expected value."""
+
+    def __init__(
+        self,
+        filename: str,
+        expected: str,
+        actual: str,
+    ) -> None:
+        """Initialize HashMismatchError.
+
+        Args:
+            filename: Name of the file
+            expected: Expected SHA512 hash
+            actual: Actual computed hash
+        """
+        message = (
+            f"Hash mismatch for {filename}: "
+            f"expected {expected[:16]}..., got {actual[:16]}..."
+        )
+        super().__init__(message)
+        self.filename = filename
+        self.expected = expected
+        self.actual = actual
