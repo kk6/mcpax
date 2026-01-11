@@ -251,27 +251,128 @@ class ModrinthClient:
 
 ### 3.3 core/downloader.py
 
-ファイルダウンロード処理。
+ファイルダウンロード処理と SHA512 ハッシュ検証。
+
+#### データクラス
+
+```python
+@dataclass
+class DownloaderConfig:
+    """Downloader の設定"""
+    max_concurrent: int = 5  # 最大同時ダウンロード数
+    chunk_size: int = 8192  # ストリーミングチャンクサイズ
+    timeout: float = 300.0  # タイムアウト（秒）
+    verify_hash: bool = True  # ハッシュ検証を行うか
+```
+
+#### プロトコル（進捗コールバック）
+
+```python
+class ProgressCallback(Protocol):
+    """進捗更新コールバック"""
+    def __call__(
+        self,
+        task_id: object,
+        completed: int,
+        total: int | None,
+    ) -> None: ...
+
+class TaskStartCallback(Protocol):
+    """タスク開始コールバック"""
+    def __call__(
+        self,
+        slug: str,
+        version_number: str,
+        total: int | None,
+    ) -> object: ...
+
+class TaskCompleteCallback(Protocol):
+    """タスク完了コールバック"""
+    def __call__(
+        self,
+        task_id: object,
+        success: bool,
+        error: str | None,
+    ) -> None: ...
+```
+
+#### メインクラス
 
 ```python
 class Downloader:
-    async def download(
+    """非同期ファイルダウンローダー"""
+
+    def __init__(
         self,
-        url: str,
-        dest: Path,
-        expected_hash: str | None = None,
-    ) -> Path:
-        """ファイルをダウンロードし、ハッシュを検証"""
+        client: httpx.AsyncClient | None = None,
+        config: DownloaderConfig | None = None,
+        on_task_start: TaskStartCallback | None = None,
+        on_progress: ProgressCallback | None = None,
+        on_task_complete: TaskCompleteCallback | None = None,
+    ) -> None:
+        """初期化
+
+        Args:
+            client: 依存性注入用の httpx.AsyncClient（テスト用）
+            config: ダウンローダー設定
+            on_task_start: タスク開始時のコールバック
+            on_progress: 進捗更新時のコールバック
+            on_task_complete: タスク完了時のコールバック
+        """
         ...
-    
-    async def download_many(
+
+    async def download_file(self, task: DownloadTask) -> DownloadResult:
+        """単一ファイルをダウンロード
+
+        Args:
+            task: ダウンロードタスク（URL、保存先、期待ハッシュ等）
+
+        Returns:
+            DownloadResult（成功/失敗、ファイルパス、エラーメッセージ）
+        """
+        ...
+
+    async def download_all(
         self,
-        files: list[ProjectFile],
-        dest_dir: Path,
-        max_concurrent: int = 5,
-    ) -> list[Path]:
-        """複数ファイルを並列ダウンロード"""
+        tasks: list[DownloadTask],
+    ) -> list[DownloadResult]:
+        """複数ファイルを並列ダウンロード
+
+        asyncio.Semaphore で同時実行数を制御
+
+        Args:
+            tasks: ダウンロードタスクのリスト
+
+        Returns:
+            DownloadResult のリスト（入力と同じ順序）
+        """
         ...
+```
+
+#### ユーティリティ関数
+
+```python
+def compute_sha512(file_path: Path, chunk_size: int = 8192) -> str:
+    """ファイルの SHA512 ハッシュを計算"""
+    ...
+
+def verify_file_hash(file_path: Path, expected_hash: str) -> bool:
+    """ファイルハッシュを検証"""
+    ...
+```
+
+#### 例外
+
+```python
+class DownloadError(MCPAXError):
+    """ダウンロード失敗"""
+    url: str | None  # エラーの原因となった URL
+
+class HashMismatchError(DownloadError):
+    """ハッシュ不一致（ファイルは自動削除される）"""
+    filename: str
+    expected: str
+    actual: str
 ```
 
 ### 3.4 core/manager.py
@@ -439,18 +540,24 @@ class RateLimitError(APIError):
         ...
     retry_after: int | None
 
-# 以下は未実装（Phase 2: downloader.py で実装予定）
+class DownloadError(MCPAXError):
+    """ダウンロード失敗"""
+    def __init__(self, message: str, url: str | None = None) -> None:
+        ...
+    url: str | None
+
+class HashMismatchError(DownloadError):
+    """ハッシュ検証失敗（ファイルは自動削除される）"""
+    def __init__(self, filename: str, expected: str, actual: str) -> None:
+        ...
+    filename: str
+    expected: str
+    actual: str
+
+# 以下は未実装（Phase 2: manager.py で実装予定）
 # 実装完了までは利用不可
 class VersionNotFoundError(MCPAXError):
     """対応バージョンが見つからない（未実装）"""
-    pass
-
-class DownloadError(MCPAXError):
-    """ダウンロード失敗（未実装）"""
-    pass
-
-class HashMismatchError(DownloadError):
-    """ハッシュ検証失敗（未実装）"""
     pass
 ```
 
