@@ -246,6 +246,7 @@ class Downloader:
         task.dest.parent.mkdir(parents=True, exist_ok=True)
 
         task_id = None
+        file_created = False
         try:
             async with self._client.stream("GET", task.url) as response:
                 if response.status_code >= 400:
@@ -262,6 +263,7 @@ class Downloader:
 
                 completed = 0
                 with open(task.dest, "wb") as f:
+                    file_created = True  # Mark file as created
                     async for chunk in response.aiter_bytes(self._config.chunk_size):
                         f.write(chunk)
                         completed += len(chunk)
@@ -269,8 +271,14 @@ class Downloader:
                             self._on_progress(task_id, completed, total)
 
         except httpx.HTTPError as e:
+            # Clean up partial file on network error
+            if file_created:
+                task.dest.unlink(missing_ok=True)
             raise DownloadError(f"HTTP error: {e}", url=task.url) from e
         except OSError as e:
+            # Clean up partial file on I/O error
+            if file_created:
+                task.dest.unlink(missing_ok=True)
             raise DownloadError(f"I/O error: {e}", url=task.url) from e
 
         return task.dest, task_id
