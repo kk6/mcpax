@@ -20,6 +20,7 @@ from mcpax.core.models import (
     ProjectConfig,
     ProjectFile,
     ProjectType,
+    ReleaseChannel,
     StateFile,
     UpdateCheckResult,
     UpdateResult,
@@ -287,11 +288,16 @@ class ProjectManager:
         state = await self._load_state()
         return state.files.get(slug)
 
-    async def get_install_status(self, slug: str) -> InstallStatus:
+    async def get_install_status(
+        self,
+        slug: str,
+        project_config: ProjectConfig | None = None,
+    ) -> InstallStatus:
         """Check installation status of a project.
 
         Args:
             slug: Project slug
+            project_config: Optional project config to respect channel settings
 
         Returns:
             InstallStatus enum value:
@@ -316,10 +322,16 @@ class ProjectManager:
 
         try:
             versions = await self._api_client.get_versions(slug)
+            channel = (
+                project_config.channel
+                if project_config is not None
+                else ReleaseChannel.RELEASE
+            )
             latest = self._api_client.get_latest_compatible_version(
                 versions,
                 self._config.minecraft_version,
                 self._config.loader,
+                channel=channel,
             )
 
             if latest is None:
