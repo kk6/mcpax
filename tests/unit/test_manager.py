@@ -9,10 +9,12 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from mcpax.core.api import ModrinthClient
-from mcpax.core.exceptions import StateFileError
+from mcpax.core.exceptions import FileOperationError, StateFileError
 from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
     AppConfig,
+    DownloadResult,
+    DownloadTask,
     InstalledFile,
     InstallStatus,
     Loader,
@@ -21,6 +23,7 @@ from mcpax.core.models import (
     ProjectType,
     ReleaseChannel,
     StateFile,
+    UpdateCheckResult,
 )
 
 
@@ -46,6 +49,36 @@ def _make_installed_file(slug: str, **overrides) -> InstalledFile:
         "file_path": Path(f"/tmp/{slug}.jar"),
     }
     return InstalledFile(**{**defaults, **overrides})
+
+
+class DummyProject:
+    """Simple project stub for apply_updates tests."""
+
+    def __init__(self, project_type: ProjectType) -> None:
+        self.project_type = project_type
+
+
+class DummyApiClient:
+    """Stub API client that returns a fixed project type."""
+
+    def __init__(self, project_type: ProjectType) -> None:
+        self._project_type = project_type
+
+    async def get_project(self, slug: str) -> DummyProject:
+        return DummyProject(self._project_type)
+
+
+class DummyDownloader:
+    """Stub downloader that returns predefined results."""
+
+    def __init__(self, results: list[DownloadResult]) -> None:
+        self._results = results
+
+    async def download_all(
+        self,
+        tasks: list[DownloadTask],
+    ) -> list[DownloadResult]:
+        return self._results
 
 
 class TestStateManagement:
@@ -845,6 +878,229 @@ class TestNeedsUpdate:
 
         # Assert
         assert result is False
+
+
+class TestApplyUpdatesRollback:
+    """Tests for update rollback behavior."""
+
+    async def test_old_file_preserved_on_placement_failure(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Keeps old file when placing new file fails."""
+        # Arrange
+        config = _make_config(tmp_path)
+        old_file = tmp_path / "mods" / "sodium-old.jar"
+        old_file.parent.mkdir(parents=True)
+        old_file.write_text("old")
+        installed = _make_installed_file("sodium", file_path=old_file)
+
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        latest_file = ProjectFile(
+            url="https://cdn.modrinth.com/sodium-new.jar",
+            filename="sodium-new.jar",
+            size=1024,
+            hashes={"sha512": "newhash" * 20},
+            primary=True,
+        )
+        update = UpdateCheckResult(
+            slug="sodium",
+            status=InstallStatus.OUTDATED,
+            current_version="1.0.0",
+            current_file=installed,
+            latest_version="1.1.0",
+            latest_version_id="NEWID",
+            latest_file=latest_file,
+        )
+
+        download_file = tmp_path / "downloads" / latest_file.filename
+        download_file.parent.mkdir(parents=True)
+        download_file.write_text("new")
+        task = DownloadTask(
+            url=latest_file.url,
+            dest=download_file,
+            expected_hash=latest_file.hashes["sha512"],
+            slug="sodium",
+            version_number="1.1.0",
+        )
+        download_result = DownloadResult(
+            task=task,
+            success=True,
+            file_path=download_file,
+            error=None,
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result]),
+        )
+
+        async def place_file_fail(src: Path, dest_dir: Path) -> Path:
+            raise FileOperationError("move failed", path=src)
+
+        monkeypatch.setattr(manager, "place_file", place_file_fail)
+
+        # Act
+        result = await manager.apply_updates([update], backup=False)
+
+        # Assert
+        assert old_file.exists()
+        assert not (tmp_path / "mods" / latest_file.filename).exists()
+        assert any(slug == "sodium" for slug, _ in result.failed)
+
+    async def test_new_file_placed_before_old_file_deleted(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Deletes old file only after new file is placed."""
+        # Arrange
+        config = _make_config(tmp_path)
+        old_file = tmp_path / "mods" / "sodium-old.jar"
+        old_file.parent.mkdir(parents=True)
+        old_file.write_text("old")
+        installed = _make_installed_file("sodium", file_path=old_file)
+
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        latest_file = ProjectFile(
+            url="https://cdn.modrinth.com/sodium-new.jar",
+            filename="sodium-new.jar",
+            size=1024,
+            hashes={"sha512": "newhash" * 20},
+            primary=True,
+        )
+        update = UpdateCheckResult(
+            slug="sodium",
+            status=InstallStatus.OUTDATED,
+            current_version="1.0.0",
+            current_file=installed,
+            latest_version="1.1.0",
+            latest_version_id="NEWID",
+            latest_file=latest_file,
+        )
+
+        download_file = tmp_path / "downloads" / latest_file.filename
+        download_file.parent.mkdir(parents=True)
+        download_file.write_text("new")
+        task = DownloadTask(
+            url=latest_file.url,
+            dest=download_file,
+            expected_hash=latest_file.hashes["sha512"],
+            slug="sodium",
+            version_number="1.1.0",
+        )
+        download_result = DownloadResult(
+            task=task,
+            success=True,
+            file_path=download_file,
+            error=None,
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result]),
+        )
+
+        expected_new_path = tmp_path / "mods" / latest_file.filename
+
+        async def delete_file_spy(file_path: Path) -> bool:
+            assert expected_new_path.exists()
+            file_path.unlink()
+            return True
+
+        monkeypatch.setattr(manager, "delete_file", delete_file_spy)
+
+        # Act
+        result = await manager.apply_updates([update], backup=False)
+
+        # Assert
+        assert result.successful == ["sodium"]
+        assert expected_new_path.exists()
+        assert not old_file.exists()
+
+    async def test_rollback_removes_new_file_on_failure(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Removes new file when deleting old file fails."""
+        # Arrange
+        config = _make_config(tmp_path)
+        old_file = tmp_path / "mods" / "sodium-old.jar"
+        old_file.parent.mkdir(parents=True)
+        old_file.write_text("old")
+        installed = _make_installed_file("sodium", file_path=old_file)
+
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        latest_file = ProjectFile(
+            url="https://cdn.modrinth.com/sodium-new.jar",
+            filename="sodium-new.jar",
+            size=1024,
+            hashes={"sha512": "newhash" * 20},
+            primary=True,
+        )
+        update = UpdateCheckResult(
+            slug="sodium",
+            status=InstallStatus.OUTDATED,
+            current_version="1.0.0",
+            current_file=installed,
+            latest_version="1.1.0",
+            latest_version_id="NEWID",
+            latest_file=latest_file,
+        )
+
+        download_file = tmp_path / "downloads" / latest_file.filename
+        download_file.parent.mkdir(parents=True)
+        download_file.write_text("new")
+        task = DownloadTask(
+            url=latest_file.url,
+            dest=download_file,
+            expected_hash=latest_file.hashes["sha512"],
+            slug="sodium",
+            version_number="1.1.0",
+        )
+        download_result = DownloadResult(
+            task=task,
+            success=True,
+            file_path=download_file,
+            error=None,
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result]),
+        )
+
+        expected_new_path = tmp_path / "mods" / latest_file.filename
+
+        async def delete_file_fail(file_path: Path) -> bool:
+            if file_path == old_file:
+                raise FileOperationError("delete failed", path=file_path)
+            file_path.unlink()
+            return True
+
+        monkeypatch.setattr(manager, "delete_file", delete_file_fail)
+
+        # Act
+        result = await manager.apply_updates([update], backup=False)
+
+        # Assert
+        assert old_file.exists()
+        assert not expected_new_path.exists()
+        assert any(slug == "sodium" for slug, _ in result.failed)
 
     def test_returns_false_when_latest_is_none(self, tmp_path: Path) -> None:
         """Returns False when latest is None."""
