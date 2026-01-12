@@ -176,7 +176,7 @@ class ModrinthClient:
                 return response
 
             except (APIError, httpx.HTTPError) as e:
-                # Don't retry on client errors (4xx except 429)
+                # Don't retry on client errors (4xx)
                 if (
                     isinstance(e, APIError)
                     and e.status_code
