@@ -626,11 +626,12 @@ class TestGetInstallStatus:
         state = StateFile(version=1, files={"sodium": installed})
         await manager_temp._save_state(state)
 
-        # Mock network timeout
-        httpx_mock.add_exception(
-            httpx.TimeoutException("Connection timed out"),
-            url="https://api.modrinth.com/v2/project/sodium/version",
-        )
+        # Mock network timeout (needs 4 times for retries)
+        for _ in range(4):  # max_retries (3) + 1
+            httpx_mock.add_exception(
+                httpx.TimeoutException("Connection timed out"),
+                url="https://api.modrinth.com/v2/project/sodium/version",
+            )
 
         # Act
         async with ProjectManager(config) as manager:
