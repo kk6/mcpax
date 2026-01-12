@@ -541,23 +541,12 @@ class ProjectManager:
                     continue
 
                 update, project_type = update_info[slug]
+                final_path: Path | None = None
 
                 try:
                     if update.latest_version_id is None:
                         result.failed.append((slug, "Latest version id is None"))
                         continue
-
-                    # Backup existing file if needed
-                    if (
-                        backup
-                        and update.current_file
-                        and update.current_file.file_path.exists()
-                    ):
-                        backup_path = await self.backup_file(
-                            update.current_file.file_path
-                        )
-                        result.backed_up.append(backup_path)
-                        await self.delete_file(update.current_file.file_path)
 
                     # Place new file
                     target_dir = self.get_target_directory(project_type)
@@ -568,6 +557,19 @@ class ProjectManager:
                     final_path = await self.place_file(
                         download_result.file_path, target_dir
                     )
+
+                    # Backup and delete old file after new placement succeeds
+                    if (
+                        update.current_file
+                        and update.current_file.file_path.exists()
+                        and update.current_file.file_path != final_path
+                    ):
+                        if backup:
+                            backup_path = await self.backup_file(
+                                update.current_file.file_path
+                            )
+                            result.backed_up.append(backup_path)
+                        await self.delete_file(update.current_file.file_path)
 
                     # Update state
                     if update.latest_file is None:
@@ -590,6 +592,15 @@ class ProjectManager:
                     result.successful.append(slug)
 
                 except Exception as e:
+                    if final_path and final_path.exists():
+                        try:
+                            await self.delete_file(final_path)
+                        except Exception as rollback_error:
+                            logger.error(
+                                "Failed to rollback new file %s: %s",
+                                final_path,
+                                rollback_error,
+                            )
                     result.failed.append((slug, str(e)))
 
         # Save state once at the end if modified
