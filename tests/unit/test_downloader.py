@@ -578,3 +578,67 @@ class TestDownloaderCallbacks:
         async with Downloader() as downloader:
             result = await downloader.download_file(task)
             assert result.success is True
+
+
+class TestDownloadCleanup:
+    """Tests for download cleanup on failure."""
+
+    async def test_cleans_up_partial_file_on_network_error(
+        self,
+        httpx_mock: HTTPXMock,
+        tmp_path: Path,
+    ) -> None:
+        """Partial file is removed when network error occurs during download."""
+
+        # Arrange
+        # Simulate error during streaming by using a generator that raises
+        async def failing_content():
+            yield b"partial content"  # Some data written
+            raise httpx.ReadError("Connection lost")
+
+        httpx_mock.add_response(
+            url="https://example.com/test.jar",
+            content=failing_content(),
+        )
+
+        task = DownloadTask(
+            url="https://example.com/test.jar",
+            dest=tmp_path / "test.jar",
+            expected_hash=None,
+            slug="test-mod",
+            version_number="1.0.0",
+        )
+
+        # Act
+        async with Downloader() as downloader:
+            result = await downloader.download_file(task)
+
+        # Assert
+        assert result.success is False
+        assert not task.dest.exists()  # Partial file should be cleaned up
+
+    async def test_successful_download_keeps_file(
+        self,
+        httpx_mock: HTTPXMock,
+        tmp_path: Path,
+    ) -> None:
+        """Successful download keeps the file."""
+        # Arrange
+        file_content = b"test content"
+        httpx_mock.add_response(content=file_content)
+        task = DownloadTask(
+            url="https://example.com/test.jar",
+            dest=tmp_path / "test.jar",
+            expected_hash=None,
+            slug="test-mod",
+            version_number="1.0.0",
+        )
+
+        # Act
+        async with Downloader() as downloader:
+            result = await downloader.download_file(task)
+
+        # Assert
+        assert result.success is True
+        assert task.dest.exists()  # File should remain
+        assert task.dest.read_bytes() == file_content
