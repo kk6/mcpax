@@ -398,6 +398,7 @@ class ProjectManager:
                         current_version=None,
                         current_file=None,
                         latest_version=None,
+                        latest_version_id=None,
                         latest_file=None,
                         error=str(e),
                     )
@@ -429,6 +430,7 @@ class ProjectManager:
                 current_version=installed.version_number if installed else None,
                 current_file=installed,
                 latest_version=None,
+                latest_version_id=None,
                 latest_file=None,
             )
 
@@ -450,6 +452,7 @@ class ProjectManager:
             current_version=installed.version_number if installed else None,
             current_file=installed,
             latest_version=latest.version_number,
+            latest_version_id=latest.id,
             latest_file=primary_file,
         )
 
@@ -528,6 +531,10 @@ class ProjectManager:
                 update, project_type = update_info[slug]
 
                 try:
+                    if update.latest_version_id is None:
+                        result.failed.append((slug, "Latest version id is None"))
+                        continue
+
                     # Backup existing file if needed
                     if (
                         backup
@@ -559,7 +566,7 @@ class ProjectManager:
                         slug=slug,
                         project_type=project_type,
                         filename=final_path.name,
-                        version_id=update.latest_file.hashes.get("sha512", "")[:12],
+                        version_id=update.latest_version_id,
                         version_number=update.latest_version or "unknown",
                         sha512=update.latest_file.hashes.get("sha512", ""),
                         installed_at=datetime.now(UTC),

@@ -168,6 +168,7 @@ class UpdateCheckResult(BaseModel):
     current_version: str | None
     current_file: InstalledFile | None
     latest_version: str | None
+    latest_version_id: str | None = None
     latest_file: ProjectFile | None
     error: str | None = None
 

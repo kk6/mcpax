@@ -441,6 +441,7 @@ class TestUpdateCheckResult:
             current_version="0.5.0",
             current_file=current_file,
             latest_version="0.6.0",
+            latest_version_id="NEW456",
             latest_file=latest_file,
         )
 
@@ -449,6 +450,7 @@ class TestUpdateCheckResult:
         assert result.current_version == "0.5.0"
         assert result.current_file == current_file
         assert result.latest_version == "0.6.0"
+        assert result.latest_version_id == "NEW456"
         assert result.latest_file == latest_file
 
     def test_create_not_installed(self) -> None:
@@ -466,6 +468,7 @@ class TestUpdateCheckResult:
         assert result.status == InstallStatus.NOT_INSTALLED
         assert result.current_version is None
         assert result.current_file is None
+        assert result.latest_version_id is None
 
 
 class TestDownloadTask:
