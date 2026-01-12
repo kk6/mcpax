@@ -16,8 +16,10 @@ from mcpax.core.models import (
     InstalledFile,
     InstallStatus,
     Loader,
+    ProjectConfig,
     ProjectFile,
     ProjectType,
+    ReleaseChannel,
     StateFile,
 )
 
@@ -732,6 +734,70 @@ class TestGetInstallStatus:
         # Act & Assert
         with pytest.raises(RuntimeError, match="API client not initialized"):
             await manager.get_install_status("sodium")
+
+
+class TestGetInstallStatusWithChannel:
+    """Tests for get_install_status with project channel."""
+
+    async def test_respects_project_channel(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Uses project channel when selecting latest compatible version."""
+        # Arrange
+        config = _make_config(tmp_path)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True)
+        file_path.write_text("content")
+
+        test_hash = "beta123" * 20
+        installed = _make_installed_file(
+            "sodium",
+            file_path=file_path,
+            sha512=test_hash,
+        )
+
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                {
+                    "id": "version-id-beta",
+                    "project_id": "AANobbMI",
+                    "version_number": "1.1.0-beta",
+                    "version_type": "beta",
+                    "game_versions": ["1.21.4"],
+                    "loaders": ["fabric"],
+                    "files": [
+                        {
+                            "url": "https://cdn.modrinth.com/sodium.jar",
+                            "filename": "sodium.jar",
+                            "size": 1024,
+                            "hashes": {"sha512": test_hash},
+                            "primary": True,
+                        }
+                    ],
+                    "dependencies": [],
+                    "date_published": "2024-01-15T10:30:00Z",
+                }
+            ],
+        )
+
+        project_config = ProjectConfig(slug="sodium", channel=ReleaseChannel.BETA)
+
+        # Act
+        async with ProjectManager(config) as manager:
+            result = await manager.get_install_status(
+                "sodium",
+                project_config=project_config,
+            )
+
+        # Assert
+        assert result == InstallStatus.INSTALLED
 
 
 class TestNeedsUpdate:
