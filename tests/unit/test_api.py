@@ -483,6 +483,61 @@ class TestRetryLogic:
         assert len(httpx_mock.get_requests()) == 1
 
 
+class TestRetryLogicNetworkErrors:
+    """Tests for retry logic with network errors."""
+
+    async def test_retries_on_connect_error(
+        self,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Client retries request on connection error."""
+        # Arrange
+        httpx_mock.add_exception(httpx.ConnectError("Connection failed"))
+        httpx_mock.add_exception(httpx.ConnectError("Connection failed"))
+        httpx_mock.add_response(json={"success": True})
+
+        # Act (use small backoff_factor for fast tests)
+        async with ModrinthClient(max_retries=3, backoff_factor=0.001) as client:
+            response = await client._request("GET", "/test")
+
+        # Assert
+        assert response.status_code == 200
+        assert len(httpx_mock.get_requests()) == 3
+
+    async def test_retries_on_timeout_error(
+        self,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Client retries request on timeout error."""
+        # Arrange
+        httpx_mock.add_exception(httpx.TimeoutException("Request timeout"))
+        httpx_mock.add_response(json={"success": True})
+
+        # Act (use small backoff_factor for fast tests)
+        async with ModrinthClient(max_retries=3, backoff_factor=0.001) as client:
+            response = await client._request("GET", "/test")
+
+        # Assert
+        assert response.status_code == 200
+        assert len(httpx_mock.get_requests()) == 2
+
+    async def test_raises_after_max_retries_network_error(
+        self,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Client raises HTTPError after max retries exceeded on network error."""
+        # Arrange
+        for _ in range(4):  # max_retries + 1
+            httpx_mock.add_exception(httpx.ConnectError("Connection failed"))
+
+        # Act & Assert (use small backoff_factor for fast tests)
+        async with ModrinthClient(max_retries=3, backoff_factor=0.001) as client:
+            with pytest.raises(httpx.ConnectError):
+                await client._request("GET", "/test")
+
+        assert len(httpx_mock.get_requests()) == 4  # initial + 3 retries
+
+
 # === Get Project Tests ===
 
 

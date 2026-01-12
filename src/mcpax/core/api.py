@@ -175,12 +175,16 @@ class ModrinthClient:
 
                 return response
 
-            except APIError as e:
-                # Don't retry on client errors (4xx except 429)
-                if e.status_code and 400 <= e.status_code < 500:
+            except (APIError, httpx.HTTPError) as e:
+                # Don't retry on client errors (4xx)
+                if (
+                    isinstance(e, APIError)
+                    and e.status_code
+                    and 400 <= e.status_code < 500
+                ):
                     raise
 
-                # Retry on 5xx errors
+                # Retry on 5xx errors and network errors
                 if attempt < self.max_retries:
                     wait_time = self.backoff_factor * (2**attempt)
                     await asyncio.sleep(wait_time)
