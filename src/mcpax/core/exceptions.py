@@ -1,5 +1,7 @@
 """Exceptions for mcpax."""
 
+from pathlib import Path
+
 
 class MCPAXError(Exception):
     """Base exception for all mcpax errors."""
@@ -90,3 +92,31 @@ class HashMismatchError(DownloadError):
         self.filename = filename
         self.expected = expected
         self.actual = actual
+
+
+class StateFileError(MCPAXError):
+    """Error reading/writing state file."""
+
+    def __init__(self, message: str, path: Path | None = None) -> None:
+        """Initialize StateFileError.
+
+        Args:
+            message: Error message
+            path: Path to state file
+        """
+        super().__init__(message)
+        self.path = path
+
+
+class FileOperationError(MCPAXError):
+    """Error during file operations (move, delete, backup)."""
+
+    def __init__(self, message: str, path: Path | None = None) -> None:
+        """Initialize FileOperationError.
+
+        Args:
+            message: Error message
+            path: Path to file that caused error
+        """
+        super().__init__(message)
+        self.path = path

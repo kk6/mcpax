@@ -163,10 +163,27 @@ class SearchResult:
 @dataclass
 class InstalledFile:
     """インストール済みファイル情報"""
+    slug: str
+    project_type: ProjectType
     filename: str
-    hash: str
-    project_slug: str
-    installed_at: str
+    version_id: str
+    version_number: str
+    sha512: str
+    installed_at: datetime
+    file_path: Path
+
+@dataclass
+class StateFile:
+    """状態管理ファイル構造"""
+    version: int = 1
+    files: dict[str, InstalledFile] = {}
+
+@dataclass
+class UpdateResult:
+    """更新適用の結果"""
+    successful: list[str]  # 成功したプロジェクトのslug
+    failed: list[tuple[str, str]]  # (slug, エラーメッセージ)
+    backed_up: list[Path]  # バックアップされたファイルパス
 ```
 
 ### 3.2 core/api.py
@@ -377,38 +394,208 @@ class HashMismatchError(DownloadError):
 
 ### 3.4 core/manager.py
 
-プロジェクト管理のメインロジック。
+プロジェクト管理のオーケストレーション層。設定、API、ダウンローダーを統合し、インストール・更新・削除などの高レベル操作を提供します。
+
+#### 状態管理
+
+インストール済みファイルの情報を `.mcpax-state.json` で永続化します：
+
+```json
+{
+  "version": 1,
+  "files": {
+    "sodium": {
+      "slug": "sodium",
+      "project_type": "mod",
+      "filename": "sodium-fabric-0.6.0+mc1.21.4.jar",
+      "version_id": "ABC123",
+      "version_number": "0.6.0",
+      "sha512": "abc123...",
+      "installed_at": "2024-01-15T10:30:00Z",
+      "file_path": "/Users/xxx/.minecraft/mods/sodium-fabric-0.6.0+mc1.21.4.jar"
+    }
+  }
+}
+```
+
+#### クラス定義
 
 ```python
 class ProjectManager:
-    def __init__(self, config: AppConfig, client: ModrinthClient):
+    """プロジェクト管理のオーケストレーター（async context manager）"""
+
+    STATE_FILE_NAME = ".mcpax-state.json"
+    BACKUP_DIR_NAME = ".mcpax-backup"
+    STATE_VERSION = 1
+
+    def __init__(
+        self,
+        config: AppConfig,
+        api_client: ModrinthClient | None = None,
+        downloader: Downloader | None = None,
+    ) -> None:
+        """初期化
+
+        Args:
+            config: アプリケーション設定
+            api_client: 依存性注入用のAPIクライアント（省略時は自動作成）
+            downloader: 依存性注入用のダウンローダー（省略時は自動作成）
+        """
         ...
-    
+
+    async def __aenter__(self) -> Self:
+        """非同期コンテキストマネージャー（入口）"""
+        ...
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """非同期コンテキストマネージャー（出口）"""
+        ...
+
+    # ファイル管理機能 (F-401 to F-404)
+
     def get_target_directory(self, project_type: ProjectType) -> Path:
-        """プロジェクト種別に応じた配置先を返す"""
-        match project_type:
-            case ProjectType.MOD:
-                return self.config.mods_dir
-            case ProjectType.SHADER:
-                return self.config.shaders_dir
-            case ProjectType.RESOURCEPACK:
-                return self.config.resourcepacks_dir
-    
-    async def check_updates(self) -> list[UpdateInfo]:
-        """更新があるプロジェクトを確認"""
+        """プロジェクト種別に応じた配置先ディレクトリを判定
+
+        Args:
+            project_type: プロジェクト種別
+
+        Returns:
+            配置先ディレクトリのパス
+        """
         ...
-    
-    async def install_all(self) -> InstallResult:
-        """全プロジェクトをインストール"""
+
+    async def place_file(self, src: Path, dest_dir: Path) -> Path:
+        """ダウンロードしたファイルを適切なディレクトリに配置
+
+        Args:
+            src: ソースファイルパス
+            dest_dir: 配置先ディレクトリ
+
+        Returns:
+            配置後のファイルパス
+        """
         ...
-    
-    async def install_project(self, slug: str) -> InstallResult:
-        """特定のプロジェクトをインストール"""
+
+    async def backup_file(
+        self,
+        file_path: Path,
+        backup_dir: Path | None = None,
+    ) -> Path:
+        """更新前のファイルをバックアップ
+
+        Args:
+            file_path: バックアップ対象ファイル
+            backup_dir: バックアップ先（デフォルト: .mcpax-backup）
+
+        Returns:
+            バックアップファイルのパス
+        """
         ...
-    
-    async def get_installed_projects(self) -> list[InstalledProject]:
-        """インストール済みプロジェクト一覧を取得"""
+
+    async def delete_file(self, file_path: Path) -> bool:
+        """指定したファイルを削除
+
+        Args:
+            file_path: 削除対象ファイル
+
+        Returns:
+            削除成功時True、ファイルが存在しなかった場合False
+        """
         ...
+
+    # ステータス確認機能 (F-405, F-406)
+
+    async def get_installed_file(self, slug: str) -> InstalledFile | None:
+        """slugからインストール済みファイルを特定
+
+        Args:
+            slug: プロジェクトslug
+
+        Returns:
+            インストール済みファイル情報（未インストールの場合None）
+        """
+        ...
+
+    async def get_install_status(self, slug: str) -> InstallStatus:
+        """プロジェクトのインストール状態を確認
+
+        Args:
+            slug: プロジェクトslug
+
+        Returns:
+            インストール状態（NOT_INSTALLED/INSTALLED/OUTDATED/NOT_COMPATIBLE）
+        """
+        ...
+
+    # 更新管理機能 (F-501 to F-503)
+
+    def needs_update(
+        self,
+        installed: InstalledFile,
+        latest: ProjectFile | None,
+    ) -> bool:
+        """ローカルとリモートのバージョンを比較
+
+        Args:
+            installed: インストール済みファイル情報
+            latest: 最新ファイル情報
+
+        Returns:
+            更新が必要な場合True
+        """
+        ...
+
+    async def check_updates(
+        self,
+        projects: list[ProjectConfig],
+    ) -> list[UpdateCheckResult]:
+        """各プロジェクトの更新有無を確認
+
+        Args:
+            projects: プロジェクト設定リスト
+
+        Returns:
+            更新確認結果のリスト
+        """
+        ...
+
+    async def apply_updates(
+        self,
+        updates: list[UpdateCheckResult],
+        backup: bool = True,
+    ) -> UpdateResult:
+        """更新があるプロジェクトをダウンロード・配置
+
+        Args:
+            updates: 更新対象リスト
+            backup: バックアップするか（デフォルト: True）
+
+        Returns:
+            更新結果（成功/失敗/バックアップリスト）
+        """
+        ...
+```
+
+#### 使用例
+
+```python
+from mcpax.core.config import load_config, load_projects
+from mcpax.core.manager import ProjectManager
+
+# 設定とプロジェクトリストを読み込み
+config = load_config()
+projects = load_projects()
+
+# async context managerとして使用
+async with ProjectManager(config) as manager:
+    # 更新確認
+    updates = await manager.check_updates(projects)
+
+    # 更新適用
+    result = await manager.apply_updates(updates)
+
+    print(f"成功: {result.successful}")
+    print(f"失敗: {result.failed}")
 ```
 
 ### 3.5 cli/app.py
@@ -554,11 +741,17 @@ class HashMismatchError(DownloadError):
     expected: str
     actual: str
 
-# 以下は未実装（Phase 2: manager.py で実装予定）
-# 実装完了までは利用不可
-class VersionNotFoundError(MCPAXError):
-    """対応バージョンが見つからない（未実装）"""
-    pass
+class StateFileError(MCPAXError):
+    """状態ファイルの読み書きエラー"""
+    def __init__(self, message: str, path: Path | None = None) -> None:
+        ...
+    path: Path | None
+
+class FileOperationError(MCPAXError):
+    """ファイル操作エラー（移動、削除、バックアップ）"""
+    def __init__(self, message: str, path: Path | None = None) -> None:
+        ...
+    path: Path | None
 ```
 
 ### 6.2 リトライ方針
