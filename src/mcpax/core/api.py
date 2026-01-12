@@ -298,7 +298,12 @@ class ModrinthClient:
 
             # Check loader (case-insensitive)
             loader_str = loader.value.lower()
-            if not any(loader_str == name.lower() for name in version.loaders):
+            loaders_lower = [name.lower() for name in version.loaders]
+            if (
+                version.loaders
+                and "minecraft" not in loaders_lower
+                and loader_str not in loaders_lower
+            ):
                 continue
 
             # Check release channel

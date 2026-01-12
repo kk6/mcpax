@@ -808,6 +808,69 @@ class TestFilterCompatibleVersions:
         assert {v.version_number for v in result} == {"1.0", "1.1-beta"}
 
 
+class TestFilterShaderResourcepack:
+    """Tests for shader/resourcepack loader filtering."""
+
+    def test_allows_shader_with_minecraft_loader(self) -> None:
+        """Allows shader versions marked with the minecraft loader."""
+        versions = [
+            _make_version(
+                "1.0",
+                game_versions=["1.21.4"],
+                loaders=["minecraft"],
+            ),
+        ]
+        client = ModrinthClient()
+
+        result = client.filter_compatible_versions(
+            versions,
+            minecraft_version="1.21.4",
+            loader=Loader.FABRIC,
+        )
+
+        assert len(result) == 1
+        assert result[0].version_number == "1.0"
+
+    def test_allows_resourcepack_with_empty_loaders(self) -> None:
+        """Allows versions without loaders listed."""
+        versions = [
+            _make_version(
+                "1.0",
+                game_versions=["1.21.4"],
+                loaders=[],
+            ),
+        ]
+        client = ModrinthClient()
+
+        result = client.filter_compatible_versions(
+            versions,
+            minecraft_version="1.21.4",
+            loader=Loader.FABRIC,
+        )
+
+        assert len(result) == 1
+        assert result[0].version_number == "1.0"
+
+    def test_still_filters_mods_by_loader(self) -> None:
+        """Still filters mismatched mod loaders."""
+        versions = [
+            _make_version(
+                "1.0",
+                game_versions=["1.21.4"],
+                loaders=["forge"],
+            ),
+        ]
+        client = ModrinthClient()
+
+        result = client.filter_compatible_versions(
+            versions,
+            minecraft_version="1.21.4",
+            loader=Loader.FABRIC,
+        )
+
+        assert result == []
+
+
 class TestGetLatestCompatibleVersion:
     """Tests for get_latest_compatible_version method."""
 
