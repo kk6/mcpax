@@ -45,23 +45,21 @@ class TestResolvePath:
         assert result == home / "subdir"
         assert result.is_absolute()
 
-    def test_relative_path_to_absolute(self, tmp_path: Path) -> None:
+    def test_relative_path_to_absolute(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """resolve_path converts relative path to absolute."""
         # Arrange
-        import os
+        monkeypatch.chdir(tmp_path)
 
-        original_cwd = os.getcwd()
-        os.chdir(tmp_path)
+        # Act
+        result = resolve_path("./relative")
 
-        try:
-            # Act
-            result = resolve_path("./relative")
-
-            # Assert
-            assert result == tmp_path / "relative"
-            assert result.is_absolute()
-        finally:
-            os.chdir(original_cwd)
+        # Assert
+        assert result == tmp_path / "relative"
+        assert result.is_absolute()
 
     def test_absolute_path_unchanged(self, tmp_path: Path) -> None:
         """resolve_path returns absolute path as-is."""

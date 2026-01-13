@@ -1,10 +1,12 @@
 """Shared test fixtures."""
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from mcpax.core.api import ModrinthClient
+from mcpax.core.models import ProjectVersion, ReleaseChannel
 
 
 @pytest.fixture
@@ -34,3 +36,24 @@ def fast_api_client() -> ModrinthClient:
     tests that simulate API errors.
     """
     return ModrinthClient(backoff_factor=0)
+
+
+def _make_version(
+    version_number: str,
+    game_versions: list[str] | None = None,
+    loaders: list[str] | None = None,
+    version_type: ReleaseChannel = ReleaseChannel.RELEASE,
+    date_published: datetime | None = None,
+) -> ProjectVersion:
+    """Helper to create ProjectVersion for tests."""
+    return ProjectVersion(
+        id=f"id-{version_number}",
+        project_id="test-project",
+        version_number=version_number,
+        version_type=version_type,
+        game_versions=game_versions or ["1.21.4"],
+        loaders=loaders or ["fabric"],
+        files=[],
+        dependencies=[],
+        date_published=date_published or datetime(2024, 1, 1, tzinfo=UTC),
+    )
