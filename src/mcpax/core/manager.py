@@ -1,5 +1,6 @@
 """Project management orchestration."""
 
+import asyncio
 import json
 import logging
 import shutil
@@ -113,9 +114,12 @@ class ProjectManager:
         if not self._state_file_path.exists():
             return StateFile()
 
-        try:
+        def _sync_load() -> dict:
             with open(self._state_file_path, encoding="utf-8") as f:
-                data = json.load(f)
+                return json.load(f)
+
+        try:
+            data = await asyncio.to_thread(_sync_load)
 
             # Convert file entries to InstalledFile
             files = {}
@@ -141,19 +145,20 @@ class ProjectManager:
         Raises:
             StateFileError: If save fails
         """
-        try:
-            data = {
-                "version": state.version,
-                "files": {
-                    slug: file.model_dump(mode="json")
-                    for slug, file in state.files.items()
-                },
-            }
+        data = {
+            "version": state.version,
+            "files": {
+                slug: file.model_dump(mode="json") for slug, file in state.files.items()
+            },
+        }
 
+        def _sync_save() -> None:
             self._state_file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self._state_file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
+        try:
+            await asyncio.to_thread(_sync_save)
         except OSError as e:
             raise StateFileError(
                 f"Failed to save state file: {e}",
@@ -513,29 +518,48 @@ class ProjectManager:
         tasks: list[DownloadTask] = []
         update_info: dict[str, UpdateInfo] = {}
 
-        for update in to_update:
+        # Fetch project info in parallel
+        async def _get_project_info(
+            update: UpdateCheckResult,
+        ) -> tuple[UpdateCheckResult, ProjectType | None, str | None]:
+            assert self._api_client is not None  # Already checked above
+            try:
+                project = await self._api_client.get_project(update.slug)
+                return (update, project.project_type, None)
+            except (APIError, httpx.HTTPError) as e:
+                return (update, None, str(e))
+
+        project_results = await asyncio.gather(
+            *[_get_project_info(update) for update in to_update]
+        )
+
+        # Process project results and create download tasks
+        dest_dir = self._get_temp_download_dir()
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        for update, project_type, error in project_results:
             if update.latest_file is None:
                 result.failed.append(
                     FailedUpdate(slug=update.slug, error="No compatible version found")
                 )
                 continue
 
-            try:
-                project = await self._api_client.get_project(update.slug)
-                dest_dir = self._get_temp_download_dir()
-                dest_dir.mkdir(parents=True, exist_ok=True)
+            if error is not None:
+                result.failed.append(FailedUpdate(slug=update.slug, error=error))
+                continue
 
-                task = DownloadTask(
-                    url=update.latest_file.url,
-                    dest=dest_dir / update.latest_file.filename,
-                    expected_hash=update.latest_file.hashes.get("sha512"),
-                    slug=update.slug,
-                    version_number=update.latest_version or "unknown",
-                )
-                tasks.append(task)
-                update_info[update.slug] = (update, project.project_type)
-            except Exception as e:
-                result.failed.append(FailedUpdate(slug=update.slug, error=str(e)))
+            # When error is None, project_type must not be None
+            assert project_type is not None
+
+            task = DownloadTask(
+                url=update.latest_file.url,
+                dest=dest_dir / update.latest_file.filename,
+                expected_hash=update.latest_file.hashes.get("sha512"),
+                slug=update.slug,
+                version_number=update.latest_version or "unknown",
+            )
+            tasks.append(task)
+            update_info[update.slug] = (update, project_type)
 
         # Download all files
         if tasks:
