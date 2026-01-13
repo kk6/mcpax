@@ -55,5 +55,5 @@ def _make_version(
         loaders=loaders or ["fabric"],
         files=[],
         dependencies=[],
-        date_published=date_published or datetime.now(UTC),
+        date_published=date_published or datetime(2024, 1, 1, tzinfo=UTC),
     )
