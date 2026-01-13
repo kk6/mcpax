@@ -1264,7 +1264,7 @@ class TestApplyUpdates:
 
         # Assert
         assert result.successful == []
-        assert any(slug == "sodium" for slug, _ in result.failed)
+        assert any(f.slug == "sodium" for f in result.failed)
         state = await manager._load_state()
         assert "sodium" not in state.files
 
@@ -1347,7 +1347,7 @@ class TestApplyUpdates:
 
         # Assert
         assert result.successful == ["sodium"]
-        assert any(slug == "lithium" for slug, _ in result.failed)
+        assert any(f.slug == "lithium" for f in result.failed)
         assert (tmp_path / "mods" / latest_file_ok.filename).exists()
         assert not (tmp_path / "mods" / latest_file_fail.filename).exists()
 
@@ -1423,7 +1423,7 @@ class TestApplyUpdatesRollback:
         # Assert
         assert old_file.exists()
         assert not (tmp_path / "mods" / latest_file.filename).exists()
-        assert any(slug == "sodium" for slug, _ in result.failed)
+        assert any(f.slug == "sodium" for f in result.failed)
 
     async def test_new_file_placed_before_old_file_deleted(
         self,
@@ -1572,7 +1572,7 @@ class TestApplyUpdatesRollback:
         # Assert
         assert old_file.exists()
         assert not expected_new_path.exists()
-        assert any(slug == "sodium" for slug, _ in result.failed)
+        assert any(f.slug == "sodium" for f in result.failed)
 
     def test_returns_false_when_latest_is_none(self, tmp_path: Path) -> None:
         """Returns False when latest is None."""

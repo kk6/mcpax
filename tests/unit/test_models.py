@@ -9,6 +9,7 @@ from mcpax.core.models import (
     DependencyType,
     DownloadResult,
     DownloadTask,
+    FailedUpdate,
     InstalledFile,
     InstallStatus,
     Loader,
@@ -505,19 +506,36 @@ class TestStateFile:
         assert state.files["sodium"] == installed
 
 
+class TestFailedUpdate:
+    """Tests for FailedUpdate model."""
+
+    def test_create_with_all_fields(self) -> None:
+        """FailedUpdate can be created with all fields."""
+        failed = FailedUpdate(
+            slug="sodium",
+            error="Download failed: Network timeout",
+        )
+
+        assert failed.slug == "sodium"
+        assert failed.error == "Download failed: Network timeout"
+
+
 class TestUpdateResult:
     """Tests for UpdateResult model."""
 
     def test_create_with_results(self) -> None:
         """UpdateResult can be created with success and failure lists."""
+        failed_update = FailedUpdate(slug="iris", error="download failed")
         result = UpdateResult(
             successful=["sodium"],
-            failed=[("iris", "download failed")],
+            failed=[failed_update],
             backed_up=[Path("/tmp/sodium.jar")],
         )
 
         assert result.successful == ["sodium"]
-        assert result.failed == [("iris", "download failed")]
+        assert len(result.failed) == 1
+        assert result.failed[0].slug == "iris"
+        assert result.failed[0].error == "download failed"
         assert result.backed_up == [Path("/tmp/sodium.jar")]
 
 

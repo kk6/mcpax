@@ -5,6 +5,7 @@ import logging
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
+from types import TracebackType
 from typing import Self
 
 import httpx
@@ -15,6 +16,7 @@ from mcpax.core.exceptions import APIError, FileOperationError, StateFileError
 from mcpax.core.models import (
     AppConfig,
     DownloadTask,
+    FailedUpdate,
     InstalledFile,
     InstallStatus,
     ProjectConfig,
@@ -73,7 +75,12 @@ class ProjectManager:
             await self._downloader.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         # Cleanup both resources independently to ensure both are attempted
         # even if one fails
@@ -508,7 +515,9 @@ class ProjectManager:
 
         for update in to_update:
             if update.latest_file is None:
-                result.failed.append((update.slug, "No compatible version found"))
+                result.failed.append(
+                    FailedUpdate(slug=update.slug, error="No compatible version found")
+                )
                 continue
 
             try:
@@ -526,7 +535,7 @@ class ProjectManager:
                 tasks.append(task)
                 update_info[update.slug] = (update, project.project_type)
             except Exception as e:
-                result.failed.append((update.slug, str(e)))
+                result.failed.append(FailedUpdate(slug=update.slug, error=str(e)))
 
         # Download all files
         if tasks:
@@ -536,7 +545,9 @@ class ProjectManager:
                 slug = download_result.task.slug
                 if not download_result.success:
                     result.failed.append(
-                        (slug, download_result.error or "Download failed")
+                        FailedUpdate(
+                            slug=slug, error=download_result.error or "Download failed"
+                        )
                     )
                     continue
 
@@ -545,13 +556,17 @@ class ProjectManager:
 
                 try:
                     if update.latest_version_id is None:
-                        result.failed.append((slug, "Latest version id is None"))
+                        result.failed.append(
+                            FailedUpdate(slug=slug, error="Latest version id is None")
+                        )
                         continue
 
                     # Place new file
                     target_dir = self.get_target_directory(project_type)
                     if download_result.file_path is None:
-                        result.failed.append((slug, "Download path is None"))
+                        result.failed.append(
+                            FailedUpdate(slug=slug, error="Download path is None")
+                        )
                         continue
 
                     final_path = await self.place_file(
@@ -573,7 +588,9 @@ class ProjectManager:
 
                     # Update state
                     if update.latest_file is None:
-                        result.failed.append((slug, "Latest file is None"))
+                        result.failed.append(
+                            FailedUpdate(slug=slug, error="Latest file is None")
+                        )
                         continue
 
                     installed_file = InstalledFile(
@@ -601,7 +618,7 @@ class ProjectManager:
                                 final_path,
                                 rollback_error,
                             )
-                    result.failed.append((slug, str(e)))
+                    result.failed.append(FailedUpdate(slug=slug, error=str(e)))
 
         # Save state once at the end if modified
         if state_modified:
