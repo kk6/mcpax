@@ -19,6 +19,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "pytest-httpx>=0.34",
+    "pytest-cov>=6.0",
     "ruff>=0.8",
     "ty>=0.0.1a6",
     "pre-commit>=4.0",
@@ -43,6 +44,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = ["integration: marks tests as integration tests"]
+addopts = "--cov=src/mcpax --cov-report=term-missing"
 
 [build-system]
 requires = ["hatchling"]

@@ -20,7 +20,9 @@ from mcpax.core.models import (
     ReleaseChannel,
     SearchHit,
     SearchResult,
+    StateFile,
     UpdateCheckResult,
+    UpdateResult,
 )
 
 
@@ -469,6 +471,54 @@ class TestUpdateCheckResult:
         assert result.current_version is None
         assert result.current_file is None
         assert result.latest_version_id is None
+
+
+class TestStateFile:
+    """Tests for StateFile model."""
+
+    def test_defaults(self) -> None:
+        """StateFile defaults to version 1 with empty files."""
+        state = StateFile()
+
+        assert state.version == 1
+        assert state.files == {}
+
+    def test_create_with_files(self) -> None:
+        """StateFile can be created with InstalledFile entries."""
+        installed_at = datetime(2024, 1, 15, 10, 30, 0, tzinfo=UTC)
+        installed = InstalledFile(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            filename="sodium-fabric-0.6.0+mc1.21.4.jar",
+            version_id="ABC123",
+            version_number="0.6.0",
+            sha512="abc123def456",
+            installed_at=installed_at,
+            file_path=Path(
+                "/home/user/.minecraft/mods/sodium-fabric-0.6.0+mc1.21.4.jar"
+            ),
+        )
+
+        state = StateFile(version=2, files={"sodium": installed})
+
+        assert state.version == 2
+        assert state.files["sodium"] == installed
+
+
+class TestUpdateResult:
+    """Tests for UpdateResult model."""
+
+    def test_create_with_results(self) -> None:
+        """UpdateResult can be created with success and failure lists."""
+        result = UpdateResult(
+            successful=["sodium"],
+            failed=[("iris", "download failed")],
+            backed_up=[Path("/tmp/sodium.jar")],
+        )
+
+        assert result.successful == ["sodium"]
+        assert result.failed == [("iris", "download failed")]
+        assert result.backed_up == [Path("/tmp/sodium.jar")]
 
 
 class TestDownloadTask:
