@@ -31,8 +31,17 @@
 - Use `tmp_path` for filesystem work and `pytest-httpx` for API mocks.
 - Mark networked tests with `@pytest.mark.integration` and keep them isolated.
 
+## Version Control (jj)
+
+This project's primary development uses **jj (Jujutsu)** for version control. While external contributors may use git, AI agents should use jj.
+
+- Use `jj bookmark create <name>` to create feature bookmarks
+- Use `jj describe -m "message"` to record commits
+- Use `jj git push` to push changes (run `jj bookmark track <name> --remote=origin` first for new bookmarks)
+- Use `jj git fetch` followed by `jj new main` after PR merge
+
 ## Commit & Pull Request Guidelines
-- Commit history currently uses a `type: summary` pattern (example: `docs: add requirement definitions...`).
+- Commit history uses a `type: summary` pattern (example: `docs: add requirement definitions...`).
 - Keep commits focused and include the test status in PR descriptions (e.g., `pytest`, `ruff check`).
 - For doc-only changes, mention the updated files in the PR summary.
 
