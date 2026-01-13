@@ -51,6 +51,35 @@ def _make_installed_file(slug: str, **overrides) -> InstalledFile:
     return InstalledFile(**{**defaults, **overrides})
 
 
+def _make_version_payload(
+    version_id: str,
+    version_number: str,
+    version_type: str,
+    sha512: str,
+    filename: str = "sodium.jar",
+) -> dict[str, object]:
+    """Helper to build Modrinth version payloads."""
+    return {
+        "id": version_id,
+        "project_id": "AANobbMI",
+        "version_number": version_number,
+        "version_type": version_type,
+        "game_versions": ["1.21.4"],
+        "loaders": ["fabric"],
+        "files": [
+            {
+                "url": f"https://cdn.modrinth.com/{filename}",
+                "filename": filename,
+                "size": 1024,
+                "hashes": {"sha512": sha512},
+                "primary": True,
+            }
+        ],
+        "dependencies": [],
+        "date_published": "2024-01-15T10:30:00Z",
+    }
+
+
 class DummyProject:
     """Simple project stub for apply_updates tests."""
 
@@ -644,6 +673,7 @@ class TestGetInstallStatus:
         self,
         tmp_path: Path,
         httpx_mock: HTTPXMock,
+        fast_api_client: ModrinthClient,
     ) -> None:
         """Returns CHECK_FAILED when network error occurs."""
         # Arrange
@@ -669,7 +699,10 @@ class TestGetInstallStatus:
             )
 
         # Act
-        async with ProjectManager(config) as manager:
+        async with (
+            fast_api_client,
+            ProjectManager(config, api_client=fast_api_client) as manager,
+        ):
             result = await manager.get_install_status("sodium")
 
         # Assert
@@ -878,6 +911,445 @@ class TestNeedsUpdate:
 
         # Assert
         assert result is False
+
+
+class TestCheckUpdates:
+    """Tests for check_updates."""
+
+    async def test_detects_updatable_project(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Detects when a project has an available update."""
+        # Arrange
+        config = _make_config(tmp_path)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True)
+        file_path.write_text("content")
+
+        installed = _make_installed_file(
+            "sodium",
+            file_path=file_path,
+            sha512="oldhash" * 20,
+        )
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="new-version-id",
+                    version_number="1.1.0",
+                    version_type="release",
+                    sha512="newhash" * 20,
+                )
+            ],
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates([ProjectConfig(slug="sodium")])
+
+        # Assert
+        assert results[0].status == InstallStatus.OUTDATED
+        assert results[0].latest_version == "1.1.0"
+        assert results[0].latest_version_id == "new-version-id"
+
+    async def test_returns_installed_for_up_to_date(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Returns INSTALLED when installed file matches latest."""
+        # Arrange
+        config = _make_config(tmp_path)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True)
+        file_path.write_text("content")
+
+        same_hash = "matchhash" * 20
+        installed = _make_installed_file(
+            "sodium",
+            file_path=file_path,
+            sha512=same_hash,
+        )
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="version-id",
+                    version_number="1.0.0",
+                    version_type="release",
+                    sha512=same_hash,
+                )
+            ],
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates([ProjectConfig(slug="sodium")])
+
+        # Assert
+        assert results[0].status == InstallStatus.INSTALLED
+
+    async def test_handles_multiple_projects(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Handles multiple projects in one call."""
+        # Arrange
+        config = _make_config(tmp_path)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True)
+        file_path.write_text("content")
+
+        installed = _make_installed_file(
+            "sodium",
+            file_path=file_path,
+            sha512="matchhash" * 20,
+        )
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="sodium-id",
+                    version_number="1.0.0",
+                    version_type="release",
+                    sha512="matchhash" * 20,
+                )
+            ],
+        )
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/lithium/version",
+            json=[
+                _make_version_payload(
+                    version_id="lithium-id",
+                    version_number="2.0.0",
+                    version_type="release",
+                    sha512="lithiumhash" * 20,
+                    filename="lithium.jar",
+                )
+            ],
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates(
+                [ProjectConfig(slug="sodium"), ProjectConfig(slug="lithium")]
+            )
+
+        # Assert
+        assert len(results) == 2
+        results_by_slug = {result.slug: result for result in results}
+        assert results_by_slug["sodium"].status == InstallStatus.INSTALLED
+        assert results_by_slug["lithium"].status == InstallStatus.NOT_INSTALLED
+
+    async def test_handles_api_error_gracefully(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+        fast_api_client: ModrinthClient,
+    ) -> None:
+        """Returns CHECK_FAILED when API errors occur."""
+        # Arrange
+        config = _make_config(tmp_path)
+        for _ in range(ModrinthClient.DEFAULT_MAX_RETRIES + 1):
+            httpx_mock.add_response(
+                url="https://api.modrinth.com/v2/project/sodium/version",
+                status_code=500,
+            )
+
+        # Act
+        async with (
+            fast_api_client,
+            ProjectManager(config, api_client=fast_api_client) as manager,
+        ):
+            results = await manager.check_updates([ProjectConfig(slug="sodium")])
+
+        # Assert
+        assert results[0].status == InstallStatus.CHECK_FAILED
+        assert results[0].slug == "sodium"
+
+    async def test_returns_empty_for_empty_projects(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Returns empty list when no projects are provided."""
+        # Arrange
+        config = _make_config(tmp_path)
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates([])
+
+        # Assert
+        assert results == []
+
+
+class TestApplyUpdates:
+    """Tests for apply_updates."""
+
+    async def test_applies_update_successfully(self, tmp_path: Path) -> None:
+        """Applies a successful update and saves state."""
+        # Arrange
+        config = _make_config(tmp_path)
+        latest_file = ProjectFile(
+            url="https://cdn.modrinth.com/sodium-new.jar",
+            filename="sodium-new.jar",
+            size=1024,
+            hashes={"sha512": "newhash" * 20},
+            primary=True,
+        )
+        update = UpdateCheckResult(
+            slug="sodium",
+            status=InstallStatus.NOT_INSTALLED,
+            current_version=None,
+            current_file=None,
+            latest_version="1.1.0",
+            latest_version_id="NEWID",
+            latest_file=latest_file,
+        )
+
+        download_file = tmp_path / "downloads" / latest_file.filename
+        download_file.parent.mkdir(parents=True)
+        download_file.write_text("new")
+        task = DownloadTask(
+            url=latest_file.url,
+            dest=download_file,
+            expected_hash=latest_file.hashes["sha512"],
+            slug="sodium",
+            version_number="1.1.0",
+        )
+        download_result = DownloadResult(
+            task=task,
+            success=True,
+            file_path=download_file,
+            error=None,
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result]),
+        )
+
+        # Act
+        result = await manager.apply_updates([update], backup=False)
+
+        # Assert
+        assert result.successful == ["sodium"]
+        final_path = tmp_path / "mods" / latest_file.filename
+        assert final_path.exists()
+        state = await manager._load_state()
+        assert state.files["sodium"].version_id == "NEWID"
+
+    async def test_creates_backup_when_enabled(self, tmp_path: Path) -> None:
+        """Creates backup and removes old file when enabled."""
+        # Arrange
+        config = _make_config(tmp_path)
+        old_file = tmp_path / "mods" / "sodium-old.jar"
+        old_file.parent.mkdir(parents=True)
+        old_file.write_text("old")
+        installed = _make_installed_file("sodium", file_path=old_file)
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        latest_file = ProjectFile(
+            url="https://cdn.modrinth.com/sodium-new.jar",
+            filename="sodium-new.jar",
+            size=1024,
+            hashes={"sha512": "newhash" * 20},
+            primary=True,
+        )
+        update = UpdateCheckResult(
+            slug="sodium",
+            status=InstallStatus.OUTDATED,
+            current_version="1.0.0",
+            current_file=installed,
+            latest_version="1.1.0",
+            latest_version_id="NEWID",
+            latest_file=latest_file,
+        )
+
+        download_file = tmp_path / "downloads" / latest_file.filename
+        download_file.parent.mkdir(parents=True)
+        download_file.write_text("new")
+        task = DownloadTask(
+            url=latest_file.url,
+            dest=download_file,
+            expected_hash=latest_file.hashes["sha512"],
+            slug="sodium",
+            version_number="1.1.0",
+        )
+        download_result = DownloadResult(
+            task=task,
+            success=True,
+            file_path=download_file,
+            error=None,
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result]),
+        )
+
+        # Act
+        result = await manager.apply_updates([update])
+
+        # Assert
+        backup_dir = tmp_path / ".mcpax-backup"
+        backups = list(backup_dir.glob("sodium-old_*"))
+        assert result.backed_up
+        assert backups
+        assert not old_file.exists()
+        assert (tmp_path / "mods" / latest_file.filename).exists()
+
+    async def test_handles_download_failure(self, tmp_path: Path) -> None:
+        """Reports download failure and leaves state untouched."""
+        # Arrange
+        config = _make_config(tmp_path)
+        latest_file = ProjectFile(
+            url="https://cdn.modrinth.com/sodium-new.jar",
+            filename="sodium-new.jar",
+            size=1024,
+            hashes={"sha512": "newhash" * 20},
+            primary=True,
+        )
+        update = UpdateCheckResult(
+            slug="sodium",
+            status=InstallStatus.NOT_INSTALLED,
+            current_version=None,
+            current_file=None,
+            latest_version="1.1.0",
+            latest_version_id="NEWID",
+            latest_file=latest_file,
+        )
+
+        task = DownloadTask(
+            url=latest_file.url,
+            dest=tmp_path / "downloads" / latest_file.filename,
+            expected_hash=latest_file.hashes["sha512"],
+            slug="sodium",
+            version_number="1.1.0",
+        )
+        download_result = DownloadResult(
+            task=task,
+            success=False,
+            file_path=None,
+            error="Download failed",
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result]),
+        )
+
+        # Act
+        result = await manager.apply_updates([update], backup=False)
+
+        # Assert
+        assert result.successful == []
+        assert any(slug == "sodium" for slug, _ in result.failed)
+        state = await manager._load_state()
+        assert "sodium" not in state.files
+
+    async def test_partial_success(self, tmp_path: Path) -> None:
+        """Handles partial success across multiple updates."""
+        # Arrange
+        config = _make_config(tmp_path)
+        latest_file_ok = ProjectFile(
+            url="https://cdn.modrinth.com/sodium-new.jar",
+            filename="sodium-new.jar",
+            size=1024,
+            hashes={"sha512": "okhash" * 20},
+            primary=True,
+        )
+        latest_file_fail = ProjectFile(
+            url="https://cdn.modrinth.com/lithium-new.jar",
+            filename="lithium-new.jar",
+            size=1024,
+            hashes={"sha512": "failhash" * 20},
+            primary=True,
+        )
+        update_ok = UpdateCheckResult(
+            slug="sodium",
+            status=InstallStatus.NOT_INSTALLED,
+            current_version=None,
+            current_file=None,
+            latest_version="1.1.0",
+            latest_version_id="OKID",
+            latest_file=latest_file_ok,
+        )
+        update_fail = UpdateCheckResult(
+            slug="lithium",
+            status=InstallStatus.NOT_INSTALLED,
+            current_version=None,
+            current_file=None,
+            latest_version="2.0.0",
+            latest_version_id="FAILID",
+            latest_file=latest_file_fail,
+        )
+
+        download_file_ok = tmp_path / "downloads" / latest_file_ok.filename
+        download_file_ok.parent.mkdir(parents=True)
+        download_file_ok.write_text("ok")
+        task_ok = DownloadTask(
+            url=latest_file_ok.url,
+            dest=download_file_ok,
+            expected_hash=latest_file_ok.hashes["sha512"],
+            slug="sodium",
+            version_number="1.1.0",
+        )
+        download_result_ok = DownloadResult(
+            task=task_ok,
+            success=True,
+            file_path=download_file_ok,
+            error=None,
+        )
+
+        task_fail = DownloadTask(
+            url=latest_file_fail.url,
+            dest=tmp_path / "downloads" / latest_file_fail.filename,
+            expected_hash=latest_file_fail.hashes["sha512"],
+            slug="lithium",
+            version_number="2.0.0",
+        )
+        download_result_fail = DownloadResult(
+            task=task_fail,
+            success=False,
+            file_path=None,
+            error="Download failed",
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result_ok, download_result_fail]),
+        )
+
+        # Act
+        result = await manager.apply_updates([update_ok, update_fail], backup=False)
+
+        # Assert
+        assert result.successful == ["sodium"]
+        assert any(slug == "lithium" for slug, _ in result.failed)
+        assert (tmp_path / "mods" / latest_file_ok.filename).exists()
+        assert not (tmp_path / "mods" / latest_file_fail.filename).exists()
 
 
 class TestApplyUpdatesRollback:
