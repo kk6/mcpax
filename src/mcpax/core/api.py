@@ -1,7 +1,9 @@
 """Modrinth API client."""
 
 import asyncio
+import re
 from dataclasses import dataclass
+from types import TracebackType
 from typing import Self
 
 import httpx
@@ -76,7 +78,12 @@ class ModrinthClient:
             )
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         if self._owns_client and self._client:
             await self._client.aclose()
@@ -121,8 +128,6 @@ class ModrinthClient:
             # Use provided slug or extract from path
             if slug is None:
                 # Try to extract slug from path (e.g., /project/{slug})
-                import re
-
                 match = re.search(r"/project/([^/]+)", str(response.url.path))
                 slug = match.group(1) if match else "unknown"
             raise ProjectNotFoundError(slug)

@@ -5,6 +5,7 @@ import hashlib
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from types import TracebackType
 from typing import Protocol, Self
 
 import httpx
@@ -143,7 +144,7 @@ class Downloader:
             on_task_complete: Callback when a task completes.
         """
         self._injected_client = client
-        self._client: httpx.AsyncClient = None  # type: ignore
+        self._client: httpx.AsyncClient | None = None
         self._config = config or DownloaderConfig()
         self._on_task_start = on_task_start
         self._on_progress = on_progress
@@ -157,7 +158,12 @@ class Downloader:
             self._client = httpx.AsyncClient(timeout=self._config.timeout)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         if self._injected_client is None and self._client is not None:
             await self._client.aclose()
@@ -244,6 +250,10 @@ class Downloader:
         """
         # Ensure parent directory exists
         task.dest.parent.mkdir(parents=True, exist_ok=True)
+
+        if self._client is None:
+            msg = "Client not initialized. Use 'async with' context manager."
+            raise RuntimeError(msg)
 
         task_id = None
         file_created = False

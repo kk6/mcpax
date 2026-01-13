@@ -199,9 +199,16 @@ class StateFile(BaseModel):
     files: dict[str, InstalledFile] = Field(default_factory=dict)
 
 
+class FailedUpdate(BaseModel):
+    """Failed update information."""
+
+    slug: str
+    error: str
+
+
 class UpdateResult(BaseModel):
     """Result of applying updates."""
 
     successful: list[str]
-    failed: list[tuple[str, str]]
+    failed: list[FailedUpdate]
     backed_up: list[Path]
