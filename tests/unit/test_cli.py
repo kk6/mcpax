@@ -1,12 +1,15 @@
 """Unit tests for CLI application."""
 
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from typer.testing import CliRunner
 
 from mcpax import __version__
 from mcpax.cli.app import app
+from mcpax.core.exceptions import ProjectNotFoundError
+from mcpax.core.models import ModrinthProject, ProjectType
 
 runner = CliRunner()
 
@@ -258,3 +261,204 @@ class TestInitCommand:
         assert "Initialization complete!" in result.stdout
         assert "Configuration stored in:" in result.stdout
         assert "mcpax add" in result.stdout
+
+
+class TestAddCommand:
+    """Tests for add command."""
+
+    def test_add_project_success(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that add command successfully adds a project."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine for Minecraft",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url="https://cdn.modrinth.com/...",
+            versions=["v1", "v2"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+
+            # Act
+            result = runner.invoke(app, ["add", "sodium"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "Sodium" in result.stdout
+        assert "mod" in result.stdout
+
+    def test_add_project_saves_to_projects_toml(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that add command saves project to projects.toml."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+
+            # Act
+            runner.invoke(app, ["add", "sodium"])
+
+        # Assert
+        projects_file = tmp_path / "mcpax" / "projects.toml"
+        assert projects_file.exists()
+        content = projects_file.read_text()
+        assert "sodium" in content
+
+    def test_add_project_with_version_option(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that add command with --version option works."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+
+            # Act
+            runner.invoke(app, ["add", "sodium", "--version", "0.5.0"])
+
+        # Assert
+        projects_file = tmp_path / "mcpax" / "projects.toml"
+        content = projects_file.read_text()
+        assert "sodium" in content
+        assert "0.5.0" in content
+
+    def test_add_project_with_channel_option(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that add command with --channel option works."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+
+            # Act
+            runner.invoke(app, ["add", "sodium", "--channel", "beta"])
+
+        # Assert
+        projects_file = tmp_path / "mcpax" / "projects.toml"
+        content = projects_file.read_text()
+        assert "sodium" in content
+        assert "beta" in content
+
+    def test_add_project_not_found(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that add command shows error when project not found."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(
+                side_effect=ProjectNotFoundError("nonexistent")
+            )
+
+            # Act
+            result = runner.invoke(app, ["add", "nonexistent"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "not found" in result.stdout.lower()
+        assert "nonexistent" in result.stdout
+
+    def test_add_project_already_exists(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that add command shows error when project already exists."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+
+            # Add first time
+            runner.invoke(app, ["add", "sodium"])
+
+            # Act - try to add again
+            result = runner.invoke(app, ["add", "sodium"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "already" in result.stdout.lower()
+        assert "sodium" in result.stdout
+
+    def test_add_project_no_config(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that add command shows error when config.toml not found."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+        # Act - try to add without running init
+        result = runner.invoke(app, ["add", "sodium"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "config.toml not found" in result.stdout or "mcpax init" in result.stdout
