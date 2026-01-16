@@ -286,6 +286,31 @@ class ProjectManager:
                 f"Failed to delete file: {e}", path=file_path
             ) from e
 
+    async def uninstall_project(self, slug: str) -> tuple[bool, str | None]:
+        """Uninstall a project by removing its file and state.
+
+        Args:
+            slug: Project slug to uninstall
+
+        Returns:
+            Tuple of (success, filename) where success is True if file was deleted,
+            False if not installed, and filename is the deleted file name or None.
+
+        Raises:
+            FileOperationError: If file deletion fails
+        """
+        installed = await self.get_installed_file(slug)
+        if installed is None:
+            return (False, None)
+
+        # Delete the file
+        await self.delete_file(installed.file_path)
+
+        # Remove from state
+        await self._remove_installed_file(slug)
+
+        return (True, installed.filename)
+
     # Status Functions (F-405, F-406)
 
     async def get_installed_file(self, slug: str) -> InstalledFile | None:
