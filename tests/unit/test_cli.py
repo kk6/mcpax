@@ -716,3 +716,298 @@ class TestRemoveCommand:
         projects_file = tmp_path / "mcpax" / "projects.toml"
         content = projects_file.read_text()
         assert "sodium" not in content
+
+
+class TestInstallCommand:
+    """Tests for install command."""
+
+    def test_install_single_project_success(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that install command successfully installs a single project."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Mock ProjectManager for install
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_result = UpdateCheckResult(
+                slug="sodium",
+                status=InstallStatus.NOT_INSTALLED,
+                current_version=None,
+                current_file=None,
+                latest_version="0.5.0",
+                latest_version_id="v0.5.0",
+                latest_file=None,
+            )
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=[mock_check_result]
+            )
+
+            from mcpax.core.models import UpdateResult
+
+            mock_update_result = UpdateResult(
+                successful=["sodium"], failed=[], backed_up=[]
+            )
+            mock_manager_instance.apply_updates = AsyncMock(
+                return_value=mock_update_result
+            )
+
+            # Act
+            result = runner.invoke(app, ["install", "sodium"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "sodium" in result.stdout.lower()
+
+    def test_install_all_projects_success(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that install --all installs all projects."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project_sodium = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        mock_project_lithium = ModrinthProject(
+            id="gvQqBUqZ",
+            slug="lithium",
+            title="Lithium",
+            description="Performance mod",
+            project_type=ProjectType.MOD,
+            downloads=30000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(
+                side_effect=[mock_project_sodium, mock_project_lithium]
+            )
+            runner.invoke(app, ["add", "sodium"])
+            runner.invoke(app, ["add", "lithium"])
+
+        # Mock ProjectManager for install
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_results = [
+                UpdateCheckResult(
+                    slug="sodium",
+                    status=InstallStatus.NOT_INSTALLED,
+                    current_version=None,
+                    current_file=None,
+                    latest_version="0.5.0",
+                    latest_version_id="v0.5.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="lithium",
+                    status=InstallStatus.NOT_INSTALLED,
+                    current_version=None,
+                    current_file=None,
+                    latest_version="0.11.0",
+                    latest_version_id="v0.11.0",
+                    latest_file=None,
+                ),
+            ]
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=mock_check_results
+            )
+
+            from mcpax.core.models import UpdateResult
+
+            mock_update_result = UpdateResult(
+                successful=["sodium", "lithium"], failed=[], backed_up=[]
+            )
+            mock_manager_instance.apply_updates = AsyncMock(
+                return_value=mock_update_result
+            )
+
+            # Act
+            result = runner.invoke(app, ["install", "--all"])
+
+        # Assert
+        assert result.exit_code == 0
+
+    def test_install_no_args_shows_error(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that install without slug or --all shows error."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        # Act
+        result = runner.invoke(app, ["install"])
+
+        # Assert
+        assert result.exit_code != 0
+
+    def test_install_project_not_in_list(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that install shows error when project not in projects.toml."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        # Act
+        result = runner.invoke(app, ["install", "nonexistent"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "not found" in result.stdout.lower() or "nonexistent" in result.stdout
+
+    def test_install_no_compatible_version(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that install handles no compatible version gracefully."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Mock ProjectManager to return NOT_COMPATIBLE
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_result = UpdateCheckResult(
+                slug="sodium",
+                status=InstallStatus.NOT_COMPATIBLE,
+                current_version=None,
+                current_file=None,
+                latest_version=None,
+                latest_version_id=None,
+                latest_file=None,
+            )
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=[mock_check_result]
+            )
+
+            # Act
+            result = runner.invoke(app, ["install", "sodium"])
+
+        # Assert
+        assert result.exit_code == 0  # Should complete but show warning
+        assert "compatible" in result.stdout.lower() or "sodium" in result.stdout
+
+    def test_install_already_installed_skips(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that install skips already installed projects."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Mock ProjectManager to return INSTALLED
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_result = UpdateCheckResult(
+                slug="sodium",
+                status=InstallStatus.INSTALLED,
+                current_version="0.5.0",
+                current_file=None,
+                latest_version="0.5.0",
+                latest_version_id="v0.5.0",
+                latest_file=None,
+            )
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=[mock_check_result]
+            )
+
+            from mcpax.core.models import UpdateResult
+
+            mock_update_result = UpdateResult(successful=[], failed=[], backed_up=[])
+            mock_manager_instance.apply_updates = AsyncMock(
+                return_value=mock_update_result
+            )
+
+            # Act
+            result = runner.invoke(app, ["install", "sodium"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Should indicate already installed
+        assert (
+            "installed" in result.stdout.lower() or "already" in result.stdout.lower()
+        )
+
+    def test_install_no_config(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that install shows error when config.toml not found."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+        # Act - try to install without running init
+        result = runner.invoke(app, ["install", "sodium"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "config.toml not found" in result.stdout or "mcpax init" in result.stdout
