@@ -1,5 +1,6 @@
 """Configuration file handling."""
 
+import os
 import re
 import tomllib
 from dataclasses import dataclass
@@ -10,8 +11,7 @@ import tomlkit
 from .models import AppConfig, Loader, ProjectConfig, ReleaseChannel
 
 # Constants
-DEFAULT_CONFIG_PATH = Path("./config.toml")
-DEFAULT_PROJECTS_PATH = Path("./projects.toml")
+APP_NAME = "mcpax"
 MINECRAFT_VERSION_PATTERN = re.compile(r"^\d+\.\d+(\.\d+)?(-\w+)?$")
 
 
@@ -31,6 +31,36 @@ class ConfigValidationError(Exception):
         self.errors = errors or []
 
 
+def get_config_dir() -> Path:
+    """Get XDG Base Directory compliant config directory.
+
+    Returns:
+        Path to config directory (XDG_CONFIG_HOME/mcpax or ~/.config/mcpax)
+    """
+    xdg_config_home = os.environ.get("XDG_CONFIG_HOME", "").strip()
+    if xdg_config_home:
+        return Path(xdg_config_home) / APP_NAME
+    return Path.home() / ".config" / APP_NAME
+
+
+def get_default_config_path() -> Path:
+    """Get default path for config.toml.
+
+    Returns:
+        Path to config.toml in config directory
+    """
+    return get_config_dir() / "config.toml"
+
+
+def get_default_projects_path() -> Path:
+    """Get default path for projects.toml.
+
+    Returns:
+        Path to projects.toml in config directory
+    """
+    return get_config_dir() / "projects.toml"
+
+
 def resolve_path(path: str | Path) -> Path:
     """Expand ~ and relative paths to absolute.
 
@@ -47,7 +77,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     """Load config.toml and return AppConfig.
 
     Args:
-        path: Path to config file (defaults to ./config.toml)
+        path: Path to config file (defaults to XDG_CONFIG_HOME/mcpax/config.toml)
 
     Returns:
         AppConfig instance
@@ -56,7 +86,7 @@ def load_config(path: Path | None = None) -> AppConfig:
         FileNotFoundError: If config file doesn't exist
         ConfigValidationError: If config is invalid
     """
-    config_path = path or DEFAULT_CONFIG_PATH
+    config_path = path or get_default_config_path()
 
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -110,7 +140,7 @@ def generate_config(
         minecraft_version: Minecraft version (e.g., "1.21.4")
         loader: Mod loader type
         minecraft_dir: Path to .minecraft directory
-        path: Output path (defaults to ./config.toml)
+        path: Output path (defaults to XDG_CONFIG_HOME/mcpax/config.toml)
         force: Overwrite existing file
 
     Returns:
@@ -119,10 +149,13 @@ def generate_config(
     Raises:
         FileExistsError: If file exists and force=False
     """
-    config_path = path or DEFAULT_CONFIG_PATH
+    config_path = path or get_default_config_path()
 
     if config_path.exists() and not force:
         raise FileExistsError(f"Config file already exists: {config_path}")
+
+    # Create parent directory if it doesn't exist
+    config_path.parent.mkdir(parents=True, exist_ok=True)
 
     doc = tomlkit.document()
 
@@ -150,7 +183,7 @@ def load_projects(path: Path | None = None) -> list[ProjectConfig]:
     """Load projects.toml and return list of ProjectConfig.
 
     Args:
-        path: Path to projects file (defaults to ./projects.toml)
+        path: Path to projects file (defaults to XDG_CONFIG_HOME/mcpax/projects.toml)
 
     Returns:
         List of ProjectConfig instances
@@ -159,7 +192,7 @@ def load_projects(path: Path | None = None) -> list[ProjectConfig]:
         FileNotFoundError: If projects file doesn't exist
         ConfigValidationError: If projects file is invalid
     """
-    projects_path = path or DEFAULT_PROJECTS_PATH
+    projects_path = path or get_default_projects_path()
 
     if not projects_path.exists():
         raise FileNotFoundError(f"Projects file not found: {projects_path}")
@@ -190,7 +223,7 @@ def generate_projects(path: Path | None = None, force: bool = False) -> Path:
     """Generate empty projects.toml.
 
     Args:
-        path: Output path (defaults to ./projects.toml)
+        path: Output path (defaults to XDG_CONFIG_HOME/mcpax/projects.toml)
         force: Overwrite existing file
 
     Returns:
@@ -199,10 +232,13 @@ def generate_projects(path: Path | None = None, force: bool = False) -> Path:
     Raises:
         FileExistsError: If file exists and force=False
     """
-    projects_path = path or DEFAULT_PROJECTS_PATH
+    projects_path = path or get_default_projects_path()
 
     if projects_path.exists() and not force:
         raise FileExistsError(f"Projects file already exists: {projects_path}")
+
+    # Create parent directory if it doesn't exist
+    projects_path.parent.mkdir(parents=True, exist_ok=True)
 
     doc = tomlkit.document()
     doc.add(tomlkit.comment("Managed projects"))
@@ -222,12 +258,12 @@ def save_projects(projects: list[ProjectConfig], path: Path | None = None) -> Pa
 
     Args:
         projects: List of ProjectConfig instances
-        path: Output path (defaults to ./projects.toml)
+        path: Output path (defaults to XDG_CONFIG_HOME/mcpax/projects.toml)
 
     Returns:
         Path to saved projects file
     """
-    projects_path = path or DEFAULT_PROJECTS_PATH
+    projects_path = path or get_default_projects_path()
 
     doc = tomlkit.document()
 
