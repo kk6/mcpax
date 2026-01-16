@@ -9,6 +9,17 @@ from mcpax.core.api import ModrinthClient
 from mcpax.core.models import ProjectVersion, ReleaseChannel
 
 
+@pytest.fixture(autouse=True)
+def fixed_terminal_width(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fix terminal width for consistent Rich output across different environments.
+
+    This prevents CI/local environment differences in terminal width from causing
+    test failures due to line wrapping in Rich console output.
+    """
+    monkeypatch.setenv("COLUMNS", "200")
+    monkeypatch.setenv("LINES", "50")
+
+
 @pytest.fixture
 def fixtures_dir() -> Path:
     """Return the path to the fixtures directory."""

@@ -32,7 +32,24 @@ uv sync
 mcpax init
 ```
 
-### 2. 設定ファイルの作成
+このコマンドで `config.toml` と `projects.toml` が自動生成されます。
+
+#### 設定ファイルの場所
+
+設定ファイルは [XDG Base Directory 仕様](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) に準拠した場所に配置されます：
+
+- **XDG_CONFIG_HOME が設定されている場合**: `$XDG_CONFIG_HOME/mcpax/`
+- **未設定の場合（デフォルト）**: `~/.config/mcpax/`
+
+```bash
+# デフォルトの配置場所
+~/.config/mcpax/config.toml
+~/.config/mcpax/projects.toml
+```
+
+### 2. 設定ファイルの編集
+
+生成された `config.toml` と `projects.toml` を必要に応じて編集します。
 
 `config.toml`:
 

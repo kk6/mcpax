@@ -9,6 +9,9 @@ from mcpax.core.config import (
     ValidationError,
     generate_config,
     generate_projects,
+    get_config_dir,
+    get_default_config_path,
+    get_default_projects_path,
     load_config,
     load_projects,
     resolve_path,
@@ -16,6 +19,118 @@ from mcpax.core.config import (
     validate_config,
 )
 from mcpax.core.models import AppConfig, Loader, ProjectConfig, ReleaseChannel
+
+
+class TestGetConfigDir:
+    """Tests for get_config_dir function."""
+
+    def test_uses_xdg_config_home_when_set(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """get_config_dir uses XDG_CONFIG_HOME when set."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+        # Act
+        result = get_config_dir()
+
+        # Assert
+        assert result == tmp_path / "mcpax"
+
+    def test_uses_default_when_xdg_config_home_not_set(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """get_config_dir uses ~/.config/mcpax when XDG_CONFIG_HOME not set."""
+        # Arrange
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+        # Act
+        result = get_config_dir()
+
+        # Assert
+        assert result == Path.home() / ".config" / "mcpax"
+
+    def test_uses_default_when_xdg_config_home_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """get_config_dir uses default when XDG_CONFIG_HOME is empty."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", "")
+
+        # Act
+        result = get_config_dir()
+
+        # Assert
+        assert result == Path.home() / ".config" / "mcpax"
+
+    def test_uses_default_when_xdg_config_home_whitespace(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """get_config_dir uses default when XDG_CONFIG_HOME is whitespace."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", "   ")
+
+        # Act
+        result = get_config_dir()
+
+        # Assert
+        assert result == Path.home() / ".config" / "mcpax"
+
+
+class TestGetDefaultConfigPath:
+    """Tests for get_default_config_path function."""
+
+    def test_returns_config_toml_in_config_dir(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """get_default_config_path returns config.toml in config directory."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+        # Act
+        result = get_default_config_path()
+
+        # Assert
+        assert result == tmp_path / "mcpax" / "config.toml"
+
+    def test_uses_default_config_dir(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """get_default_config_path uses default config directory."""
+        # Arrange
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+        # Act
+        result = get_default_config_path()
+
+        # Assert
+        assert result == Path.home() / ".config" / "mcpax" / "config.toml"
+
+
+class TestGetDefaultProjectsPath:
+    """Tests for get_default_projects_path function."""
+
+    def test_returns_projects_toml_in_config_dir(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """get_default_projects_path returns projects.toml in config directory."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+        # Act
+        result = get_default_projects_path()
+
+        # Assert
+        assert result == tmp_path / "mcpax" / "projects.toml"
+
+    def test_uses_default_config_dir(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """get_default_projects_path uses default config directory."""
+        # Arrange
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+        # Act
+        result = get_default_projects_path()
+
+        # Assert
+        assert result == Path.home() / ".config" / "mcpax" / "projects.toml"
 
 
 class TestResolvePath:

@@ -94,3 +94,5 @@ uv.lock
 
 # Project specific
 .mcpax-state.json
+config.toml
+projects.toml
