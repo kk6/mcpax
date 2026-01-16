@@ -384,6 +384,77 @@ class TestDeleteFile:
         assert result is False
 
 
+class TestUninstallProject:
+    """Tests for uninstall_project."""
+
+    async def test_uninstalls_existing_project(self, tmp_path: Path) -> None:
+        """uninstall_project removes file and state for installed project."""
+        # Arrange
+        config = _make_config(tmp_path)
+        manager = ProjectManager(config)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text("content")
+
+        installed = _make_installed_file(
+            "sodium",
+            filename="sodium.jar",
+            file_path=file_path,
+        )
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager._save_state(state)
+
+        # Act
+        success, filename = await manager.uninstall_project("sodium")
+
+        # Assert
+        assert success is True
+        assert filename == "sodium.jar"
+        assert not file_path.exists()
+        result_state = await manager._load_state()
+        assert "sodium" not in result_state.files
+
+    async def test_returns_false_for_not_installed(self, tmp_path: Path) -> None:
+        """uninstall_project returns False for not installed project."""
+        # Arrange
+        config = _make_config(tmp_path)
+        manager = ProjectManager(config)
+
+        # Act
+        success, filename = await manager.uninstall_project("nonexistent")
+
+        # Assert
+        assert success is False
+        assert filename is None
+
+    async def test_removes_from_state_even_if_file_missing(
+        self, tmp_path: Path
+    ) -> None:
+        """uninstall_project removes state entry even if file is missing."""
+        # Arrange
+        config = _make_config(tmp_path)
+        manager = ProjectManager(config)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        # File does not exist
+
+        installed = _make_installed_file(
+            "sodium",
+            filename="sodium.jar",
+            file_path=file_path,
+        )
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager._save_state(state)
+
+        # Act
+        success, filename = await manager.uninstall_project("sodium")
+
+        # Assert
+        assert success is True
+        assert filename == "sodium.jar"
+        result_state = await manager._load_state()
+        assert "sodium" not in result_state.files
+
+
 class TestGetInstalledFile:
     """Tests for F-406: get_installed_file."""
 

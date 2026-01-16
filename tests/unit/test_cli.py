@@ -462,3 +462,257 @@ class TestAddCommand:
         # Assert
         assert result.exit_code == 1
         assert "config.toml not found" in result.stdout or "mcpax init" in result.stdout
+
+
+class TestRemoveCommand:
+    """Tests for remove command."""
+
+    def test_remove_project_not_found(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command shows error when project not in list."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        # Act
+        result = runner.invoke(app, ["remove", "nonexistent"], input="y\n")
+
+        # Assert
+        assert result.exit_code == 1
+        assert "not found" in result.stdout.lower() or "nonexistent" in result.stdout
+
+    def test_remove_project_success(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command successfully removes a project."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Act
+        result = runner.invoke(app, ["remove", "sodium"], input="y\n")
+
+        # Assert
+        assert result.exit_code == 0
+        projects_file = tmp_path / "mcpax" / "projects.toml"
+        content = projects_file.read_text()
+        assert "sodium" not in content
+
+    def test_remove_project_confirmation_no(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command does not remove when user says no."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Act - say "no" to confirmation
+        result = runner.invoke(app, ["remove", "sodium"], input="n\n")
+
+        # Assert
+        assert result.exit_code == 0
+        assert "Cancelled" in result.stdout
+        projects_file = tmp_path / "mcpax" / "projects.toml"
+        content = projects_file.read_text()
+        assert "sodium" in content  # Should still be in the list
+
+    def test_remove_project_skip_confirmation(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command with --yes skips confirmation."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Act - use --yes to skip confirmation
+        result = runner.invoke(app, ["remove", "sodium", "--yes"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "Remove" not in result.stdout  # No confirmation prompt
+        projects_file = tmp_path / "mcpax" / "projects.toml"
+        content = projects_file.read_text()
+        assert "sodium" not in content
+
+    def test_remove_project_with_delete_file(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command with --delete-file deletes installed file."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Mock the file deletion helper
+        with patch(
+            "mcpax.cli.app._remove_installed_file_with_manager"
+        ) as mock_remove_file:
+            mock_remove_file.return_value = (True, "sodium-0.5.0.jar")
+
+            # Act
+            result = runner.invoke(app, ["remove", "sodium", "--delete-file", "--yes"])
+
+        # Assert
+        assert result.exit_code == 0
+        mock_remove_file.assert_called_once_with("sodium")
+        assert "sodium-0.5.0.jar" in result.stdout
+
+    def test_remove_project_delete_file_not_installed(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command with --delete-file handles not installed case."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Mock the file deletion helper - returns False (not installed)
+        with patch(
+            "mcpax.cli.app._remove_installed_file_with_manager"
+        ) as mock_remove_file:
+            mock_remove_file.return_value = (False, None)
+
+            # Act
+            result = runner.invoke(app, ["remove", "sodium", "--delete-file", "--yes"])
+
+        # Assert
+        assert result.exit_code == 0
+        mock_remove_file.assert_called_once_with("sodium")
+        # Should still remove from list but indicate no file was installed
+        projects_file = tmp_path / "mcpax" / "projects.toml"
+        content = projects_file.read_text()
+        assert "sodium" not in content
+
+    def test_remove_project_no_config(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command shows error when config.toml not found."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+        # Act - try to remove without running init
+        result = runner.invoke(app, ["remove", "sodium"], input="y\n")
+
+        # Assert
+        assert result.exit_code == 1
+        assert "config.toml not found" in result.stdout or "mcpax init" in result.stdout
+
+    def test_remove_project_combined_flags(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command with -d -y flags works correctly."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Mock the file deletion helper
+        with patch(
+            "mcpax.cli.app._remove_installed_file_with_manager"
+        ) as mock_remove_file:
+            mock_remove_file.return_value = (True, "sodium-0.5.0.jar")
+
+            # Act - use short flags -d -y
+            result = runner.invoke(app, ["remove", "sodium", "-d", "-y"])
+
+        # Assert
+        assert result.exit_code == 0
+        mock_remove_file.assert_called_once_with("sodium")
+        assert "sodium-0.5.0.jar" in result.stdout
+        projects_file = tmp_path / "mcpax" / "projects.toml"
+        content = projects_file.read_text()
+        assert "sodium" not in content
