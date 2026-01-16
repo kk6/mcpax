@@ -369,6 +369,11 @@ def install(
         raise typer.Exit(code=1) from None
 
     # Determine target projects
+    if all_projects and slug is not None:
+        console.print(
+            "[red]Error:[/red] Cannot use --all with a specific project slug."
+        )
+        raise typer.Exit(code=1)
     if not all_projects and slug is None:
         console.print("[red]Error:[/red] Specify a project slug or use --all.")
         raise typer.Exit(code=1)

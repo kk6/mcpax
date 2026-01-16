@@ -875,6 +875,21 @@ class TestInstallCommand:
         # Assert
         assert result.exit_code != 0
 
+    def test_install_slug_with_all_shows_error(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that install with slug and --all shows error."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        # Act
+        result = runner.invoke(app, ["install", "sodium", "--all"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "Cannot use --all" in result.stdout
+
     def test_install_project_not_in_list(
         self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
     ) -> None:
