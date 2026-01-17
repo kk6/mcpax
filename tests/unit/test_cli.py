@@ -225,7 +225,7 @@ class TestInitCommand:
 
         # Act
         result = runner.invoke(
-            app, ["init"], input="1.20.1\nforge\n/custom/minecraft\n"
+            app, ["init"], input="1.20.1\nforge\noptifine\n/custom/minecraft\n"
         )
 
         # Assert
@@ -233,6 +233,7 @@ class TestInitCommand:
         config_content = (tmp_path / "mcpax" / "config.toml").read_text()
         assert "1.20.1" in config_content
         assert "forge" in config_content
+        assert "optifine" in config_content
         assert "/custom/minecraft" in config_content
 
     def test_init_interactive_uses_defaults_on_empty_input(
@@ -243,7 +244,7 @@ class TestInitCommand:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
         # Act
-        result = runner.invoke(app, ["init"], input="\n\n\n")
+        result = runner.invoke(app, ["init"], input="\n\n\n\n")
 
         # Assert
         assert result.exit_code == 0

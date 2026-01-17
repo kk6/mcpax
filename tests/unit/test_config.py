@@ -18,7 +18,13 @@ from mcpax.core.config import (
     save_projects,
     validate_config,
 )
-from mcpax.core.models import AppConfig, Loader, ProjectConfig, ReleaseChannel
+from mcpax.core.models import (
+    AppConfig,
+    Loader,
+    ProjectConfig,
+    ProjectType,
+    ReleaseChannel,
+)
 
 
 class TestGetConfigDir:
@@ -280,7 +286,7 @@ class TestLoadConfig:
         # Assert
         assert isinstance(config, AppConfig)
         assert config.minecraft_version == "1.21.4"
-        assert config.loader == Loader.FABRIC
+        assert config.mod_loader == Loader.FABRIC
 
     def test_load_config_returns_app_config(self, sample_config: Path) -> None:
         """load_config returns AppConfig instance."""
@@ -346,7 +352,7 @@ minecraft_dir = "~/.minecraft"
             """
 [minecraft]
 version = "1.21.4"
-loader = "fabric"
+mod_loader = "fabric"
 
 [paths]
 minecraft_dir = "~/.minecraft"
@@ -364,6 +370,29 @@ verify_hash = false
         assert config.max_concurrent_downloads == 10
         assert config.verify_hash is False
 
+    def test_load_config_backward_compatible_with_loader(self, tmp_path: Path) -> None:
+        """load_config supports old 'loader' field for backward compatibility."""
+        # Arrange
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+"""
+        )
+
+        # Act
+        config = load_config(config_file)
+
+        # Assert
+        assert config.minecraft_version == "1.21.4"
+        assert config.mod_loader == Loader.FABRIC
+        assert config.shader_loader is None
+
     def test_load_config_expands_paths(self, tmp_path: Path) -> None:
         """load_config expands ~ in paths."""
         # Arrange
@@ -372,7 +401,7 @@ verify_hash = false
             """
 [minecraft]
 version = "1.21.4"
-loader = "fabric"
+mod_loader = "fabric"
 
 [paths]
 minecraft_dir = "~/test_minecraft"
@@ -398,7 +427,7 @@ class TestGenerateConfig:
         # Act
         generate_config(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=Path("~/.minecraft"),
             path=config_path,
         )
@@ -414,7 +443,7 @@ class TestGenerateConfig:
         # Act
         result = generate_config(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=Path("~/.minecraft"),
             path=config_path,
         )
@@ -430,7 +459,7 @@ class TestGenerateConfig:
         # Act
         generate_config(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=Path("~/.minecraft"),
             path=config_path,
         )
@@ -451,7 +480,7 @@ class TestGenerateConfig:
         with pytest.raises(FileExistsError):
             generate_config(
                 minecraft_version="1.21.4",
-                loader=Loader.FABRIC,
+                mod_loader=Loader.FABRIC,
                 minecraft_dir=Path("~/.minecraft"),
                 path=config_path,
             )
@@ -465,7 +494,7 @@ class TestGenerateConfig:
         # Act
         generate_config(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=Path("~/.minecraft"),
             path=config_path,
             force=True,
@@ -483,7 +512,7 @@ class TestGenerateConfig:
             config_path = tmp_path / f"config_{loader.value}.toml"
             generate_config(
                 minecraft_version="1.21.4",
-                loader=loader,
+                mod_loader=loader,
                 minecraft_dir=Path("~/.minecraft"),
                 path=config_path,
             )
@@ -491,7 +520,7 @@ class TestGenerateConfig:
             # Assert
             assert config_path.exists()
             content = config_path.read_text()
-            assert f'loader = "{loader.value}"' in content
+            assert f'mod_loader = "{loader.value}"' in content
 
     def test_generate_config_roundtrip(self, tmp_path: Path) -> None:
         """Generated config can be loaded back."""
@@ -503,7 +532,7 @@ class TestGenerateConfig:
         # Act
         generate_config(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=minecraft_dir,
             path=config_path,
         )
@@ -511,7 +540,7 @@ class TestGenerateConfig:
 
         # Assert
         assert loaded.minecraft_version == "1.21.4"
-        assert loaded.loader == Loader.FABRIC
+        assert loaded.mod_loader == Loader.FABRIC
         assert loaded.minecraft_dir == minecraft_dir.resolve()
 
 
@@ -655,6 +684,43 @@ channel = "invalid_channel"
         # Act & Assert
         with pytest.raises(ConfigValidationError):
             load_projects(projects_file)
+
+    def test_load_projects_with_project_type(self, tmp_path: Path) -> None:
+        """load_projects parses project_type field."""
+        # Arrange
+        projects_file = tmp_path / "projects.toml"
+        projects_file.write_text(
+            """
+[[projects]]
+slug = "sodium"
+project_type = "mod"
+"""
+        )
+
+        # Act
+        projects = load_projects(projects_file)
+
+        # Assert
+        assert len(projects) == 1
+        assert projects[0].project_type == ProjectType.MOD
+
+    def test_load_projects_without_project_type(self, tmp_path: Path) -> None:
+        """load_projects defaults to None when project_type is missing."""
+        # Arrange
+        projects_file = tmp_path / "projects.toml"
+        projects_file.write_text(
+            """
+[[projects]]
+slug = "sodium"
+"""
+        )
+
+        # Act
+        projects = load_projects(projects_file)
+
+        # Assert
+        assert len(projects) == 1
+        assert projects[0].project_type is None
 
 
 class TestGenerateProjects:
@@ -817,13 +883,39 @@ class TestSaveProjects:
         content = projects_path.read_text()
         assert "channel" not in content
 
+    def test_save_projects_with_project_type(self, tmp_path: Path) -> None:
+        """save_projects includes project_type when specified."""
+        # Arrange
+        projects_path = tmp_path / "projects.toml"
+        projects = [ProjectConfig(slug="sodium", project_type=ProjectType.MOD)]
+
+        # Act
+        save_projects(projects, path=projects_path)
+
+        # Assert
+        content = projects_path.read_text()
+        assert 'project_type = "mod"' in content
+
+    def test_save_projects_omits_none_project_type(self, tmp_path: Path) -> None:
+        """save_projects omits project_type when None."""
+        # Arrange
+        projects_path = tmp_path / "projects.toml"
+        projects = [ProjectConfig(slug="fabric-api", project_type=None)]
+
+        # Act
+        save_projects(projects, path=projects_path)
+
+        # Assert
+        content = projects_path.read_text()
+        assert "project_type" not in content
+
     def test_save_projects_roundtrip(self, tmp_path: Path) -> None:
         """Saved projects can be loaded back."""
         # Arrange
         projects_path = tmp_path / "projects.toml"
         original = [
             ProjectConfig(slug="fabric-api"),
-            ProjectConfig(slug="sodium", version="0.6.0"),
+            ProjectConfig(slug="sodium", version="0.6.0", project_type=ProjectType.MOD),
             ProjectConfig(slug="some-mod", channel=ReleaseChannel.BETA),
         ]
 
@@ -836,6 +928,7 @@ class TestSaveProjects:
         assert loaded[0].slug == "fabric-api"
         assert loaded[1].slug == "sodium"
         assert loaded[1].version == "0.6.0"
+        assert loaded[1].project_type == ProjectType.MOD
         assert loaded[2].slug == "some-mod"
         assert loaded[2].channel == ReleaseChannel.BETA
 
@@ -865,7 +958,7 @@ class TestValidateConfig:
         minecraft_dir.mkdir()
         config = AppConfig(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=minecraft_dir,
         )
 
@@ -880,7 +973,7 @@ class TestValidateConfig:
         # Arrange
         config = AppConfig(
             minecraft_version="invalid",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=Path("/tmp"),
         )
 
@@ -902,7 +995,7 @@ class TestValidateConfig:
         for version in valid_versions:
             config = AppConfig(
                 minecraft_version=version,
-                loader=Loader.FABRIC,
+                mod_loader=Loader.FABRIC,
                 minecraft_dir=minecraft_dir,
             )
             errors = validate_config(config)
@@ -915,7 +1008,7 @@ class TestValidateConfig:
         nonexistent_dir = tmp_path / "nonexistent"
         config = AppConfig(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=nonexistent_dir,
         )
 
@@ -933,7 +1026,7 @@ class TestValidateConfig:
         minecraft_dir.mkdir()
         config = AppConfig(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=minecraft_dir,
         )
 
@@ -949,7 +1042,7 @@ class TestValidateConfig:
         # Arrange
         config = AppConfig(
             minecraft_version="invalid",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=tmp_path / "nonexistent",
         )
 
@@ -967,7 +1060,7 @@ class TestValidateConfig:
         # Arrange
         config = AppConfig(
             minecraft_version="invalid",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=tmp_path,
         )
 
@@ -984,7 +1077,7 @@ class TestValidateConfig:
         # Arrange
         config = AppConfig(
             minecraft_version="invalid",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=tmp_path,
         )
 

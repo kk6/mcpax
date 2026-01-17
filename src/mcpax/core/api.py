@@ -14,6 +14,7 @@ from mcpax.core.exceptions import APIError, ProjectNotFoundError, RateLimitError
 from mcpax.core.models import (
     Loader,
     ModrinthProject,
+    ProjectType,
     ProjectVersion,
     ReleaseChannel,
     SearchResult,
@@ -293,6 +294,8 @@ class ModrinthClient:
         minecraft_version: str,
         loader: Loader,
         channel: ReleaseChannel = ReleaseChannel.RELEASE,
+        project_type: ProjectType | None = None,
+        shader_loader: Loader | None = None,
     ) -> list[ProjectVersion]:
         """Filter versions compatible with given criteria.
 
@@ -303,6 +306,9 @@ class ModrinthClient:
             channel: The most unstable release channel to include. For example,
                 `BETA` will include `BETA` and `RELEASE` versions, but exclude
                 `ALPHA`. `ALPHA` includes all channels.
+            project_type: Project type (mod, shader, etc.).
+            shader_loader: Shader loader (iris, optifine). Used only when
+                project_type is SHADER.
 
         Returns:
             Filtered list of compatible versions (newest first)
@@ -321,15 +327,22 @@ class ModrinthClient:
             if minecraft_version not in version.game_versions:
                 continue
 
-            # Check loader (case-insensitive)
-            loader_str = loader.value.lower()
-            loaders_lower = [name.lower() for name in version.loaders]
-            if (
-                version.loaders
-                and "minecraft" not in loaders_lower
-                and loader_str not in loaders_lower
-            ):
-                continue
+            # Check loader
+            loader_to_check: Loader | None = None
+            if project_type == ProjectType.SHADER:
+                loader_to_check = shader_loader
+            elif project_type != ProjectType.RESOURCEPACK:
+                loader_to_check = loader
+
+            if loader_to_check is not None:
+                loader_str = loader_to_check.value.lower()
+                loaders_lower = [name.lower() for name in version.loaders]
+                if (
+                    version.loaders
+                    and "minecraft" not in loaders_lower
+                    and loader_str not in loaders_lower
+                ):
+                    continue
 
             # Check release channel
             version_channel_value = channel_order[version.version_type]
@@ -349,6 +362,8 @@ class ModrinthClient:
         minecraft_version: str,
         loader: Loader,
         channel: ReleaseChannel = ReleaseChannel.RELEASE,
+        project_type: ProjectType | None = None,
+        shader_loader: Loader | None = None,
     ) -> ProjectVersion | None:
         """Get the latest compatible version.
 
@@ -357,11 +372,14 @@ class ModrinthClient:
             minecraft_version: Target Minecraft version
             loader: Target mod loader
             channel: Minimum release channel
+            project_type: Project type (mod, shader, etc.).
+            shader_loader: Shader loader (iris, optifine). Used only when
+                project_type is SHADER.
 
         Returns:
             Latest compatible ProjectVersion or None
         """
         compatible = self.filter_compatible_versions(
-            versions, minecraft_version, loader, channel
+            versions, minecraft_version, loader, channel, project_type, shader_loader
         )
         return compatible[0] if compatible else None

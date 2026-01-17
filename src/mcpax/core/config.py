@@ -8,7 +8,7 @@ from pathlib import Path
 
 import tomlkit
 
-from .models import AppConfig, Loader, ProjectConfig, ReleaseChannel
+from .models import AppConfig, Loader, ProjectConfig, ProjectType, ReleaseChannel
 
 # Constants
 APP_NAME = "mcpax"
@@ -103,9 +103,17 @@ def load_config(path: Path | None = None) -> AppConfig:
     download = data.get("download", {})
 
     try:
+        # Backward compatibility: support both 'loader' and 'mod_loader'
+        mod_loader_value = minecraft.get("mod_loader") or minecraft.get("loader")
+        if not mod_loader_value:
+            raise KeyError("mod_loader")
+
+        shader_loader_val = minecraft.get("shader_loader")
+
         return AppConfig(
             minecraft_version=minecraft["version"],
-            loader=Loader(minecraft["loader"]),
+            mod_loader=Loader(mod_loader_value),
+            shader_loader=Loader(shader_loader_val) if shader_loader_val else None,
             minecraft_dir=resolve_path(paths["minecraft_dir"]),
             mods_dir=(
                 resolve_path(paths["mods_dir"]) if paths.get("mods_dir") else None
@@ -129,8 +137,9 @@ def load_config(path: Path | None = None) -> AppConfig:
 
 def generate_config(
     minecraft_version: str,
-    loader: Loader,
+    mod_loader: Loader,
     minecraft_dir: Path,
+    shader_loader: Loader | None = None,
     path: Path | None = None,
     force: bool = False,
 ) -> Path:
@@ -138,8 +147,9 @@ def generate_config(
 
     Args:
         minecraft_version: Minecraft version (e.g., "1.21.4")
-        loader: Mod loader type
+        mod_loader: Mod loader type
         minecraft_dir: Path to .minecraft directory
+        shader_loader: Shader loader type (optional)
         path: Output path (defaults to XDG_CONFIG_HOME/mcpax/config.toml)
         force: Overwrite existing file
 
@@ -161,7 +171,9 @@ def generate_config(
 
     minecraft = tomlkit.table()
     minecraft.add("version", minecraft_version)
-    minecraft.add("loader", loader.value)
+    minecraft.add("mod_loader", mod_loader.value)
+    if shader_loader is not None:
+        minecraft.add("shader_loader", shader_loader.value)
     doc.add("minecraft", minecraft)
 
     paths = tomlkit.table()
@@ -210,6 +222,9 @@ def load_projects(path: Path | None = None) -> list[ProjectConfig]:
                 slug=p["slug"],
                 version=p.get("version"),
                 channel=ReleaseChannel(p.get("channel", "release")),
+                project_type=ProjectType(p["project_type"])
+                if p.get("project_type")
+                else None,
             )
             for p in projects_data
         ]
@@ -272,6 +287,8 @@ def save_projects(projects: list[ProjectConfig], path: Path | None = None) -> Pa
         for project in projects:
             table = tomlkit.table()
             table.add("slug", project.slug)
+            if project.project_type is not None:
+                table.add("project_type", project.project_type.value)
             if project.version is not None:
                 table.add("version", project.version)
             if project.channel != ReleaseChannel.RELEASE:

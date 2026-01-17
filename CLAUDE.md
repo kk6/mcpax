@@ -139,7 +139,7 @@ src/mcpax/
 ```toml
 [minecraft]
 version = "1.21.4"
-loader = "fabric"
+mod_loader = "fabric"
 
 [paths]
 minecraft_dir = "~/.minecraft"

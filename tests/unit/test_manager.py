@@ -31,7 +31,7 @@ def _make_config(minecraft_dir: Path) -> AppConfig:
     """Helper to create AppConfig for tests."""
     return AppConfig(
         minecraft_version="1.21.4",
-        loader=Loader.FABRIC,
+        mod_loader=Loader.FABRIC,
         minecraft_dir=minecraft_dir,
     )
 
@@ -77,6 +77,23 @@ def _make_version_payload(
         ],
         "dependencies": [],
         "date_published": "2024-01-15T10:30:00Z",
+    }
+
+
+def _make_project_payload(
+    slug: str,
+    project_type: str = "mod",
+) -> dict[str, object]:
+    """Helper to build Modrinth project payloads."""
+    return {
+        "id": "AANobbMI",
+        "slug": slug,
+        "title": slug.capitalize(),
+        "description": f"A {project_type} project",
+        "project_type": project_type,
+        "downloads": 12345678,
+        "icon_url": f"https://cdn.modrinth.com/data/{slug}/icon.png",
+        "versions": ["v1", "v2", "v3"],
     }
 
 
@@ -247,7 +264,7 @@ class TestGetTargetDirectory:
         custom_mods_dir = tmp_path / "custom_mods"
         config = AppConfig(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=tmp_path,
             mods_dir=custom_mods_dir,
         )
@@ -1009,6 +1026,10 @@ class TestCheckUpdates:
         await manager_temp._save_state(state)
 
         httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium"),
+        )
+        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1052,6 +1073,10 @@ class TestCheckUpdates:
         await manager_temp._save_state(state)
 
         httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium"),
+        )
+        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1092,6 +1117,10 @@ class TestCheckUpdates:
         await manager_temp._save_state(state)
 
         httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium"),
+        )
+        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1101,6 +1130,10 @@ class TestCheckUpdates:
                     sha512="matchhash" * 20,
                 )
             ],
+        )
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/lithium",
+            json=_make_project_payload("lithium"),
         )
         httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/lithium/version",
@@ -1136,6 +1169,10 @@ class TestCheckUpdates:
         """Returns CHECK_FAILED when API errors occur."""
         # Arrange
         config = _make_config(tmp_path)
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium"),
+        )
         for _ in range(ModrinthClient.DEFAULT_MAX_RETRIES + 1):
             httpx_mock.add_response(
                 url="https://api.modrinth.com/v2/project/sodium/version",

@@ -99,7 +99,8 @@ def init(
     # Get configuration values
     if non_interactive:
         minecraft_version = DEFAULT_MINECRAFT_VERSION
-        loader = Loader.FABRIC
+        mod_loader = Loader.FABRIC
+        shader_loader: Loader | None = Loader.IRIS
         minecraft_dir = DEFAULT_MINECRAFT_DIR
     else:
         minecraft_version = typer.prompt(
@@ -110,12 +111,28 @@ def init(
                 "Mod loader (fabric/forge/neoforge/quilt)", default="fabric"
             )
             try:
-                loader = Loader(loader_str.lower())
+                mod_loader = Loader(loader_str.lower())
                 break
             except ValueError:
                 console.print(
                     "[red]無効なローダーです。"
                     "fabric, forge, neoforge, quilt "
+                    "のいずれかを入力してください。[/red]"
+                )
+        while True:
+            shader_loader_str = typer.prompt(
+                "Shader loader (iris/optifine/none)", default="iris"
+            )
+            if shader_loader_str.lower() in ("none", ""):
+                shader_loader = None
+                break
+            try:
+                shader_loader = Loader(shader_loader_str.lower())
+                break
+            except ValueError:
+                console.print(
+                    "[red]無効なシェーダーローダーです。"
+                    "iris, optifine, none "
                     "のいずれかを入力してください。[/red]"
                 )
         minecraft_dir_str = typer.prompt(
@@ -127,7 +144,8 @@ def init(
     try:
         config_path = generate_config(
             minecraft_version=minecraft_version,
-            loader=loader,
+            mod_loader=mod_loader,
+            shader_loader=shader_loader,
             minecraft_dir=minecraft_dir,
             path=get_default_config_path(),
             force=force,
@@ -353,6 +371,7 @@ def add(
         slug=slug,
         version=version,
         channel=release_channel,
+        project_type=project.project_type,
     )
 
     # Add to list and save
