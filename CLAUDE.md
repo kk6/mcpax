@@ -15,7 +15,7 @@ Automate the manual update process when managing approximately 30 Minecraft proj
 - Define managed projects in TOML configuration files
 - Automatically fetch compatible versions via Modrinth API
 - Secure downloads with SHA512 hash verification
-- Automatic placement based on project type (mod/shader/resourcepack)
+- Automatic placement based on project type (mod/modpack/shader/resourcepack)
 
 ## Tech Stack
 
@@ -160,14 +160,17 @@ slug = "complementary-unbound"  # shader
 ## CLI Command Structure
 
 ```bash
-mcpax init                    # Initialize configuration files
-mcpax add <slug>              # Add project
-mcpax remove <slug>           # Remove project
-mcpax list                    # List registered projects
-mcpax search <query>          # Search Modrinth (separate command)
-mcpax install [--all]         # Install projects
-mcpax update [--check]        # Check/apply updates
-mcpax status                  # Show installation status
+mcpax init                              # Initialize configuration files
+mcpax add <slug>                        # Add project
+mcpax remove <slug>                     # Remove project
+mcpax list [--type TYPE] [--json]       # List registered projects
+mcpax search <query> [OPTIONS]          # Search Modrinth
+  --type/-t TYPE                        #   Filter by type (mod/modpack/shader/resourcepack)
+  --limit/-l N                          #   Number of results (default: 10)
+  --json                                #   Output in JSON format
+mcpax install [--all]                   # Install projects
+mcpax update [--check]                  # Check/apply updates
+mcpax status                            # Show installation status
 ```
 
 ## Testing Strategy
@@ -219,6 +222,7 @@ Determined by `project_type` field in API response:
 - `mod` → `mods/` directory
 - `shader` → `shaderpacks/` directory
 - `resourcepack` → `resourcepacks/` directory
+- `modpack` → Not currently supported for installation (search only)
 
 ### Filename Handling
 - Use `filename` from API response for downloaded files
