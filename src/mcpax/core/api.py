@@ -9,6 +9,7 @@ from typing import Self
 import httpx
 
 from mcpax import __version__
+from mcpax.core.cache import ApiCache
 from mcpax.core.exceptions import APIError, ProjectNotFoundError, RateLimitError
 from mcpax.core.models import (
     Loader,
@@ -41,6 +42,7 @@ class ModrinthClient:
         client: httpx.AsyncClient | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
+        cache: ApiCache | None = None,
     ) -> None:
         """Initialize the client.
 
@@ -62,6 +64,7 @@ class ModrinthClient:
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
         self._rate_limit_info: RateLimitInfo | None = None
+        self._cache = cache
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -218,8 +221,15 @@ class ModrinthClient:
             ProjectNotFoundError: If project doesn't exist
             APIError: For other API errors
         """
+        if self._cache is not None:
+            cached = self._cache.get_project(slug)
+            if cached is not None:
+                return ModrinthProject.model_validate(cached)
         response = await self._request("GET", f"/project/{slug}", slug=slug)
-        return ModrinthProject.model_validate(response.json())
+        data = response.json()
+        if self._cache is not None and isinstance(data, dict):
+            self._cache.set_project(slug, data)
+        return ModrinthProject.model_validate(data)
 
     async def get_versions(self, slug: str) -> list[ProjectVersion]:
         """Get all versions for a project.
@@ -234,8 +244,14 @@ class ModrinthClient:
             ProjectNotFoundError: If project doesn't exist
             APIError: For other API errors
         """
+        if self._cache is not None:
+            cached = self._cache.get_versions(slug)
+            if cached is not None:
+                return [ProjectVersion.model_validate(v) for v in cached]
         response = await self._request("GET", f"/project/{slug}/version", slug=slug)
         versions_data = response.json()
+        if self._cache is not None and isinstance(versions_data, list):
+            self._cache.set_versions(slug, versions_data)
         return [ProjectVersion.model_validate(v) for v in versions_data]
 
     async def search(

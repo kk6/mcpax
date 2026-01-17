@@ -78,7 +78,7 @@
 | mcpax init | 初期セットアップ | --non-interactive |
 | mcpax add \<slug\> | プロジェクト追加 | --version, --channel |
 | mcpax remove \<slug\> | プロジェクト削除 | --delete-file, --yes |
-| mcpax list | 一覧表示 | --type, --status, --json |
+| mcpax list | 一覧表示 | --type, --status, --json, --no-update, --no-cache, --max-concurrency |
 | mcpax search \<query\> | 検索 | --type, --limit |
 | mcpax update | 更新確認・適用 | --check, --yes |
 | mcpax install | インストール | --all |

@@ -648,6 +648,7 @@ class UpdateCheckResult:
     current_version: str | None
     latest_version: str | None
     latest_file: ProjectFile | None
+    error: str | None
 ```
 
 ---

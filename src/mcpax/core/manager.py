@@ -419,11 +419,13 @@ class ProjectManager:
     async def check_updates(
         self,
         projects: list[ProjectConfig],
+        max_concurrency: int = 10,
     ) -> list[UpdateCheckResult]:
         """Check updates for all projects.
 
         Args:
             projects: List of project configs to check
+            max_concurrency: Maximum concurrent API requests
 
         Returns:
             List of UpdateCheckResult for each project
@@ -432,16 +434,19 @@ class ProjectManager:
             msg = "API client not initialized. Use async context manager."
             raise RuntimeError(msg)
 
-        results = []
+        if max_concurrency < 1:
+            msg = "max_concurrency must be a positive integer."
+            raise ValueError(msg)
 
-        for project in projects:
-            try:
-                result = await self._check_single_update(project)
-                results.append(result)
-            except Exception as e:
-                logger.warning("Failed to check update for %s: %s", project.slug, e)
-                results.append(
-                    UpdateCheckResult(
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def _check_project(project: ProjectConfig) -> UpdateCheckResult:
+            async with semaphore:
+                try:
+                    return await self._check_single_update(project)
+                except Exception as e:
+                    logger.warning("Failed to check update for %s: %s", project.slug, e)
+                    return UpdateCheckResult(
                         slug=project.slug,
                         status=InstallStatus.CHECK_FAILED,
                         current_version=None,
@@ -451,9 +456,8 @@ class ProjectManager:
                         latest_file=None,
                         error=str(e),
                     )
-                )
 
-        return results
+        return await asyncio.gather(*(_check_project(project) for project in projects))
 
     async def _check_single_update(self, project: ProjectConfig) -> UpdateCheckResult:
         """Check update for a single project."""

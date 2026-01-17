@@ -109,6 +109,12 @@ mcpax update
 
 ```bash
 mcpax list
+mcpax list --type mod
+mcpax list --status installed
+mcpax list --json
+mcpax list --no-update
+mcpax list --no-cache
+mcpax list --max-concurrency 5
 ```
 
 ## 開発

@@ -548,11 +548,13 @@ class ProjectManager:
     async def check_updates(
         self,
         projects: list[ProjectConfig],
+        max_concurrency: int = 10,
     ) -> list[UpdateCheckResult]:
         """各プロジェクトの更新有無を確認
 
         Args:
             projects: プロジェクト設定リスト
+            max_concurrency: 最大同時APIリクエスト数
 
         Returns:
             更新確認結果のリスト

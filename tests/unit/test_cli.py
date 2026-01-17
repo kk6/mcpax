@@ -1,5 +1,7 @@
 """Unit tests for CLI application."""
 
+import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -9,7 +11,7 @@ from typer.testing import CliRunner
 from mcpax import __version__
 from mcpax.cli.app import app
 from mcpax.core.exceptions import ProjectNotFoundError
-from mcpax.core.models import ModrinthProject, ProjectType
+from mcpax.core.models import InstalledFile, ModrinthProject, ProjectType
 
 runner = CliRunner()
 
@@ -1026,3 +1028,986 @@ class TestInstallCommand:
         # Assert
         assert result.exit_code == 1
         assert "config.toml not found" in result.stdout or "mcpax init" in result.stdout
+
+
+class TestListCommand:
+    """Tests for list command."""
+
+    def test_list_no_config(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list command shows error when config.toml not found."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+        # Act
+        result = runner.invoke(app, ["list"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "config.toml not found" in result.stdout or "mcpax init" in result.stdout
+
+    def test_list_empty_projects(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list command shows message when no projects configured."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        # Act
+        result = runner.invoke(app, ["list"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "No projects configured" in result.stdout
+
+    def test_list_shows_projects(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list command shows project list."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_result = UpdateCheckResult(
+                slug="sodium",
+                status=InstallStatus.INSTALLED,
+                current_version="0.5.0",
+                current_file=None,
+                latest_version="0.5.0",
+                latest_version_id="v0.5.0",
+                latest_file=None,
+            )
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=[mock_check_result]
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(return_value=mock_project)
+
+                # Act
+                result = runner.invoke(app, ["list"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "sodium" in result.stdout.lower() or "Sodium" in result.stdout
+
+    def test_list_groups_by_type(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list command groups projects by type."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_mod = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        mock_shader = ModrinthProject(
+            id="HVnmMxH1",
+            slug="complementary-unbound",
+            title="Complementary Unbound",
+            description="Shader pack",
+            project_type=ProjectType.SHADER,
+            downloads=10000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(side_effect=[mock_mod, mock_shader])
+            runner.invoke(app, ["add", "sodium"])
+            runner.invoke(app, ["add", "complementary-unbound"])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_results = [
+                UpdateCheckResult(
+                    slug="sodium",
+                    status=InstallStatus.INSTALLED,
+                    current_version="0.5.0",
+                    current_file=None,
+                    latest_version="0.5.0",
+                    latest_version_id="v0.5.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="complementary-unbound",
+                    status=InstallStatus.INSTALLED,
+                    current_version="r5.2",
+                    current_file=None,
+                    latest_version="r5.2",
+                    latest_version_id="v5.2",
+                    latest_file=None,
+                ),
+            ]
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=mock_check_results
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(
+                    side_effect=[mock_mod, mock_shader]
+                )
+
+                # Act
+                result = runner.invoke(app, ["list"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "mod" in result.stdout.lower() or "MOD" in result.stdout
+        assert "shader" in result.stdout.lower() or "Shader" in result.stdout
+
+    def test_list_filter_type_mod(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --type mod filters to show only mods."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_mod = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        mock_shader = ModrinthProject(
+            id="HVnmMxH1",
+            slug="complementary-unbound",
+            title="Complementary Unbound",
+            description="Shader pack",
+            project_type=ProjectType.SHADER,
+            downloads=10000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(side_effect=[mock_mod, mock_shader])
+            runner.invoke(app, ["add", "sodium"])
+            runner.invoke(app, ["add", "complementary-unbound"])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_results = [
+                UpdateCheckResult(
+                    slug="sodium",
+                    status=InstallStatus.INSTALLED,
+                    current_version="0.5.0",
+                    current_file=None,
+                    latest_version="0.5.0",
+                    latest_version_id="v0.5.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="complementary-unbound",
+                    status=InstallStatus.INSTALLED,
+                    current_version="r5.2",
+                    current_file=None,
+                    latest_version="r5.2",
+                    latest_version_id="v5.2",
+                    latest_file=None,
+                ),
+            ]
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=mock_check_results
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(
+                    side_effect=[mock_mod, mock_shader]
+                )
+
+                # Act
+                result = runner.invoke(app, ["list", "--type", "mod"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "sodium" in result.stdout.lower() or "Sodium" in result.stdout
+        assert (
+            "complementary" not in result.stdout.lower()
+        )  # Shader should not be shown
+
+    def test_list_filter_type_shader(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --type shader filters to show only shaders."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_mod = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        mock_shader = ModrinthProject(
+            id="HVnmMxH1",
+            slug="complementary-unbound",
+            title="Complementary Unbound",
+            description="Shader pack",
+            project_type=ProjectType.SHADER,
+            downloads=10000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(side_effect=[mock_mod, mock_shader])
+            runner.invoke(app, ["add", "sodium"])
+            runner.invoke(app, ["add", "complementary-unbound"])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_results = [
+                UpdateCheckResult(
+                    slug="sodium",
+                    status=InstallStatus.INSTALLED,
+                    current_version="0.5.0",
+                    current_file=None,
+                    latest_version="0.5.0",
+                    latest_version_id="v0.5.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="complementary-unbound",
+                    status=InstallStatus.INSTALLED,
+                    current_version="r5.2",
+                    current_file=None,
+                    latest_version="r5.2",
+                    latest_version_id="v5.2",
+                    latest_file=None,
+                ),
+            ]
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=mock_check_results
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(
+                    side_effect=[mock_mod, mock_shader]
+                )
+
+                # Act
+                result = runner.invoke(app, ["list", "--type", "shader"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert (
+            "complementary" in result.stdout.lower() or "Complementary" in result.stdout
+        )
+        assert "sodium" not in result.stdout.lower()  # Mod should not be shown
+
+    def test_list_filter_status_installed(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --status installed filters to show only installed projects."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_sodium = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        mock_lithium = ModrinthProject(
+            id="gvQqBUqZ",
+            slug="lithium",
+            title="Lithium",
+            description="Performance mod",
+            project_type=ProjectType.MOD,
+            downloads=30000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(
+                side_effect=[mock_sodium, mock_lithium]
+            )
+            runner.invoke(app, ["add", "sodium"])
+            runner.invoke(app, ["add", "lithium"])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_results = [
+                UpdateCheckResult(
+                    slug="sodium",
+                    status=InstallStatus.INSTALLED,
+                    current_version="0.5.0",
+                    current_file=None,
+                    latest_version="0.5.0",
+                    latest_version_id="v0.5.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="lithium",
+                    status=InstallStatus.NOT_INSTALLED,
+                    current_version=None,
+                    current_file=None,
+                    latest_version="0.11.0",
+                    latest_version_id="v0.11.0",
+                    latest_file=None,
+                ),
+            ]
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=mock_check_results
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(
+                    side_effect=[mock_sodium, mock_lithium]
+                )
+
+                # Act
+                result = runner.invoke(app, ["list", "--status", "installed"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "sodium" in result.stdout.lower() or "Sodium" in result.stdout
+        assert (
+            "lithium" not in result.stdout.lower()
+        )  # Not installed should not be shown
+
+    def test_list_filter_status_not_installed(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --status not-installed filters to show only not installed."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_sodium = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        mock_lithium = ModrinthProject(
+            id="gvQqBUqZ",
+            slug="lithium",
+            title="Lithium",
+            description="Performance mod",
+            project_type=ProjectType.MOD,
+            downloads=30000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(
+                side_effect=[mock_sodium, mock_lithium]
+            )
+            runner.invoke(app, ["add", "sodium"])
+            runner.invoke(app, ["add", "lithium"])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_results = [
+                UpdateCheckResult(
+                    slug="sodium",
+                    status=InstallStatus.INSTALLED,
+                    current_version="0.5.0",
+                    current_file=None,
+                    latest_version="0.5.0",
+                    latest_version_id="v0.5.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="lithium",
+                    status=InstallStatus.NOT_INSTALLED,
+                    current_version=None,
+                    current_file=None,
+                    latest_version="0.11.0",
+                    latest_version_id="v0.11.0",
+                    latest_file=None,
+                ),
+            ]
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=mock_check_results
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(
+                    side_effect=[mock_sodium, mock_lithium]
+                )
+
+                # Act
+                result = runner.invoke(app, ["list", "--status", "not-installed"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "lithium" in result.stdout.lower() or "Lithium" in result.stdout
+        assert "sodium" not in result.stdout.lower()  # Installed should not be shown
+
+    def test_list_filter_status_outdated(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --status outdated filters to show only outdated projects."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_sodium = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        mock_lithium = ModrinthProject(
+            id="gvQqBUqZ",
+            slug="lithium",
+            title="Lithium",
+            description="Performance mod",
+            project_type=ProjectType.MOD,
+            downloads=30000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(
+                side_effect=[mock_sodium, mock_lithium]
+            )
+            runner.invoke(app, ["add", "sodium"])
+            runner.invoke(app, ["add", "lithium"])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_results = [
+                UpdateCheckResult(
+                    slug="sodium",
+                    status=InstallStatus.INSTALLED,
+                    current_version="0.5.0",
+                    current_file=None,
+                    latest_version="0.5.0",
+                    latest_version_id="v0.5.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="lithium",
+                    status=InstallStatus.OUTDATED,
+                    current_version="0.10.0",
+                    current_file=None,
+                    latest_version="0.11.0",
+                    latest_version_id="v0.11.0",
+                    latest_file=None,
+                ),
+            ]
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=mock_check_results
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(
+                    side_effect=[mock_sodium, mock_lithium]
+                )
+
+                # Act
+                result = runner.invoke(app, ["list", "--status", "outdated"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "lithium" in result.stdout.lower() or "Lithium" in result.stdout
+        assert "sodium" not in result.stdout.lower()  # Up-to-date should not be shown
+
+    def test_list_json_output(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --json outputs JSON format."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_result = UpdateCheckResult(
+                slug="sodium",
+                status=InstallStatus.INSTALLED,
+                current_version="0.5.0",
+                current_file=None,
+                latest_version="0.5.0",
+                latest_version_id="v0.5.0",
+                latest_file=None,
+            )
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=[mock_check_result]
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(return_value=mock_project)
+
+                # Act
+                result = runner.invoke(app, ["list", "--json"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Should be valid JSON
+        import json
+
+        try:
+            json_data = json.loads(result.stdout)
+            assert isinstance(json_data, list)
+            assert len(json_data) > 0
+            assert json_data[0]["slug"] == "sodium"
+        except json.JSONDecodeError:
+            pytest.fail(f"Output is not valid JSON: {result.stdout}")
+
+    def test_list_invalid_type_filter(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --type with invalid value shows error."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        # Act
+        result = runner.invoke(app, ["list", "--type", "invalid"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "invalid" in result.stdout.lower() or "type" in result.stdout.lower()
+
+    def test_list_invalid_status_filter(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --status with invalid value shows error."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        # Act
+        result = runner.invoke(app, ["list", "--status", "invalid"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "invalid" in result.stdout.lower() or "status" in result.stdout.lower()
+
+    def test_list_no_update_rejects_outdated_status(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --no-update rejects outdated status filter."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        # Act
+        result = runner.invoke(app, ["list", "--no-update", "--status", "outdated"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert (
+            "no-update" in result.stdout.lower() or "outdated" in result.stdout.lower()
+        )
+
+    def test_list_no_update_skips_check_updates(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list --no-update skips update checks."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        mods_dir = tmp_path / "mods"
+        mods_dir.mkdir(parents=True, exist_ok=True)
+        file_path = mods_dir / "sodium.jar"
+        file_path.write_text("dummy")
+
+        installed = InstalledFile(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            filename="sodium.jar",
+            version_id="v0.5.0",
+            version_number="0.5.0",
+            sha512="abc123",
+            installed_at=datetime.now(UTC),
+            file_path=file_path,
+        )
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            mock_manager_instance.get_installed_file = AsyncMock(return_value=installed)
+            mock_manager_instance.check_updates = AsyncMock()
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(return_value=mock_project)
+
+                # Act
+                result = runner.invoke(app, ["list", "--no-update"])
+
+        # Assert
+        assert result.exit_code == 0
+        mock_manager_instance.check_updates.assert_not_called()
+        assert "sodium" in result.stdout.lower() or "Sodium" in result.stdout
+
+    def test_list_respects_max_concurrency(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list respects the max concurrency limit."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_projects = [
+            ModrinthProject(
+                id="AANobbMI",
+                slug="sodium",
+                title="Sodium",
+                description="Modern rendering engine",
+                project_type=ProjectType.MOD,
+                downloads=50000000,
+                icon_url=None,
+                versions=["v1"],
+            ),
+            ModrinthProject(
+                id="gvQqBUqZ",
+                slug="lithium",
+                title="Lithium",
+                description="Performance mod",
+                project_type=ProjectType.MOD,
+                downloads=30000000,
+                icon_url=None,
+                versions=["v1"],
+            ),
+            ModrinthProject(
+                id="HVnmMxH1",
+                slug="complementary-unbound",
+                title="Complementary Unbound",
+                description="Shader pack",
+                project_type=ProjectType.SHADER,
+                downloads=10000000,
+                icon_url=None,
+                versions=["v1"],
+            ),
+        ]
+        project_map = {project.slug: project for project in mock_projects}
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(side_effect=mock_projects)
+            for project in mock_projects:
+                runner.invoke(app, ["add", project.slug])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_results = [
+                UpdateCheckResult(
+                    slug="sodium",
+                    status=InstallStatus.INSTALLED,
+                    current_version="0.5.0",
+                    current_file=None,
+                    latest_version="0.5.0",
+                    latest_version_id="v0.5.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="lithium",
+                    status=InstallStatus.INSTALLED,
+                    current_version="0.11.0",
+                    current_file=None,
+                    latest_version="0.11.0",
+                    latest_version_id="v0.11.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="complementary-unbound",
+                    status=InstallStatus.INSTALLED,
+                    current_version="r5.2",
+                    current_file=None,
+                    latest_version="r5.2",
+                    latest_version_id="v5.2",
+                    latest_file=None,
+                ),
+            ]
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=mock_check_results
+            )
+
+            current = 0
+            max_seen = 0
+
+            async def tracked_get_project(slug: str) -> ModrinthProject:
+                nonlocal current, max_seen
+                current += 1
+                if current > max_seen:
+                    max_seen = current
+                await asyncio.sleep(0.01)
+                current -= 1
+                return project_map[slug]
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(side_effect=tracked_get_project)
+
+                # Act
+                result = runner.invoke(app, ["list", "--max-concurrency", "1"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert max_seen == 1
+
+    def test_list_shows_status_icons(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list command shows status icons."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_sodium = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        mock_lithium = ModrinthProject(
+            id="gvQqBUqZ",
+            slug="lithium",
+            title="Lithium",
+            description="Performance mod",
+            project_type=ProjectType.MOD,
+            downloads=30000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(
+                side_effect=[mock_sodium, mock_lithium]
+            )
+            runner.invoke(app, ["add", "sodium"])
+            runner.invoke(app, ["add", "lithium"])
+
+        # Mock ProjectManager for listing
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_results = [
+                UpdateCheckResult(
+                    slug="sodium",
+                    status=InstallStatus.INSTALLED,
+                    current_version="0.5.0",
+                    current_file=None,
+                    latest_version="0.5.0",
+                    latest_version_id="v0.5.0",
+                    latest_file=None,
+                ),
+                UpdateCheckResult(
+                    slug="lithium",
+                    status=InstallStatus.NOT_INSTALLED,
+                    current_version=None,
+                    current_file=None,
+                    latest_version="0.11.0",
+                    latest_version_id="v0.11.0",
+                    latest_file=None,
+                ),
+            ]
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=mock_check_results
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(
+                    side_effect=[mock_sodium, mock_lithium]
+                )
+
+                # Act
+                result = runner.invoke(app, ["list"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Check for status icons (✓ for installed, ○ for not installed)
+        assert "✓" in result.stdout or "○" in result.stdout
+
+    def test_list_shows_version_update_arrow(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that list command shows arrow for version updates."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        # Mock ProjectManager for listing with outdated status
+        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+            from mcpax.core.models import InstallStatus, UpdateCheckResult
+
+            mock_check_result = UpdateCheckResult(
+                slug="sodium",
+                status=InstallStatus.OUTDATED,
+                current_version="0.5.0",
+                current_file=None,
+                latest_version="0.6.0",
+                latest_version_id="v0.6.0",
+                latest_file=None,
+            )
+            mock_manager_instance.check_updates = AsyncMock(
+                return_value=[mock_check_result]
+            )
+
+            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+                mock_instance2 = MockClient2.return_value.__aenter__.return_value
+                mock_instance2.get_project = AsyncMock(return_value=mock_project)
+
+                # Act
+                result = runner.invoke(app, ["list"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Check for arrow indicator showing version update
+        assert "→" in result.stdout or "0.5.0" in result.stdout
