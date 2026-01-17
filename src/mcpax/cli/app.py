@@ -1,6 +1,8 @@
 """Typer CLI application."""
 
 import asyncio
+import json
+from collections import defaultdict
 from pathlib import Path
 from typing import Annotated
 
@@ -9,6 +11,7 @@ from rich.console import Console
 
 from mcpax import __version__
 from mcpax.core.api import ModrinthClient
+from mcpax.core.cache import ApiCache
 from mcpax.core.config import (
     generate_config,
     generate_projects,
@@ -26,7 +29,9 @@ from mcpax.core.models import (
     Loader,
     ModrinthProject,
     ProjectConfig,
+    ProjectType,
     ReleaseChannel,
+    UpdateCheckResult,
 )
 
 app = typer.Typer(
@@ -428,6 +433,264 @@ def install(
                     )
 
     asyncio.run(_install_projects())
+
+
+@app.command(name="list")
+def list_projects(
+    type_filter: Annotated[
+        str | None,
+        typer.Option("--type", "-t", help="Filter by type (mod/shader/resourcepack)"),
+    ] = None,
+    status_filter: Annotated[
+        str | None,
+        typer.Option(
+            "--status", "-s", help="Filter by status (installed/not-installed/outdated)"
+        ),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Output in JSON format"),
+    ] = False,
+    no_update: Annotated[
+        bool,
+        typer.Option(
+            "--no-update",
+            "--fast",
+            help="Skip update checks; show installed/not-installed only.",
+        ),
+    ] = False,
+    no_cache: Annotated[
+        bool,
+        typer.Option(
+            "--no-cache",
+            help="Bypass API cache for this command.",
+        ),
+    ] = False,
+    max_concurrency: Annotated[
+        int,
+        typer.Option(
+            "--max-concurrency",
+            help="Maximum concurrent API requests when fetching project info.",
+        ),
+    ] = 10,
+) -> None:
+    """List managed projects with their installation status.
+
+    Example:
+        mcpax list
+        mcpax list --type mod
+        mcpax list --status installed
+        mcpax list --json
+        mcpax list --no-update
+        mcpax list --no-cache
+        mcpax list --max-concurrency 5
+    """
+    # Check if config.toml exists
+    config_path = get_default_config_path()
+    if not config_path.exists():
+        console.print(
+            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
+        )
+        raise typer.Exit(code=1)
+
+    # Load config
+    try:
+        config = load_config()
+    except FileNotFoundError:
+        console.print(
+            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
+        )
+        raise typer.Exit(code=1) from None
+
+    # Validate type filter
+    valid_types = {"mod", "shader", "resourcepack"}
+    if type_filter is not None and type_filter.lower() not in valid_types:
+        console.print(
+            f"[red]Error:[/red] Invalid type '{type_filter}'. "
+            f"Must be one of: {', '.join(valid_types)}."
+        )
+        raise typer.Exit(code=1)
+
+    # Validate status filter
+    valid_statuses = {"installed", "not-installed", "outdated"}
+    if status_filter is not None and status_filter.lower() not in valid_statuses:
+        console.print(
+            f"[red]Error:[/red] Invalid status '{status_filter}'. "
+            f"Must be one of: {', '.join(valid_statuses)}."
+        )
+        raise typer.Exit(code=1)
+
+    if no_update and status_filter is not None and status_filter.lower() == "outdated":
+        console.print(
+            "[red]Error:[/red] --status outdated is not supported with --no-update."
+        )
+        raise typer.Exit(code=1)
+
+    if max_concurrency < 1:
+        console.print("[red]Error:[/red] --max-concurrency must be a positive integer.")
+        raise typer.Exit(code=1)
+
+    # Load existing projects
+    try:
+        projects = load_projects()
+    except FileNotFoundError:
+        console.print(
+            "[red]Error:[/red] projects.toml not found. Run 'mcpax init' first."
+        )
+        raise typer.Exit(code=1) from None
+
+    # Early return if no projects
+    if not projects:
+        console.print(
+            "No projects configured yet. Run 'mcpax add <slug>' to add projects."
+        )
+        raise typer.Exit(code=0)
+
+    cache = None if no_cache else ApiCache(get_config_dir() / "api_cache.json")
+
+    # Fetch installation status and project types
+    async def _get_project_info(
+        max_concurrency: int,
+        no_update: bool,
+    ) -> list[dict]:
+        async with ModrinthClient(cache=cache) as client:
+            async with ProjectManager(config, api_client=client) as manager:
+                # Get installation status
+                if no_update:
+
+                    async def _local_update(
+                        project: ProjectConfig,
+                    ) -> UpdateCheckResult:
+                        installed = await manager.get_installed_file(project.slug)
+                        if installed is None or not installed.file_path.exists():
+                            return UpdateCheckResult(
+                                slug=project.slug,
+                                status=InstallStatus.NOT_INSTALLED,
+                                current_version=None,
+                                current_file=None,
+                                latest_version=None,
+                                latest_version_id=None,
+                                latest_file=None,
+                            )
+                        return UpdateCheckResult(
+                            slug=project.slug,
+                            status=InstallStatus.INSTALLED,
+                            current_version=installed.version_number,
+                            current_file=installed,
+                            latest_version=None,
+                            latest_version_id=None,
+                            latest_file=None,
+                        )
+
+                    updates = await asyncio.gather(
+                        *(_local_update(project) for project in projects)
+                    )
+                else:
+                    updates = await manager.check_updates(
+                        projects,
+                        max_concurrency=max_concurrency,
+                    )
+
+            # Fetch project types from API (bounded concurrency to avoid rate limits).
+            semaphore = asyncio.Semaphore(max_concurrency)
+
+            async def fetch_project(update: UpdateCheckResult) -> dict | None:
+                async with semaphore:
+                    try:
+                        project = await client.get_project(update.slug)
+                        return {
+                            "slug": update.slug,
+                            "title": project.title,
+                            "type": project.project_type,
+                            "status": update.status,
+                            "current_version": update.current_version,
+                            "latest_version": update.latest_version,
+                        }
+                    except (ProjectNotFoundError, APIError):
+                        # If project cannot be fetched, skip it
+                        return None
+
+            results = await asyncio.gather(
+                *(fetch_project(update) for update in updates)
+            )
+            project_info_list = [result for result in results if result is not None]
+
+        return project_info_list
+
+    project_info_list = asyncio.run(_get_project_info(max_concurrency, no_update))
+
+    # Apply filters
+    if type_filter is not None:
+        project_info_list = [
+            p for p in project_info_list if p["type"].value == type_filter.lower()
+        ]
+
+    if status_filter is not None:
+        status_map = {
+            "installed": InstallStatus.INSTALLED,
+            "not-installed": InstallStatus.NOT_INSTALLED,
+            "outdated": InstallStatus.OUTDATED,
+        }
+        target_status = status_map[status_filter.lower()]
+        project_info_list = [
+            p for p in project_info_list if p["status"] == target_status
+        ]
+
+    # Output in JSON format
+    if json_output:
+        json_data = [
+            {
+                "slug": p["slug"],
+                "title": p["title"],
+                "type": p["type"].value,
+                "status": p["status"].value,
+                "current_version": p["current_version"],
+                "latest_version": p["latest_version"],
+            }
+            for p in project_info_list
+        ]
+        console.print(json.dumps(json_data, indent=2, ensure_ascii=False))
+        raise typer.Exit(code=0)
+
+    # Group by project type
+    grouped: dict[ProjectType, list[dict]] = defaultdict(list)
+    for p in project_info_list:
+        grouped[p["type"]].append(p)
+
+    # Status icons
+    status_icons = {
+        InstallStatus.INSTALLED: "✓",
+        InstallStatus.NOT_INSTALLED: "○",
+        InstallStatus.OUTDATED: "⚠",
+        InstallStatus.NOT_COMPATIBLE: "✗",
+        InstallStatus.CHECK_FAILED: "?",
+    }
+
+    # Display grouped output
+    for project_type in sorted(grouped.keys(), key=lambda x: x.value):
+        type_name = (
+            project_type.value.upper()
+            if project_type != ProjectType.RESOURCEPACK
+            else "Resource Pack"
+        )
+        count = len(grouped[project_type])
+        console.print(f"\n[bold]{type_name} ({count}):[/bold]")
+
+        for p in grouped[project_type]:
+            icon = status_icons.get(p["status"], "?")
+            status_str = p["status"].value.replace("_", " ")
+
+            # Format version info
+            if p["status"] == InstallStatus.OUTDATED:
+                version_str = f"{p['current_version']} → {p['latest_version']}"
+            elif p["status"] == InstallStatus.INSTALLED:
+                version_str = p["current_version"] or "-"
+            elif p["status"] == InstallStatus.NOT_INSTALLED:
+                version_str = "-"
+            else:
+                version_str = "-"
+
+            console.print(f"  {icon} {p['slug']:<30} {version_str:<20} {status_str}")
 
 
 def main() -> None:

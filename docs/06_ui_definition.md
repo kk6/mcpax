@@ -181,11 +181,15 @@ mcpax list
 | `--type <type>` | `-t` | 種類でフィルタ（mod/shader/resourcepack） |
 | `--status <status>` | `-s` | 状態でフィルタ（installed/not-installed/outdated） |
 | `--json` | | JSON 形式で出力 |
+| `--no-update` / `--fast` | | 更新確認をスキップ（installed/not-installedのみ） |
+| `--no-cache` | | APIキャッシュを使わない |
+| `--max-concurrency <n>` | | APIリクエストの同時実行数 |
 
 #### 動作
 
 1. `projects.toml` を読み込む
 2. 各プロジェクトのインストール状態を確認
+   - `--no-update` の場合は更新確認をスキップ
 3. 一覧を表示
 
 #### 出力例
