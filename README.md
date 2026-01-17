@@ -1,12 +1,13 @@
 # mcpax
 
-Minecraft の MOD / Shader / Resource Pack を Modrinth API 経由で管理する CLI ツール。
+Minecraft の MOD / Modpack / Shader / Resource Pack を Modrinth API 経由で管理する CLI ツール。
 
 ## 特徴
 
 - TOML 形式の設定ファイルでプロジェクトリストを管理
 - 指定した Minecraft バージョン・Loader に対応するプロジェクトを自動取得
 - プロジェクト種別（MOD / Shader / Resource Pack）に応じた適切なディレクトリ配置
+- Modpack の検索機能（インストールは未対応）
 - ハッシュ検証による安全なダウンロード
 - 差分更新（変更があったプロジェクトのみダウンロード）
 
@@ -83,6 +84,9 @@ mcpax add sodium
 
 # slug がわからない場合は検索
 mcpax search shader
+mcpax search sodium --type mod --limit 5
+mcpax search "optimization pack" --type modpack
+mcpax search iris --json
 ```
 
 ### 4. プロジェクトのインストール

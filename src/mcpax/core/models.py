@@ -20,6 +20,7 @@ class ProjectType(str, Enum):
     """Project types on Modrinth."""
 
     MOD = "mod"
+    MODPACK = "modpack"
     SHADER = "shader"
     RESOURCEPACK = "resourcepack"
 

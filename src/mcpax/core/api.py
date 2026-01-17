@@ -259,6 +259,7 @@ class ModrinthClient:
         query: str,
         limit: int = 10,
         offset: int = 0,
+        facets: str | None = None,
     ) -> SearchResult:
         """Search for projects.
 
@@ -266,6 +267,7 @@ class ModrinthClient:
             query: Search query string
             limit: Maximum results (default 10, max 100)
             offset: Pagination offset
+            facets: Optional facets filter (JSON-encoded string)
 
         Returns:
             SearchResult instance
@@ -278,6 +280,8 @@ class ModrinthClient:
             "limit": str(limit),
             "offset": str(offset),
         }
+        if facets is not None:
+            params["facets"] = facets
         response = await self._request("GET", "/search", params=params)
         return SearchResult.model_validate(response.json())
 

@@ -687,6 +687,23 @@ class TestSearch:
         assert "limit=20" in str(request.url)
         assert "offset=10" in str(request.url)
 
+    async def test_facets_parameter(
+        self,
+        httpx_mock: HTTPXMock,
+        search_response: dict,
+    ) -> None:
+        """search includes facets parameter when provided."""
+        # Arrange
+        httpx_mock.add_response(json=search_response)
+
+        # Act
+        async with ModrinthClient() as client:
+            await client.search("sodium", facets='[["project_type:mod"]]')
+
+        # Assert
+        request = httpx_mock.get_request()
+        assert request.url.params.get("facets") == '[["project_type:mod"]]'
+
 
 # === Version Filtering Tests ===
 

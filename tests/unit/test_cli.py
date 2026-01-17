@@ -1,6 +1,7 @@
 """Unit tests for CLI application."""
 
 import asyncio
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -10,8 +11,14 @@ from typer.testing import CliRunner
 
 from mcpax import __version__
 from mcpax.cli.app import app
-from mcpax.core.exceptions import ProjectNotFoundError
-from mcpax.core.models import InstalledFile, ModrinthProject, ProjectType
+from mcpax.core.exceptions import APIError, ProjectNotFoundError
+from mcpax.core.models import (
+    InstalledFile,
+    ModrinthProject,
+    ProjectType,
+    SearchHit,
+    SearchResult,
+)
 
 runner = CliRunner()
 
@@ -2011,3 +2018,284 @@ class TestListCommand:
         assert result.exit_code == 0
         # Check for arrow indicator showing version update
         assert "→" in result.stdout or "0.5.0" in result.stdout
+
+
+class TestSearchCommand:
+    """Tests for search command."""
+
+    def test_search_basic_query(self) -> None:
+        """Test that search command returns results for a basic query."""
+        # Arrange
+        mock_result = SearchResult(
+            hits=[
+                SearchHit(
+                    slug="sodium",
+                    title="Sodium",
+                    description="Modern rendering engine for Minecraft",
+                    project_type=ProjectType.MOD,
+                    downloads=50000000,
+                    icon_url="https://cdn.modrinth.com/...",
+                )
+            ],
+            total_hits=1,
+            offset=0,
+            limit=10,
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.search = AsyncMock(return_value=mock_result)
+
+            # Act
+            result = runner.invoke(app, ["search", "sodium"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "sodium" in result.stdout.lower() or "Sodium" in result.stdout
+
+    def test_search_shows_numbered_results(self) -> None:
+        """Test that search command shows numbered results."""
+        # Arrange
+        mock_result = SearchResult(
+            hits=[
+                SearchHit(
+                    slug="sodium",
+                    title="Sodium",
+                    description="Modern rendering engine",
+                    project_type=ProjectType.MOD,
+                    downloads=50000000,
+                    icon_url=None,
+                ),
+                SearchHit(
+                    slug="lithium",
+                    title="Lithium",
+                    description="Performance mod",
+                    project_type=ProjectType.MOD,
+                    downloads=30000000,
+                    icon_url=None,
+                ),
+            ],
+            total_hits=2,
+            offset=0,
+            limit=10,
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.search = AsyncMock(return_value=mock_result)
+
+            # Act
+            result = runner.invoke(app, ["search", "performance"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Check for numbered list
+        assert "1." in result.stdout or "1)" in result.stdout
+
+    def test_search_displays_downloads_formatted(self) -> None:
+        """Test that search command formats download numbers with commas."""
+        # Arrange
+        mock_result = SearchResult(
+            hits=[
+                SearchHit(
+                    slug="sodium",
+                    title="Sodium",
+                    description="Modern rendering engine",
+                    project_type=ProjectType.MOD,
+                    downloads=12345678,
+                    icon_url=None,
+                )
+            ],
+            total_hits=1,
+            offset=0,
+            limit=10,
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.search = AsyncMock(return_value=mock_result)
+
+            # Act
+            result = runner.invoke(app, ["search", "sodium"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Check for comma-separated downloads
+        assert "12,345,678" in result.stdout
+
+    def test_search_shows_add_hint(self) -> None:
+        """Test that search command shows hint about adding projects."""
+        # Arrange
+        mock_result = SearchResult(
+            hits=[
+                SearchHit(
+                    slug="sodium",
+                    title="Sodium",
+                    description="Modern rendering engine",
+                    project_type=ProjectType.MOD,
+                    downloads=50000000,
+                    icon_url=None,
+                )
+            ],
+            total_hits=1,
+            offset=0,
+            limit=10,
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.search = AsyncMock(return_value=mock_result)
+
+            # Act
+            result = runner.invoke(app, ["search", "sodium"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Check for hint about mcpax add command
+        assert "mcpax add" in result.stdout
+
+    def test_search_limit_option(self) -> None:
+        """Test that search command respects --limit option."""
+        # Arrange
+        mock_result = SearchResult(
+            hits=[
+                SearchHit(
+                    slug=f"project-{i}",
+                    title=f"Project {i}",
+                    description="Description",
+                    project_type=ProjectType.MOD,
+                    downloads=1000 * i,
+                    icon_url=None,
+                )
+                for i in range(5)
+            ],
+            total_hits=100,
+            offset=0,
+            limit=5,
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.search = AsyncMock(return_value=mock_result)
+
+            # Act
+            result = runner.invoke(app, ["search", "test", "--limit", "5"])
+
+        # Assert
+        assert result.exit_code == 0
+        mock_instance.search.assert_called_once_with("test", limit=5)
+
+    def test_search_type_filter_mod(self) -> None:
+        """Test that search command with --type mod filters to mods."""
+        # Arrange
+        mock_result = SearchResult(
+            hits=[
+                SearchHit(
+                    slug="sodium",
+                    title="Sodium",
+                    description="Modern rendering engine",
+                    project_type=ProjectType.MOD,
+                    downloads=50000000,
+                    icon_url=None,
+                ),
+            ],
+            total_hits=2,
+            offset=0,
+            limit=10,
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.search = AsyncMock(return_value=mock_result)
+
+            # Act
+            result = runner.invoke(app, ["search", "test", "--type", "mod"])
+
+        # Assert
+        assert result.exit_code == 0
+        facets = json.dumps([[f"project_type:{ProjectType.MOD.value}"]])
+        mock_instance.search.assert_called_once_with("test", limit=10, facets=facets)
+        assert "sodium" in result.stdout.lower() or "Sodium" in result.stdout
+
+    def test_search_json_output(self) -> None:
+        """Test that search command with --json outputs JSON format."""
+        # Arrange
+        mock_result = SearchResult(
+            hits=[
+                SearchHit(
+                    slug="sodium",
+                    title="Sodium",
+                    description="Modern rendering engine",
+                    project_type=ProjectType.MOD,
+                    downloads=50000000,
+                    icon_url=None,
+                )
+            ],
+            total_hits=1,
+            offset=0,
+            limit=10,
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.search = AsyncMock(return_value=mock_result)
+
+            # Act
+            result = runner.invoke(app, ["search", "sodium", "--json"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Should be valid JSON
+        try:
+            json_data = json.loads(result.stdout)
+            assert isinstance(json_data, list)
+            assert len(json_data) == 1
+            assert json_data[0]["slug"] == "sodium"
+            assert json_data[0]["type"] == "mod"
+            assert json_data[0]["downloads"] == 50000000
+        except json.JSONDecodeError:
+            pytest.fail(f"Output is not valid JSON: {result.stdout}")
+
+    def test_search_no_results(self) -> None:
+        """Test that search command handles no results gracefully."""
+        # Arrange
+        mock_result = SearchResult(
+            hits=[],
+            total_hits=0,
+            offset=0,
+            limit=10,
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.search = AsyncMock(return_value=mock_result)
+
+            # Act
+            result = runner.invoke(app, ["search", "nonexistent-query-xyz"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "No results" in result.stdout or "0" in result.stdout
+
+    def test_search_api_error(self) -> None:
+        """Test that search command handles API errors gracefully."""
+        # Arrange
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.search = AsyncMock(side_effect=APIError("API error"))
+
+            # Act
+            result = runner.invoke(app, ["search", "test"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "error" in result.stdout.lower() or "Error" in result.stdout
+
+    def test_search_invalid_type_filter(self) -> None:
+        """Test that search command rejects invalid type filter."""
+        # Arrange & Act
+        result = runner.invoke(app, ["search", "test", "--type", "invalid"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "invalid" in result.stdout.lower() or "type" in result.stdout.lower()
