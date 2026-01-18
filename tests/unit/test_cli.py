@@ -4,7 +4,7 @@ import asyncio
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
@@ -2325,3 +2325,599 @@ class TestSearchCommand:
         # Assert
         assert result.exit_code == 1
         assert "invalid" in result.stdout.lower() or "type" in result.stdout.lower()
+
+
+class TestUpdateCommand:
+    """Tests for update command."""
+
+    def test_update_no_config(self) -> None:
+        """Test that update command fails when config.toml does not exist."""
+        # Arrange
+        with patch("mcpax.cli.app.load_config") as mock_load:
+            mock_load.side_effect = FileNotFoundError()
+
+            # Act
+            result = runner.invoke(app, ["update"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert (
+            "config.toml not found" in result.stdout.lower()
+            or "not initialized" in result.stdout.lower()
+        )
+
+    def test_update_check_shows_updates_available(self) -> None:
+        """Test that --check shows available updates."""
+        # Arrange
+        from mcpax.core.models import (
+            InstalledFile,
+            InstallStatus,
+            ProjectConfig,
+            ProjectFile,
+            UpdateCheckResult,
+        )
+
+        mock_config = {
+            "minecraft": {"version": "1.21.4", "mod_loader": "fabric"},
+            "paths": {"minecraft_dir": "~/.minecraft"},
+        }
+
+        mock_projects = [
+            ProjectConfig(slug="sodium", project_type=ProjectType.MOD),
+        ]
+
+        mock_results = [
+            UpdateCheckResult(
+                slug="sodium",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.OUTDATED,
+                current_version="0.5.0",
+                current_file=InstalledFile(
+                    slug="sodium",
+                    project_type=ProjectType.MOD,
+                    filename="sodium-0.5.0.jar",
+                    version_id="old-version-id",
+                    version_number="0.5.0",
+                    sha512="abc123",
+                    installed_at=datetime(2024, 1, 1, tzinfo=UTC),
+                    file_path=Path("~/.minecraft/mods/sodium-0.5.0.jar"),
+                ),
+                latest_version="0.6.0",
+                latest_version_id="version123",
+                latest_file=ProjectFile(
+                    url="https://example.com/sodium-0.6.0.jar",
+                    filename="sodium-0.6.0.jar",
+                    hashes={"sha512": "def456"},
+                    size=1024,
+                    primary=True,
+                ),
+            ),
+        ]
+
+        mock_config_path = MagicMock()
+        mock_config_path.exists.return_value = True
+
+        with (
+            patch(
+                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+            ),
+            patch("mcpax.cli.app.load_config", return_value=mock_config),
+            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
+            patch("mcpax.cli.app.ProjectManager") as MockManager,
+        ):
+            mock_instance = MockManager.return_value.__aenter__.return_value
+            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+
+            # Act
+            result = runner.invoke(app, ["update", "--check"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "sodium" in result.stdout
+        assert "0.5.0" in result.stdout
+        assert "0.6.0" in result.stdout
+
+    def test_update_check_shows_not_compatible(self) -> None:
+        """Test that --check shows projects that are not compatible."""
+        # Arrange
+        from mcpax.core.models import InstallStatus, ProjectConfig, UpdateCheckResult
+
+        mock_config = {
+            "minecraft": {"version": "1.21.4", "mod_loader": "fabric"},
+            "paths": {"minecraft_dir": "~/.minecraft"},
+        }
+
+        mock_projects = [
+            ProjectConfig(slug="some-mod", project_type=ProjectType.MOD),
+        ]
+
+        mock_results = [
+            UpdateCheckResult(
+                slug="some-mod",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.NOT_COMPATIBLE,
+                current_version=None,
+                current_file=None,
+                latest_version=None,
+                latest_version_id=None,
+                latest_file=None,
+            ),
+        ]
+
+        mock_config_path = MagicMock()
+        mock_config_path.exists.return_value = True
+
+        with (
+            patch(
+                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+            ),
+            patch("mcpax.cli.app.load_config", return_value=mock_config),
+            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
+            patch("mcpax.cli.app.ProjectManager") as MockManager,
+        ):
+            mock_instance = MockManager.return_value.__aenter__.return_value
+            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+
+            # Act
+            result = runner.invoke(app, ["update", "--check"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "some-mod" in result.stdout
+        assert "not compatible" in result.stdout.lower()
+
+    def test_update_check_shows_up_to_date(self) -> None:
+        """Test that --check shows projects that are up to date."""
+        # Arrange
+        from mcpax.core.models import (
+            InstalledFile,
+            InstallStatus,
+            ProjectConfig,
+            UpdateCheckResult,
+        )
+
+        mock_config = {
+            "minecraft": {"version": "1.21.4", "mod_loader": "fabric"},
+            "paths": {"minecraft_dir": "~/.minecraft"},
+        }
+
+        mock_projects = [
+            ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD),
+        ]
+
+        mock_results = [
+            UpdateCheckResult(
+                slug="fabric-api",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.INSTALLED,
+                current_version="0.92.0",
+                current_file=InstalledFile(
+                    slug="fabric-api",
+                    project_type=ProjectType.MOD,
+                    filename="fabric-api-0.92.0.jar",
+                    version_id="version123",
+                    version_number="0.92.0",
+                    sha512="abc123",
+                    installed_at=datetime(2024, 1, 1, tzinfo=UTC),
+                    file_path=Path("~/.minecraft/mods/fabric-api-0.92.0.jar"),
+                ),
+                latest_version="0.92.0",
+                latest_version_id="version123",
+                latest_file=None,
+            ),
+        ]
+
+        mock_config_path = MagicMock()
+        mock_config_path.exists.return_value = True
+
+        with (
+            patch(
+                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+            ),
+            patch("mcpax.cli.app.load_config", return_value=mock_config),
+            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
+            patch("mcpax.cli.app.ProjectManager") as MockManager,
+        ):
+            mock_instance = MockManager.return_value.__aenter__.return_value
+            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+
+            # Act
+            result = runner.invoke(app, ["update", "--check"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "fabric-api" in result.stdout
+        assert "up to date" in result.stdout.lower()
+
+    def test_update_check_groups_by_status(self) -> None:
+        """Test that --check groups projects by update status."""
+        # Arrange
+        from mcpax.core.models import (
+            InstalledFile,
+            InstallStatus,
+            ProjectConfig,
+            ProjectFile,
+            UpdateCheckResult,
+        )
+
+        mock_config = {
+            "minecraft": {"version": "1.21.4", "mod_loader": "fabric"},
+            "paths": {"minecraft_dir": "~/.minecraft"},
+        }
+
+        mock_projects = [
+            ProjectConfig(slug="sodium", project_type=ProjectType.MOD),
+            ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD),
+            ProjectConfig(slug="some-mod", project_type=ProjectType.MOD),
+        ]
+
+        mock_results = [
+            UpdateCheckResult(
+                slug="sodium",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.OUTDATED,
+                current_version="0.5.0",
+                current_file=InstalledFile(
+                    slug="sodium",
+                    project_type=ProjectType.MOD,
+                    filename="sodium-0.5.0.jar",
+                    version_id="old-version-id",
+                    version_number="0.5.0",
+                    sha512="abc123",
+                    installed_at=datetime(2024, 1, 1, tzinfo=UTC),
+                    file_path=Path("~/.minecraft/mods/sodium-0.5.0.jar"),
+                ),
+                latest_version="0.6.0",
+                latest_version_id="version123",
+                latest_file=ProjectFile(
+                    url="https://example.com/sodium-0.6.0.jar",
+                    filename="sodium-0.6.0.jar",
+                    hashes={"sha512": "def456"},
+                    size=1024,
+                    primary=True,
+                ),
+            ),
+            UpdateCheckResult(
+                slug="fabric-api",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.INSTALLED,
+                current_version="0.92.0",
+                current_file=InstalledFile(
+                    slug="fabric-api",
+                    project_type=ProjectType.MOD,
+                    filename="fabric-api-0.92.0.jar",
+                    version_id="version123",
+                    version_number="0.92.0",
+                    sha512="abc123",
+                    installed_at=datetime(2024, 1, 1, tzinfo=UTC),
+                    file_path=Path("~/.minecraft/mods/fabric-api-0.92.0.jar"),
+                ),
+                latest_version="0.92.0",
+                latest_version_id="version123",
+                latest_file=None,
+            ),
+            UpdateCheckResult(
+                slug="some-mod",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.NOT_COMPATIBLE,
+                current_version=None,
+                current_file=None,
+                latest_version=None,
+                latest_version_id=None,
+                latest_file=None,
+            ),
+        ]
+
+        mock_config_path = MagicMock()
+        mock_config_path.exists.return_value = True
+
+        with (
+            patch(
+                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+            ),
+            patch("mcpax.cli.app.load_config", return_value=mock_config),
+            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
+            patch("mcpax.cli.app.ProjectManager") as MockManager,
+        ):
+            mock_instance = MockManager.return_value.__aenter__.return_value
+            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+
+            # Act
+            result = runner.invoke(app, ["update", "--check"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Should show all three projects grouped by status
+        assert "sodium" in result.stdout
+        assert "fabric-api" in result.stdout
+        assert "some-mod" in result.stdout
+
+    def test_update_applies_updates_after_confirmation(self) -> None:
+        """Test that update applies updates after user confirms."""
+        # Arrange
+        from mcpax.core.models import (
+            InstalledFile,
+            InstallStatus,
+            ProjectConfig,
+            ProjectFile,
+            UpdateCheckResult,
+            UpdateResult,
+        )
+
+        mock_config = {
+            "minecraft": {"version": "1.21.4", "mod_loader": "fabric"},
+            "paths": {"minecraft_dir": "~/.minecraft"},
+        }
+
+        mock_projects = [
+            ProjectConfig(slug="sodium", project_type=ProjectType.MOD),
+        ]
+
+        mock_results = [
+            UpdateCheckResult(
+                slug="sodium",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.OUTDATED,
+                current_version="0.5.0",
+                current_file=InstalledFile(
+                    slug="sodium",
+                    project_type=ProjectType.MOD,
+                    filename="sodium-0.5.0.jar",
+                    version_id="old-version-id",
+                    version_number="0.5.0",
+                    sha512="abc123",
+                    installed_at=datetime(2024, 1, 1, tzinfo=UTC),
+                    file_path=Path("~/.minecraft/mods/sodium-0.5.0.jar"),
+                ),
+                latest_version="0.6.0",
+                latest_version_id="version123",
+                latest_file=ProjectFile(
+                    url="https://example.com/sodium-0.6.0.jar",
+                    filename="sodium-0.6.0.jar",
+                    hashes={"sha512": "def456"},
+                    size=1024,
+                    primary=True,
+                ),
+            ),
+        ]
+
+        mock_update_result = UpdateResult(
+            successful=["sodium"], failed=[], backed_up=[]
+        )
+
+        mock_config_path = MagicMock()
+        mock_config_path.exists.return_value = True
+
+        with (
+            patch(
+                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+            ),
+            patch("mcpax.cli.app.load_config", return_value=mock_config),
+            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
+            patch("mcpax.cli.app.ProjectManager") as MockManager,
+            patch("mcpax.cli.app.typer.confirm", return_value=True),
+        ):
+            mock_instance = MockManager.return_value.__aenter__.return_value
+            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_instance.apply_updates = AsyncMock(return_value=mock_update_result)
+
+            # Act
+            result = runner.invoke(app, ["update"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "sodium" in result.stdout
+        mock_instance.apply_updates.assert_called_once()
+
+    def test_update_cancels_on_no(self) -> None:
+        """Test that update cancels when user declines."""
+        # Arrange
+        from mcpax.core.models import (
+            InstalledFile,
+            InstallStatus,
+            ProjectConfig,
+            ProjectFile,
+            UpdateCheckResult,
+        )
+
+        mock_config = {
+            "minecraft": {"version": "1.21.4", "mod_loader": "fabric"},
+            "paths": {"minecraft_dir": "~/.minecraft"},
+        }
+
+        mock_projects = [
+            ProjectConfig(slug="sodium", project_type=ProjectType.MOD),
+        ]
+
+        mock_results = [
+            UpdateCheckResult(
+                slug="sodium",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.OUTDATED,
+                current_version="0.5.0",
+                current_file=InstalledFile(
+                    slug="sodium",
+                    project_type=ProjectType.MOD,
+                    filename="sodium-0.5.0.jar",
+                    version_id="old-version-id",
+                    version_number="0.5.0",
+                    sha512="abc123",
+                    installed_at=datetime(2024, 1, 1, tzinfo=UTC),
+                    file_path=Path("~/.minecraft/mods/sodium-0.5.0.jar"),
+                ),
+                latest_version="0.6.0",
+                latest_version_id="version123",
+                latest_file=ProjectFile(
+                    url="https://example.com/sodium-0.6.0.jar",
+                    filename="sodium-0.6.0.jar",
+                    hashes={"sha512": "def456"},
+                    size=1024,
+                    primary=True,
+                ),
+            ),
+        ]
+
+        mock_config_path = MagicMock()
+        mock_config_path.exists.return_value = True
+
+        with (
+            patch(
+                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+            ),
+            patch("mcpax.cli.app.load_config", return_value=mock_config),
+            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
+            patch("mcpax.cli.app.ProjectManager") as MockManager,
+            patch("mcpax.cli.app.typer.confirm", return_value=False),
+        ):
+            mock_instance = MockManager.return_value.__aenter__.return_value
+            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_instance.apply_updates = AsyncMock(return_value=[])
+
+            # Act
+            result = runner.invoke(app, ["update"])
+
+        # Assert
+        assert result.exit_code == 0
+        mock_instance.apply_updates.assert_not_called()
+
+    def test_update_yes_skips_confirmation(self) -> None:
+        """Test that --yes skips confirmation prompt."""
+        # Arrange
+        from mcpax.core.models import (
+            InstalledFile,
+            InstallStatus,
+            ProjectConfig,
+            ProjectFile,
+            UpdateCheckResult,
+            UpdateResult,
+        )
+
+        mock_config = {
+            "minecraft": {"version": "1.21.4", "mod_loader": "fabric"},
+            "paths": {"minecraft_dir": "~/.minecraft"},
+        }
+
+        mock_projects = [
+            ProjectConfig(slug="sodium", project_type=ProjectType.MOD),
+        ]
+
+        mock_results = [
+            UpdateCheckResult(
+                slug="sodium",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.OUTDATED,
+                current_version="0.5.0",
+                current_file=InstalledFile(
+                    slug="sodium",
+                    project_type=ProjectType.MOD,
+                    filename="sodium-0.5.0.jar",
+                    version_id="old-version-id",
+                    version_number="0.5.0",
+                    sha512="abc123",
+                    installed_at=datetime(2024, 1, 1, tzinfo=UTC),
+                    file_path=Path("~/.minecraft/mods/sodium-0.5.0.jar"),
+                ),
+                latest_version="0.6.0",
+                latest_version_id="version123",
+                latest_file=ProjectFile(
+                    url="https://example.com/sodium-0.6.0.jar",
+                    filename="sodium-0.6.0.jar",
+                    hashes={"sha512": "def456"},
+                    size=1024,
+                    primary=True,
+                ),
+            ),
+        ]
+
+        mock_update_result = UpdateResult(
+            successful=["sodium"], failed=[], backed_up=[]
+        )
+
+        mock_config_path = MagicMock()
+        mock_config_path.exists.return_value = True
+
+        with (
+            patch(
+                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+            ),
+            patch("mcpax.cli.app.load_config", return_value=mock_config),
+            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
+            patch("mcpax.cli.app.ProjectManager") as MockManager,
+            patch("mcpax.cli.app.typer.confirm") as mock_confirm,
+        ):
+            mock_instance = MockManager.return_value.__aenter__.return_value
+            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_instance.apply_updates = AsyncMock(return_value=mock_update_result)
+
+            # Act
+            result = runner.invoke(app, ["update", "--yes"])
+
+        # Assert
+        assert result.exit_code == 0
+        mock_confirm.assert_not_called()
+        mock_instance.apply_updates.assert_called_once()
+
+    def test_update_no_updates_available(self) -> None:
+        """Test that update shows message when all projects are up to date."""
+        # Arrange
+        from mcpax.core.models import (
+            InstalledFile,
+            InstallStatus,
+            ProjectConfig,
+            UpdateCheckResult,
+        )
+
+        mock_config = {
+            "minecraft": {"version": "1.21.4", "mod_loader": "fabric"},
+            "paths": {"minecraft_dir": "~/.minecraft"},
+        }
+
+        mock_projects = [
+            ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD),
+        ]
+
+        mock_results = [
+            UpdateCheckResult(
+                slug="fabric-api",
+                project_type=ProjectType.MOD,
+                status=InstallStatus.INSTALLED,
+                current_version="0.92.0",
+                current_file=InstalledFile(
+                    slug="fabric-api",
+                    project_type=ProjectType.MOD,
+                    filename="fabric-api-0.92.0.jar",
+                    version_id="version123",
+                    version_number="0.92.0",
+                    sha512="abc123",
+                    installed_at=datetime(2024, 1, 1, tzinfo=UTC),
+                    file_path=Path("~/.minecraft/mods/fabric-api-0.92.0.jar"),
+                ),
+                latest_version="0.92.0",
+                latest_version_id="version123",
+                latest_file=None,
+            ),
+        ]
+
+        mock_config_path = MagicMock()
+        mock_config_path.exists.return_value = True
+
+        with (
+            patch(
+                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+            ),
+            patch("mcpax.cli.app.load_config", return_value=mock_config),
+            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
+            patch("mcpax.cli.app.ProjectManager") as MockManager,
+        ):
+            mock_instance = MockManager.return_value.__aenter__.return_value
+            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+
+            # Act
+            result = runner.invoke(app, ["update"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert (
+            "up to date" in result.stdout.lower()
+            or "no updates" in result.stdout.lower()
+        )

@@ -105,11 +105,14 @@ mcpax install sodium
 ### 5. 更新確認・適用
 
 ```bash
-# 更新を確認
+# 更新を確認（ダウンロードしない）
 mcpax update --check
 
-# 更新を適用
+# 更新を適用（確認プロンプトあり）
 mcpax update
+
+# 更新を適用（確認プロンプトをスキップ）
+mcpax update --yes
 ```
 
 ### 6. 一覧確認
