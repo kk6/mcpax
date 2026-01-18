@@ -15,12 +15,15 @@ from mcpax.core.cache import ApiCache
 from mcpax.core.config import (
     generate_config,
     generate_projects,
+    get_all_config_values,
     get_config_dir,
+    get_config_value,
     get_default_config_path,
     get_default_projects_path,
     load_config,
     load_projects,
     save_projects,
+    set_config_value,
 )
 from mcpax.core.exceptions import APIError, ProjectNotFoundError
 from mcpax.core.manager import ProjectManager
@@ -41,6 +44,10 @@ app = typer.Typer(
     help="Minecraft MOD/Shader/Resource Pack manager via Modrinth API",
     no_args_is_help=True,
 )
+
+# Config subcommand group
+config_app = typer.Typer(help="Manage configuration settings.")
+app.add_typer(config_app, name="config")
 
 # Constants
 DEFAULT_MINECRAFT_VERSION = "1.21.4"
@@ -955,6 +962,110 @@ def update(
         console.print(
             f"\n[green]✓[/green] {updated_count} project(s) updated successfully."
         )
+
+
+@config_app.command()
+def path() -> None:
+    """Show the path to the config file.
+
+    Example:
+        mcpax config path
+    """
+    config_path = get_default_config_path()
+    console.print(str(config_path))
+
+
+@config_app.command()
+def get(key: Annotated[str, typer.Argument(help="Config key in dot notation")]) -> None:
+    """Get a config value by key.
+
+    Example:
+        mcpax config get minecraft.version
+        mcpax config get download.max_concurrent
+    """
+    try:
+        value = get_config_value(key)
+        if value is None:
+            console.print(f"[red]Error:[/red] Unknown config key: '{key}'")
+            raise typer.Exit(code=1)
+        console.print(str(value))
+    except FileNotFoundError:
+        console.print(
+            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
+        )
+        raise typer.Exit(code=1) from None
+
+
+@config_app.command(name="list")
+def config_list(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Output in JSON format"),
+    ] = False,
+) -> None:
+    """List all configuration settings.
+
+    Example:
+        mcpax config list
+        mcpax config list --json
+    """
+    try:
+        config_values = get_all_config_values()
+    except FileNotFoundError:
+        console.print(
+            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
+        )
+        raise typer.Exit(code=1) from None
+
+    if json_output:
+        # Convert None values to null for JSON
+        json_data = {k: v for k, v in config_values.items()}
+        console.print(json.dumps(json_data, indent=2, ensure_ascii=False))
+        return
+
+    # Pretty print the configuration
+    config_path = get_default_config_path()
+    console.print(f"Configuration ({config_path}):\n")
+
+    # Group by section
+    sections: dict[str, list[tuple[str, str | int | bool | None]]] = {}
+    for key, value in config_values.items():
+        section, field = key.split(".", 1)
+        if section not in sections:
+            sections[section] = []
+        sections[section].append((field, value))
+
+    # Display each section
+    for section_name in sorted(sections.keys()):
+        console.print(f"\n\\[{section_name}]")
+        for field, value in sections[section_name]:
+            value_str = str(value) if value is not None else "(not set)"
+            console.print(f"  {field:<20} = {value_str}")
+
+
+@config_app.command()
+def set(
+    key: Annotated[str, typer.Argument(help="Config key in dot notation")],
+    value: Annotated[str, typer.Argument(help="Value to set")],
+) -> None:
+    """Set a config value by key.
+
+    Example:
+        mcpax config set minecraft.version 1.21.5
+        mcpax config set download.max_concurrent 10
+        mcpax config set download.verify_hash true
+    """
+    try:
+        set_config_value(key, value)
+        console.print(f"✓ Set {key} = {value}", style="green")
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(code=1) from None
+    except FileNotFoundError:
+        console.print(
+            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
+        )
+        raise typer.Exit(code=1) from None
 
 
 def main() -> None:

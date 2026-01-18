@@ -2921,3 +2921,372 @@ class TestUpdateCommand:
             "up to date" in result.stdout.lower()
             or "no updates" in result.stdout.lower()
         )
+
+
+class TestConfigPathCommand:
+    """Tests for config path command."""
+
+    def test_config_path_shows_default_path(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config path shows the config file path."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text("")
+
+        # Act
+        result = runner.invoke(app, ["config", "path"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert str(config_file) in result.stdout
+
+    def test_config_path_respects_xdg_config_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config path respects XDG_CONFIG_HOME environment variable."""
+        # Arrange
+        custom_config_home = tmp_path / "custom_config"
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(custom_config_home))
+        config_file = custom_config_home / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text("")
+
+        # Act
+        result = runner.invoke(app, ["config", "path"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert str(config_file) in result.stdout
+        assert str(custom_config_home) in result.stdout
+
+
+class TestConfigGetCommand:
+    """Tests for config get command."""
+
+    def test_config_get_valid_key(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config get retrieves a valid key value."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "get", "minecraft.version"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "1.21.4" in result.stdout
+
+    def test_config_get_integer_value(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config get retrieves integer value."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 10
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "get", "download.max_concurrent"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "10" in result.stdout
+
+    def test_config_get_boolean_value(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config get retrieves boolean value."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = false
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "get", "download.verify_hash"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "false" in result.stdout.lower()
+
+    def test_config_get_invalid_key(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config get shows error for invalid key."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "get", "invalid.key"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "Unknown config key" in result.stdout or "Error" in result.stdout
+
+    def test_config_get_config_not_found(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config get shows error when config.toml not found."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+        # Act
+        result = runner.invoke(app, ["config", "get", "minecraft.version"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "not found" in result.stdout or "Error" in result.stdout
+
+
+class TestConfigListCommand:
+    """Tests for config list command."""
+
+    def test_config_list_shows_all_settings(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config list shows all settings."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "list"])
+
+        # Assert
+        assert result.exit_code == 0
+        assert "minecraft" in result.stdout.lower()
+        assert "1.21.4" in result.stdout
+        assert "fabric" in result.stdout
+        assert "paths" in result.stdout.lower()
+        assert "download" in result.stdout.lower()
+
+    def test_config_list_json_output(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config list --json outputs JSON format."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "list", "--json"])
+
+        # Assert
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert isinstance(data, dict)
+        assert data["minecraft.version"] == "1.21.4"
+        assert data["minecraft.mod_loader"] == "fabric"
+
+
+class TestConfigSetCommand:
+    """Tests for config set command."""
+
+    def test_config_set_string_value(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config set updates string value."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "set", "minecraft.version", "1.21.5"])
+
+        # Assert
+        assert result.exit_code == 0
+        # Verify the value was actually updated
+        verify_result = runner.invoke(app, ["config", "get", "minecraft.version"])
+        assert "1.21.5" in verify_result.stdout
+
+    def test_config_set_integer_value(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config set updates integer value."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "set", "download.max_concurrent", "10"])
+
+        # Assert
+        assert result.exit_code == 0
+        verify_result = runner.invoke(app, ["config", "get", "download.max_concurrent"])
+        assert "10" in verify_result.stdout
+
+    def test_config_set_boolean_value(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config set updates boolean value."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "set", "download.verify_hash", "false"])
+
+        # Assert
+        assert result.exit_code == 0
+        verify_result = runner.invoke(app, ["config", "get", "download.verify_hash"])
+        assert "false" in verify_result.stdout.lower()
+
+    def test_config_set_invalid_key(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that config set shows error for invalid key."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        config_file = tmp_path / "mcpax" / "config.toml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+"""
+        )
+
+        # Act
+        result = runner.invoke(app, ["config", "set", "invalid.key", "value"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "Unknown config key" in result.stdout or "Error" in result.stdout
