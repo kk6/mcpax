@@ -103,8 +103,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     download = data.get("download", {})
 
     try:
-        # Backward compatibility: support both 'loader' and 'mod_loader'
-        mod_loader_value = minecraft.get("mod_loader") or minecraft.get("loader")
+        mod_loader_value = minecraft.get("mod_loader")
         if not mod_loader_value:
             raise KeyError("mod_loader")
 
@@ -222,9 +221,7 @@ def load_projects(path: Path | None = None) -> list[ProjectConfig]:
                 slug=p["slug"],
                 version=p.get("version"),
                 channel=ReleaseChannel(p.get("channel", "release")),
-                project_type=ProjectType(p["project_type"])
-                if p.get("project_type")
-                else None,
+                project_type=ProjectType(p["project_type"]),
             )
             for p in projects_data
         ]
@@ -261,6 +258,7 @@ def generate_projects(path: Path | None = None, force: bool = False) -> Path:
     doc.add(tomlkit.comment("Example:"))
     doc.add(tomlkit.comment("[[projects]]"))
     doc.add(tomlkit.comment('slug = "fabric-api"'))
+    doc.add(tomlkit.comment('project_type = "mod"'))
 
     with open(projects_path, "w", encoding="utf-8") as f:
         f.write(tomlkit.dumps(doc))
@@ -287,8 +285,7 @@ def save_projects(projects: list[ProjectConfig], path: Path | None = None) -> Pa
         for project in projects:
             table = tomlkit.table()
             table.add("slug", project.slug)
-            if project.project_type is not None:
-                table.add("project_type", project.project_type.value)
+            table.add("project_type", project.project_type.value)
             if project.version is not None:
                 table.add("version", project.version)
             if project.channel != ReleaseChannel.RELEASE:

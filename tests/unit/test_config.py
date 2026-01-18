@@ -333,7 +333,7 @@ class TestLoadConfig:
             """
 [minecraft]
 version = "1.21.4"
-loader = "invalid_loader"
+mod_loader = "invalid_loader"
 
 [paths]
 minecraft_dir = "~/.minecraft"
@@ -370,8 +370,8 @@ verify_hash = false
         assert config.max_concurrent_downloads == 10
         assert config.verify_hash is False
 
-    def test_load_config_backward_compatible_with_loader(self, tmp_path: Path) -> None:
-        """load_config supports old 'loader' field for backward compatibility."""
+    def test_load_config_requires_mod_loader(self, tmp_path: Path) -> None:
+        """load_config requires mod_loader field."""
         # Arrange
         config_file = tmp_path / "config.toml"
         config_file.write_text(
@@ -385,13 +385,9 @@ minecraft_dir = "~/.minecraft"
 """
         )
 
-        # Act
-        config = load_config(config_file)
-
-        # Assert
-        assert config.minecraft_version == "1.21.4"
-        assert config.mod_loader == Loader.FABRIC
-        assert config.shader_loader is None
+        # Act & Assert
+        with pytest.raises(ConfigValidationError):
+            load_config(config_file)
 
     def test_load_config_expands_paths(self, tmp_path: Path) -> None:
         """load_config expands ~ in paths."""
@@ -596,6 +592,7 @@ class TestLoadProjects:
             """
 [[projects]]
 slug = "fabric-api"
+project_type = "mod"
 version = "0.100.0"
 """
         )
@@ -615,6 +612,7 @@ version = "0.100.0"
             """
 [[projects]]
 slug = "sodium"
+project_type = "mod"
 channel = "beta"
 """
         )
@@ -634,6 +632,7 @@ channel = "beta"
             """
 [[projects]]
 slug = "fabric-api"
+project_type = "mod"
 """
         )
 
@@ -677,6 +676,7 @@ version = "0.100.0"
             """
 [[projects]]
 slug = "fabric-api"
+project_type = "mod"
 channel = "invalid_channel"
 """
         )
@@ -704,8 +704,8 @@ project_type = "mod"
         assert len(projects) == 1
         assert projects[0].project_type == ProjectType.MOD
 
-    def test_load_projects_without_project_type(self, tmp_path: Path) -> None:
-        """load_projects defaults to None when project_type is missing."""
+    def test_load_projects_requires_project_type(self, tmp_path: Path) -> None:
+        """load_projects requires project_type."""
         # Arrange
         projects_file = tmp_path / "projects.toml"
         projects_file.write_text(
@@ -715,12 +715,9 @@ slug = "sodium"
 """
         )
 
-        # Act
-        projects = load_projects(projects_file)
-
-        # Assert
-        assert len(projects) == 1
-        assert projects[0].project_type is None
+        # Act & Assert
+        with pytest.raises(ConfigValidationError):
+            load_projects(projects_file)
 
 
 class TestGenerateProjects:
@@ -792,7 +789,7 @@ class TestSaveProjects:
         """save_projects creates projects.toml."""
         # Arrange
         projects_path = tmp_path / "projects.toml"
-        projects = [ProjectConfig(slug="fabric-api")]
+        projects = [ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD)]
 
         # Act
         save_projects(projects, path=projects_path)
@@ -804,7 +801,7 @@ class TestSaveProjects:
         """save_projects returns path to created file."""
         # Arrange
         projects_path = tmp_path / "projects.toml"
-        projects = [ProjectConfig(slug="fabric-api")]
+        projects = [ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD)]
 
         # Act
         result = save_projects(projects, path=projects_path)
@@ -817,8 +814,8 @@ class TestSaveProjects:
         # Arrange
         projects_path = tmp_path / "projects.toml"
         projects = [
-            ProjectConfig(slug="fabric-api"),
-            ProjectConfig(slug="sodium"),
+            ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD),
+            ProjectConfig(slug="sodium", project_type=ProjectType.MOD),
         ]
 
         # Act
@@ -829,6 +826,7 @@ class TestSaveProjects:
         assert "[[projects]]" in content
         assert 'slug = "fabric-api"' in content
         assert 'slug = "sodium"' in content
+        assert 'project_type = "mod"' in content
 
     def test_save_projects_empty_list(self, tmp_path: Path) -> None:
         """save_projects handles empty list."""
@@ -848,7 +846,11 @@ class TestSaveProjects:
         """save_projects includes version when specified."""
         # Arrange
         projects_path = tmp_path / "projects.toml"
-        projects = [ProjectConfig(slug="fabric-api", version="0.100.0")]
+        projects = [
+            ProjectConfig(
+                slug="fabric-api", project_type=ProjectType.MOD, version="0.100.0"
+            )
+        ]
 
         # Act
         save_projects(projects, path=projects_path)
@@ -861,7 +863,11 @@ class TestSaveProjects:
         """save_projects includes channel when not release."""
         # Arrange
         projects_path = tmp_path / "projects.toml"
-        projects = [ProjectConfig(slug="sodium", channel=ReleaseChannel.BETA)]
+        projects = [
+            ProjectConfig(
+                slug="sodium", project_type=ProjectType.MOD, channel=ReleaseChannel.BETA
+            )
+        ]
 
         # Act
         save_projects(projects, path=projects_path)
@@ -874,7 +880,13 @@ class TestSaveProjects:
         """save_projects omits channel when release (default)."""
         # Arrange
         projects_path = tmp_path / "projects.toml"
-        projects = [ProjectConfig(slug="fabric-api", channel=ReleaseChannel.RELEASE)]
+        projects = [
+            ProjectConfig(
+                slug="fabric-api",
+                project_type=ProjectType.MOD,
+                channel=ReleaseChannel.RELEASE,
+            )
+        ]
 
         # Act
         save_projects(projects, path=projects_path)
@@ -884,7 +896,7 @@ class TestSaveProjects:
         assert "channel" not in content
 
     def test_save_projects_with_project_type(self, tmp_path: Path) -> None:
-        """save_projects includes project_type when specified."""
+        """save_projects includes project_type."""
         # Arrange
         projects_path = tmp_path / "projects.toml"
         projects = [ProjectConfig(slug="sodium", project_type=ProjectType.MOD)]
@@ -896,27 +908,18 @@ class TestSaveProjects:
         content = projects_path.read_text()
         assert 'project_type = "mod"' in content
 
-    def test_save_projects_omits_none_project_type(self, tmp_path: Path) -> None:
-        """save_projects omits project_type when None."""
-        # Arrange
-        projects_path = tmp_path / "projects.toml"
-        projects = [ProjectConfig(slug="fabric-api", project_type=None)]
-
-        # Act
-        save_projects(projects, path=projects_path)
-
-        # Assert
-        content = projects_path.read_text()
-        assert "project_type" not in content
-
     def test_save_projects_roundtrip(self, tmp_path: Path) -> None:
         """Saved projects can be loaded back."""
         # Arrange
         projects_path = tmp_path / "projects.toml"
         original = [
-            ProjectConfig(slug="fabric-api"),
+            ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD),
             ProjectConfig(slug="sodium", version="0.6.0", project_type=ProjectType.MOD),
-            ProjectConfig(slug="some-mod", channel=ReleaseChannel.BETA),
+            ProjectConfig(
+                slug="some-mod",
+                project_type=ProjectType.MOD,
+                channel=ReleaseChannel.BETA,
+            ),
         ]
 
         # Act
@@ -937,7 +940,7 @@ class TestSaveProjects:
         # Arrange
         projects_path = tmp_path / "projects.toml"
         projects_path.write_text("old content")
-        projects = [ProjectConfig(slug="new-project")]
+        projects = [ProjectConfig(slug="new-project", project_type=ProjectType.MOD)]
 
         # Act
         save_projects(projects, path=projects_path)

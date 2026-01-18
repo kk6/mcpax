@@ -112,12 +112,13 @@ class ProjectConfig:
     slug: str
     version: str | None = None  # None = 最新版
     channel: ReleaseChannel = ReleaseChannel.RELEASE
+    project_type: ProjectType
 
 @dataclass
 class AppConfig:
     """アプリケーション設定"""
     minecraft_version: str
-    loader: Loader
+    mod_loader: Loader
     minecraft_dir: Path
     mods_dir: Path
     shaders_dir: Path
@@ -685,19 +686,23 @@ verify_hash = true
 ```toml
 [[projects]]
 slug = "fabric-api"
+project_type = "mod"
 
 [[projects]]
 slug = "sodium"
+project_type = "mod"
 
 [[projects]]
 slug = "iris"
+project_type = "shader"
 
 [[projects]]
 slug = "complementary-reimagined"
-# project_type は API から自動判定
+project_type = "shader"
 
 [[projects]]
 slug = "some-mod"
+project_type = "mod"
 version = "1.2.3"  # バージョン固定
 channel = "beta"   # ベータ版も許可
 ```

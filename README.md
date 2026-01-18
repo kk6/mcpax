@@ -68,12 +68,15 @@ minecraft_dir = "~/.minecraft"
 ```toml
 [[projects]]
 slug = "fabric-api"
+project_type = "mod"
 
 [[projects]]
 slug = "sodium"
+project_type = "mod"
 
 [[projects]]
 slug = "complementary-reimagined"
+project_type = "shader"
 ```
 
 ### 3. プロジェクトの追加

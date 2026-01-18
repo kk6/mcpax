@@ -15,7 +15,7 @@
 │   (設定情報)     │     │ (管理対象)       │     │ (インストール済) │
 ├─────────────────┤     ├─────────────────┤     ├─────────────────┤
 │ mc_version      │     │ slug            │     │ filename        │
-│ loader          │     │ project_type    │     │ hash            │
+│ mod_loader      │     │ project_type    │     │ hash            │
 │ minecraft_dir   │     │ version_pin     │     │ project_slug    │
 │ mods_dir        │     │ channel         │     │ installed_at    │
 │ shaders_dir     │     └─────────────────┘     └─────────────────┘
@@ -48,7 +48,7 @@
 | 項目 | 型 | 説明 |
 |------|-----|------|
 | mc_version | string | Minecraft バージョン（例: "1.21.4"） |
-| loader | string | Mod Loader（例: "fabric"） |
+| mod_loader | string | Mod Loader（例: "fabric"） |
 | minecraft_dir | path | Minecraft ディレクトリ（例: ~/.minecraft） |
 | mods_dir | path | MOD 配置先（minecraft_dir/mods） |
 | shaders_dir | path | Shader 配置先（minecraft_dir/shaderpacks） |
@@ -163,19 +163,23 @@ minecraft_dir = "~/.minecraft"
 ```toml
 [[projects]]
 slug = "fabric-api"
+project_type = "mod"
 
 [[projects]]
 slug = "sodium"
+project_type = "mod"
 
 [[projects]]
 slug = "iris"
+project_type = "shader"
 
 [[projects]]
 slug = "complementary-reimagined"
-# project_type は API から自動判定
+project_type = "shader"
 
 [[projects]]
 slug = "some-mod"
+project_type = "mod"
 version = "1.2.3"  # バージョン固定
 channel = "beta"   # beta 版を使用
 ```
@@ -196,10 +200,9 @@ my-minecraft-project/
 └── .mcpax-state.json  # インストール状態（自動生成）
 ```
 
-### プロジェクト種別の判定
+### プロジェクト種別の指定
 
-プロジェクト種別（mod / shader / resourcepack）は Modrinth API の `project_type` フィールドから取得する。
-projects.toml には記載不要（API から自動判定）。
+プロジェクト種別（mod / shader / resourcepack）は projects.toml の `project_type` で指定する。
 
 ### Loader 指定の扱い
 
