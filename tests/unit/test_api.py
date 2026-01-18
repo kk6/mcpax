@@ -849,6 +849,117 @@ class TestFilterShaderResourcepack:
         assert len(result) == 1
         assert result[0].version_number == "1.0"
 
+    def test_filters_shader_by_iris_loader(self) -> None:
+        """Filters shader versions by iris loader when specified."""
+        versions = [
+            _make_version(
+                "1.0",
+                game_versions=["1.21.4"],
+                loaders=["iris"],
+            ),
+            _make_version(
+                "2.0",
+                game_versions=["1.21.4"],
+                loaders=["optifine"],
+            ),
+        ]
+        client = ModrinthClient()
+
+        result = client.filter_compatible_versions(
+            versions,
+            minecraft_version="1.21.4",
+            loader=Loader.FABRIC,
+            project_type=ProjectType.SHADER,
+            shader_loader=Loader.IRIS,
+        )
+
+        assert len(result) == 1
+        assert result[0].version_number == "1.0"
+
+    def test_filters_shader_by_optifine_loader(self) -> None:
+        """Filters shader versions by optifine loader when specified."""
+        versions = [
+            _make_version(
+                "1.0",
+                game_versions=["1.21.4"],
+                loaders=["iris"],
+            ),
+            _make_version(
+                "2.0",
+                game_versions=["1.21.4"],
+                loaders=["optifine"],
+            ),
+        ]
+        client = ModrinthClient()
+
+        result = client.filter_compatible_versions(
+            versions,
+            minecraft_version="1.21.4",
+            loader=Loader.FABRIC,
+            project_type=ProjectType.SHADER,
+            shader_loader=Loader.OPTIFINE,
+        )
+
+        assert len(result) == 1
+        assert result[0].version_number == "2.0"
+
+    def test_allows_shader_with_both_loaders(self) -> None:
+        """Allows shader versions that support both iris and optifine."""
+        versions = [
+            _make_version(
+                "1.0",
+                game_versions=["1.21.4"],
+                loaders=["iris", "optifine"],
+            ),
+        ]
+        client = ModrinthClient()
+
+        # Should work with iris
+        result = client.filter_compatible_versions(
+            versions,
+            minecraft_version="1.21.4",
+            loader=Loader.FABRIC,
+            project_type=ProjectType.SHADER,
+            shader_loader=Loader.IRIS,
+        )
+        assert len(result) == 1
+
+        # Should also work with optifine
+        result = client.filter_compatible_versions(
+            versions,
+            minecraft_version="1.21.4",
+            loader=Loader.FABRIC,
+            project_type=ProjectType.SHADER,
+            shader_loader=Loader.OPTIFINE,
+        )
+        assert len(result) == 1
+
+    def test_shader_without_loader_spec_allows_all(self) -> None:
+        """Shader without shader_loader specified allows all loaders."""
+        versions = [
+            _make_version(
+                "1.0",
+                game_versions=["1.21.4"],
+                loaders=["iris"],
+            ),
+            _make_version(
+                "2.0",
+                game_versions=["1.21.4"],
+                loaders=["optifine"],
+            ),
+        ]
+        client = ModrinthClient()
+
+        result = client.filter_compatible_versions(
+            versions,
+            minecraft_version="1.21.4",
+            loader=Loader.FABRIC,
+            project_type=ProjectType.SHADER,
+            shader_loader=None,
+        )
+
+        assert len(result) == 2
+
     def test_allows_resourcepack_with_empty_loaders(self) -> None:
         """Allows versions without loaders listed."""
         versions = [
@@ -864,6 +975,27 @@ class TestFilterShaderResourcepack:
             versions,
             minecraft_version="1.21.4",
             loader=Loader.FABRIC,
+        )
+
+        assert len(result) == 1
+        assert result[0].version_number == "1.0"
+
+    def test_resourcepack_ignores_loaders(self) -> None:
+        """Resource packs ignore loader field completely."""
+        versions = [
+            _make_version(
+                "1.0",
+                game_versions=["1.21.4"],
+                loaders=["optifine"],  # Some resourcepacks have optifine features
+            ),
+        ]
+        client = ModrinthClient()
+
+        result = client.filter_compatible_versions(
+            versions,
+            minecraft_version="1.21.4",
+            loader=Loader.FABRIC,
+            project_type=ProjectType.RESOURCEPACK,
         )
 
         assert len(result) == 1

@@ -364,11 +364,18 @@ class ProjectManager:
                 if project_config is not None
                 else ReleaseChannel.RELEASE
             )
+            shader_loader = (
+                self._config.shader_loader
+                if installed.project_type == ProjectType.SHADER
+                else None
+            )
             latest = self._api_client.get_latest_compatible_version(
                 versions,
                 self._config.minecraft_version,
-                self._config.loader,
+                self._config.mod_loader,
                 channel=channel,
+                project_type=installed.project_type,
+                shader_loader=shader_loader,
             )
 
             if latest is None:
@@ -467,13 +474,26 @@ class ProjectManager:
 
         installed = await self.get_installed_file(project.slug)
 
+        # Use stored project_type if available, otherwise fetch from API
+        if project.project_type is not None:
+            project_type = project.project_type
+        else:
+            # Backward compatibility: fetch from API if not stored
+            project_info = await self._api_client.get_project(project.slug)
+            project_type = project_info.project_type
+
         # Get latest compatible version
         versions = await self._api_client.get_versions(project.slug)
+        shader_loader = (
+            self._config.shader_loader if project_type == ProjectType.SHADER else None
+        )
         latest = self._api_client.get_latest_compatible_version(
             versions,
             self._config.minecraft_version,
-            self._config.loader,
+            self._config.mod_loader,
             project.channel,
+            project_type=project_type,
+            shader_loader=shader_loader,
         )
 
         if latest is None:

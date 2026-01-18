@@ -8,12 +8,14 @@ from pydantic import BaseModel, Field
 
 
 class Loader(str, Enum):
-    """Mod loader types."""
+    """Mod and shader loader types."""
 
     FABRIC = "fabric"
     FORGE = "forge"
     NEOFORGE = "neoforge"
     QUILT = "quilt"
+    IRIS = "iris"
+    OPTIFINE = "optifine"
 
 
 class ProjectType(str, Enum):
@@ -59,7 +61,8 @@ class AppConfig(BaseModel):
     """Application configuration from config.toml."""
 
     minecraft_version: str
-    loader: Loader
+    mod_loader: Loader
+    shader_loader: Loader | None = None
     minecraft_dir: Path
     mods_dir: Path | None = None
     shaders_dir: Path | None = None
@@ -74,6 +77,7 @@ class ProjectConfig(BaseModel):
     slug: str
     version: str | None = None
     channel: ReleaseChannel = ReleaseChannel.RELEASE
+    project_type: ProjectType | None = None
 
 
 class InstalledFile(BaseModel):

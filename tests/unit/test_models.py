@@ -142,12 +142,12 @@ class TestAppConfig:
 
         config = AppConfig(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=Path("~/.minecraft"),
         )
 
         assert config.minecraft_version == "1.21.4"
-        assert config.loader == Loader.FABRIC
+        assert config.mod_loader == Loader.FABRIC
         assert config.minecraft_dir == Path("~/.minecraft")
 
     def test_default_values(self) -> None:
@@ -155,7 +155,7 @@ class TestAppConfig:
 
         config = AppConfig(
             minecraft_version="1.21.4",
-            loader=Loader.FABRIC,
+            mod_loader=Loader.FABRIC,
             minecraft_dir=Path("~/.minecraft"),
         )
 
@@ -170,7 +170,7 @@ class TestAppConfig:
 
         config = AppConfig(
             minecraft_version="1.21.4",
-            loader=Loader.FORGE,
+            mod_loader=Loader.FORGE,
             minecraft_dir=Path("/custom/minecraft"),
             mods_dir=Path("/custom/mods"),
             shaders_dir=Path("/custom/shaders"),
@@ -179,7 +179,7 @@ class TestAppConfig:
             verify_hash=False,
         )
 
-        assert config.loader == Loader.FORGE
+        assert config.mod_loader == Loader.FORGE
         assert config.minecraft_dir == Path("/custom/minecraft")
         assert config.mods_dir == Path("/custom/mods")
         assert config.shaders_dir == Path("/custom/shaders")
@@ -199,6 +199,7 @@ class TestProjectConfig:
         assert config.slug == "sodium"
         assert config.version is None
         assert config.channel == ReleaseChannel.RELEASE
+        assert config.project_type is None
 
     def test_create_with_all_fields(self) -> None:
         """ProjectConfig can be created with all fields."""
@@ -207,11 +208,13 @@ class TestProjectConfig:
             slug="sodium",
             version="0.6.0",
             channel=ReleaseChannel.BETA,
+            project_type=ProjectType.MOD,
         )
 
         assert config.slug == "sodium"
         assert config.version == "0.6.0"
         assert config.channel == ReleaseChannel.BETA
+        assert config.project_type == ProjectType.MOD
 
 
 class TestInstalledFile:
