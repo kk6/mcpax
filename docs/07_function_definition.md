@@ -73,7 +73,7 @@ config.toml を生成する。
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
 | minecraft_version | str | ✓ | Minecraft バージョン |
-| loader | Loader | ✓ | Mod Loader |
+| mod_loader | Loader | ✓ | Mod Loader |
 | minecraft_dir | Path | ✓ | Minecraft ディレクトリ |
 | force | bool | - | 上書きを許可するか |
 
@@ -240,7 +240,7 @@ ProjectConfig のリストを projects.toml に書き込む。
 | 項目 | 検証内容 |
 |------|---------|
 | minecraft_version | 形式が正しいか（例: 1.21.4） |
-| loader | 有効な値か（fabric/forge/neoforge/quilt） |
+| mod_loader | 有効な値か（fabric/forge/neoforge/quilt） |
 | minecraft_dir | ディレクトリが存在するか |
 
 ---

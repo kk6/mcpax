@@ -77,7 +77,7 @@ class ProjectConfig(BaseModel):
     slug: str
     version: str | None = None
     channel: ReleaseChannel = ReleaseChannel.RELEASE
-    project_type: ProjectType | None = None
+    project_type: ProjectType
 
 
 class InstalledFile(BaseModel):
@@ -169,6 +169,7 @@ class UpdateCheckResult(BaseModel):
     """Result of checking for updates."""
 
     slug: str
+    project_type: ProjectType
     status: InstallStatus
     current_version: str | None
     current_file: InstalledFile | None

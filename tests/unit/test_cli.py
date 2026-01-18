@@ -762,6 +762,7 @@ class TestInstallCommand:
 
             mock_check_result = UpdateCheckResult(
                 slug="sodium",
+                project_type=ProjectType.MOD,
                 status=InstallStatus.NOT_INSTALLED,
                 current_version=None,
                 current_file=None,
@@ -835,6 +836,7 @@ class TestInstallCommand:
             mock_check_results = [
                 UpdateCheckResult(
                     slug="sodium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.NOT_INSTALLED,
                     current_version=None,
                     current_file=None,
@@ -844,6 +846,7 @@ class TestInstallCommand:
                 ),
                 UpdateCheckResult(
                     slug="lithium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.NOT_INSTALLED,
                     current_version=None,
                     current_file=None,
@@ -946,6 +949,7 @@ class TestInstallCommand:
 
             mock_check_result = UpdateCheckResult(
                 slug="sodium",
+                project_type=ProjectType.MOD,
                 status=InstallStatus.NOT_COMPATIBLE,
                 current_version=None,
                 current_file=None,
@@ -995,6 +999,7 @@ class TestInstallCommand:
 
             mock_check_result = UpdateCheckResult(
                 slug="sodium",
+                project_type=ProjectType.MOD,
                 status=InstallStatus.INSTALLED,
                 current_version="0.5.0",
                 current_file=None,
@@ -1101,6 +1106,7 @@ class TestListCommand:
 
             mock_check_result = UpdateCheckResult(
                 slug="sodium",
+                project_type=ProjectType.MOD,
                 status=InstallStatus.INSTALLED,
                 current_version="0.5.0",
                 current_file=None,
@@ -1167,6 +1173,7 @@ class TestListCommand:
             mock_check_results = [
                 UpdateCheckResult(
                     slug="sodium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.INSTALLED,
                     current_version="0.5.0",
                     current_file=None,
@@ -1176,6 +1183,7 @@ class TestListCommand:
                 ),
                 UpdateCheckResult(
                     slug="complementary-unbound",
+                    project_type=ProjectType.SHADER,
                     status=InstallStatus.INSTALLED,
                     current_version="r5.2",
                     current_file=None,
@@ -1246,6 +1254,7 @@ class TestListCommand:
             mock_check_results = [
                 UpdateCheckResult(
                     slug="sodium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.INSTALLED,
                     current_version="0.5.0",
                     current_file=None,
@@ -1255,6 +1264,7 @@ class TestListCommand:
                 ),
                 UpdateCheckResult(
                     slug="complementary-unbound",
+                    project_type=ProjectType.SHADER,
                     status=InstallStatus.INSTALLED,
                     current_version="r5.2",
                     current_file=None,
@@ -1327,6 +1337,7 @@ class TestListCommand:
             mock_check_results = [
                 UpdateCheckResult(
                     slug="sodium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.INSTALLED,
                     current_version="0.5.0",
                     current_file=None,
@@ -1336,6 +1347,7 @@ class TestListCommand:
                 ),
                 UpdateCheckResult(
                     slug="complementary-unbound",
+                    project_type=ProjectType.SHADER,
                     status=InstallStatus.INSTALLED,
                     current_version="r5.2",
                     current_file=None,
@@ -1410,6 +1422,7 @@ class TestListCommand:
             mock_check_results = [
                 UpdateCheckResult(
                     slug="sodium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.INSTALLED,
                     current_version="0.5.0",
                     current_file=None,
@@ -1419,6 +1432,7 @@ class TestListCommand:
                 ),
                 UpdateCheckResult(
                     slug="lithium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.NOT_INSTALLED,
                     current_version=None,
                     current_file=None,
@@ -1493,6 +1507,7 @@ class TestListCommand:
             mock_check_results = [
                 UpdateCheckResult(
                     slug="sodium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.INSTALLED,
                     current_version="0.5.0",
                     current_file=None,
@@ -1502,6 +1517,7 @@ class TestListCommand:
                 ),
                 UpdateCheckResult(
                     slug="lithium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.NOT_INSTALLED,
                     current_version=None,
                     current_file=None,
@@ -1574,6 +1590,7 @@ class TestListCommand:
             mock_check_results = [
                 UpdateCheckResult(
                     slug="sodium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.INSTALLED,
                     current_version="0.5.0",
                     current_file=None,
@@ -1583,6 +1600,7 @@ class TestListCommand:
                 ),
                 UpdateCheckResult(
                     slug="lithium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.OUTDATED,
                     current_version="0.10.0",
                     current_file=None,
@@ -1640,6 +1658,7 @@ class TestListCommand:
 
             mock_check_result = UpdateCheckResult(
                 slug="sodium",
+                project_type=ProjectType.MOD,
                 status=InstallStatus.INSTALLED,
                 current_version="0.5.0",
                 current_file=None,
@@ -1832,6 +1851,7 @@ class TestListCommand:
             mock_check_results = [
                 UpdateCheckResult(
                     slug="sodium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.INSTALLED,
                     current_version="0.5.0",
                     current_file=None,
@@ -1841,6 +1861,7 @@ class TestListCommand:
                 ),
                 UpdateCheckResult(
                     slug="lithium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.INSTALLED,
                     current_version="0.11.0",
                     current_file=None,
@@ -1850,6 +1871,7 @@ class TestListCommand:
                 ),
                 UpdateCheckResult(
                     slug="complementary-unbound",
+                    project_type=ProjectType.SHADER,
                     status=InstallStatus.INSTALLED,
                     current_version="r5.2",
                     current_file=None,
@@ -1931,6 +1953,7 @@ class TestListCommand:
             mock_check_results = [
                 UpdateCheckResult(
                     slug="sodium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.INSTALLED,
                     current_version="0.5.0",
                     current_file=None,
@@ -1940,6 +1963,7 @@ class TestListCommand:
                 ),
                 UpdateCheckResult(
                     slug="lithium",
+                    project_type=ProjectType.MOD,
                     status=InstallStatus.NOT_INSTALLED,
                     current_version=None,
                     current_file=None,
@@ -1997,6 +2021,7 @@ class TestListCommand:
 
             mock_check_result = UpdateCheckResult(
                 slug="sodium",
+                project_type=ProjectType.MOD,
                 status=InstallStatus.OUTDATED,
                 current_version="0.5.0",
                 current_file=None,

@@ -618,6 +618,7 @@ def list_projects(
                         if installed is None or not installed.file_path.exists():
                             return UpdateCheckResult(
                                 slug=project.slug,
+                                project_type=project.project_type,
                                 status=InstallStatus.NOT_INSTALLED,
                                 current_version=None,
                                 current_file=None,
@@ -627,6 +628,7 @@ def list_projects(
                             )
                         return UpdateCheckResult(
                             slug=project.slug,
+                            project_type=project.project_type,
                             status=InstallStatus.INSTALLED,
                             current_version=installed.version_number,
                             current_file=installed,

@@ -941,7 +941,11 @@ class TestGetInstallStatusWithChannel:
             ],
         )
 
-        project_config = ProjectConfig(slug="sodium", channel=ReleaseChannel.BETA)
+        project_config = ProjectConfig(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            channel=ReleaseChannel.BETA,
+        )
 
         # Act
         async with ProjectManager(config) as manager:
@@ -1026,10 +1030,6 @@ class TestCheckUpdates:
         await manager_temp._save_state(state)
 
         httpx_mock.add_response(
-            url="https://api.modrinth.com/v2/project/sodium",
-            json=_make_project_payload("sodium"),
-        )
-        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1043,7 +1043,9 @@ class TestCheckUpdates:
 
         # Act
         async with ProjectManager(config) as manager:
-            results = await manager.check_updates([ProjectConfig(slug="sodium")])
+            results = await manager.check_updates(
+                [ProjectConfig(slug="sodium", project_type=ProjectType.MOD)]
+            )
 
         # Assert
         assert results[0].status == InstallStatus.OUTDATED
@@ -1073,10 +1075,6 @@ class TestCheckUpdates:
         await manager_temp._save_state(state)
 
         httpx_mock.add_response(
-            url="https://api.modrinth.com/v2/project/sodium",
-            json=_make_project_payload("sodium"),
-        )
-        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1090,7 +1088,9 @@ class TestCheckUpdates:
 
         # Act
         async with ProjectManager(config) as manager:
-            results = await manager.check_updates([ProjectConfig(slug="sodium")])
+            results = await manager.check_updates(
+                [ProjectConfig(slug="sodium", project_type=ProjectType.MOD)]
+            )
 
         # Assert
         assert results[0].status == InstallStatus.INSTALLED
@@ -1117,10 +1117,6 @@ class TestCheckUpdates:
         await manager_temp._save_state(state)
 
         httpx_mock.add_response(
-            url="https://api.modrinth.com/v2/project/sodium",
-            json=_make_project_payload("sodium"),
-        )
-        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1130,10 +1126,6 @@ class TestCheckUpdates:
                     sha512="matchhash" * 20,
                 )
             ],
-        )
-        httpx_mock.add_response(
-            url="https://api.modrinth.com/v2/project/lithium",
-            json=_make_project_payload("lithium"),
         )
         httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/lithium/version",
@@ -1151,7 +1143,10 @@ class TestCheckUpdates:
         # Act
         async with ProjectManager(config) as manager:
             results = await manager.check_updates(
-                [ProjectConfig(slug="sodium"), ProjectConfig(slug="lithium")]
+                [
+                    ProjectConfig(slug="sodium", project_type=ProjectType.MOD),
+                    ProjectConfig(slug="lithium", project_type=ProjectType.MOD),
+                ]
             )
 
         # Assert
@@ -1169,10 +1164,6 @@ class TestCheckUpdates:
         """Returns CHECK_FAILED when API errors occur."""
         # Arrange
         config = _make_config(tmp_path)
-        httpx_mock.add_response(
-            url="https://api.modrinth.com/v2/project/sodium",
-            json=_make_project_payload("sodium"),
-        )
         for _ in range(ModrinthClient.DEFAULT_MAX_RETRIES + 1):
             httpx_mock.add_response(
                 url="https://api.modrinth.com/v2/project/sodium/version",
@@ -1184,7 +1175,9 @@ class TestCheckUpdates:
             fast_api_client,
             ProjectManager(config, api_client=fast_api_client) as manager,
         ):
-            results = await manager.check_updates([ProjectConfig(slug="sodium")])
+            results = await manager.check_updates(
+                [ProjectConfig(slug="sodium", project_type=ProjectType.MOD)]
+            )
 
         # Assert
         assert results[0].status == InstallStatus.CHECK_FAILED
@@ -1222,6 +1215,7 @@ class TestApplyUpdates:
         )
         update = UpdateCheckResult(
             slug="sodium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.NOT_INSTALLED,
             current_version=None,
             current_file=None,
@@ -1284,6 +1278,7 @@ class TestApplyUpdates:
         )
         update = UpdateCheckResult(
             slug="sodium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.OUTDATED,
             current_version="1.0.0",
             current_file=installed,
@@ -1339,6 +1334,7 @@ class TestApplyUpdates:
         )
         update = UpdateCheckResult(
             slug="sodium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.NOT_INSTALLED,
             current_version=None,
             current_file=None,
@@ -1396,6 +1392,7 @@ class TestApplyUpdates:
         )
         update_ok = UpdateCheckResult(
             slug="sodium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.NOT_INSTALLED,
             current_version=None,
             current_file=None,
@@ -1405,6 +1402,7 @@ class TestApplyUpdates:
         )
         update_fail = UpdateCheckResult(
             slug="lithium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.NOT_INSTALLED,
             current_version=None,
             current_file=None,
@@ -1489,6 +1487,7 @@ class TestApplyUpdatesRollback:
         )
         update = UpdateCheckResult(
             slug="sodium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.OUTDATED,
             current_version="1.0.0",
             current_file=installed,
@@ -1559,6 +1558,7 @@ class TestApplyUpdatesRollback:
         )
         update = UpdateCheckResult(
             slug="sodium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.OUTDATED,
             current_version="1.0.0",
             current_file=installed,
@@ -1633,6 +1633,7 @@ class TestApplyUpdatesRollback:
         )
         update = UpdateCheckResult(
             slug="sodium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.OUTDATED,
             current_version="1.0.0",
             current_file=installed,

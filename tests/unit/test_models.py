@@ -3,6 +3,9 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from mcpax.core.models import (
     AppConfig,
     Dependency,
@@ -191,15 +194,10 @@ class TestAppConfig:
 class TestProjectConfig:
     """Tests for ProjectConfig model."""
 
-    def test_create_with_slug_only(self) -> None:
-        """ProjectConfig can be created with slug only."""
-
-        config = ProjectConfig(slug="sodium")
-
-        assert config.slug == "sodium"
-        assert config.version is None
-        assert config.channel == ReleaseChannel.RELEASE
-        assert config.project_type is None
+    def test_requires_project_type(self) -> None:
+        """ProjectConfig requires project_type."""
+        with pytest.raises(ValidationError):
+            ProjectConfig(slug="sodium")
 
     def test_create_with_all_fields(self) -> None:
         """ProjectConfig can be created with all fields."""
@@ -443,6 +441,7 @@ class TestUpdateCheckResult:
 
         result = UpdateCheckResult(
             slug="sodium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.OUTDATED,
             current_version="0.5.0",
             current_file=current_file,
@@ -464,6 +463,7 @@ class TestUpdateCheckResult:
 
         result = UpdateCheckResult(
             slug="sodium",
+            project_type=ProjectType.MOD,
             status=InstallStatus.NOT_INSTALLED,
             current_version=None,
             current_file=None,

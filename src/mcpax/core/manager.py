@@ -32,7 +32,7 @@ from mcpax.core.models import (
 logger = logging.getLogger(__name__)
 
 # Type alias for update info mapping
-UpdateInfo = tuple[UpdateCheckResult, ProjectType]
+UpdateInfo = UpdateCheckResult
 
 
 class ProjectManager:
@@ -455,6 +455,7 @@ class ProjectManager:
                     logger.warning("Failed to check update for %s: %s", project.slug, e)
                     return UpdateCheckResult(
                         slug=project.slug,
+                        project_type=project.project_type,
                         status=InstallStatus.CHECK_FAILED,
                         current_version=None,
                         current_file=None,
@@ -474,13 +475,7 @@ class ProjectManager:
 
         installed = await self.get_installed_file(project.slug)
 
-        # Use stored project_type if available, otherwise fetch from API
-        if project.project_type is not None:
-            project_type = project.project_type
-        else:
-            # Backward compatibility: fetch from API if not stored
-            project_info = await self._api_client.get_project(project.slug)
-            project_type = project_info.project_type
+        project_type = project.project_type
 
         # Get latest compatible version
         versions = await self._api_client.get_versions(project.slug)
@@ -499,6 +494,7 @@ class ProjectManager:
         if latest is None:
             return UpdateCheckResult(
                 slug=project.slug,
+                project_type=project_type,
                 status=InstallStatus.NOT_COMPATIBLE,
                 current_version=installed.version_number if installed else None,
                 current_file=installed,
@@ -521,6 +517,7 @@ class ProjectManager:
 
         return UpdateCheckResult(
             slug=project.slug,
+            project_type=project_type,
             status=status,
             current_version=installed.version_number if installed else None,
             current_file=installed,
@@ -567,38 +564,16 @@ class ProjectManager:
         tasks: list[DownloadTask] = []
         update_info: dict[str, UpdateInfo] = {}
 
-        # Fetch project info in parallel
-        async def _get_project_info(
-            update: UpdateCheckResult,
-        ) -> tuple[UpdateCheckResult, ProjectType | None, str | None]:
-            assert self._api_client is not None  # Already checked above
-            try:
-                project = await self._api_client.get_project(update.slug)
-                return (update, project.project_type, None)
-            except (APIError, httpx.HTTPError) as e:
-                return (update, None, str(e))
-
-        project_results = await asyncio.gather(
-            *[_get_project_info(update) for update in to_update]
-        )
-
         # Process project results and create download tasks
         dest_dir = self._get_temp_download_dir()
         dest_dir.mkdir(parents=True, exist_ok=True)
 
-        for update, project_type, error in project_results:
+        for update in to_update:
             if update.latest_file is None:
                 result.failed.append(
                     FailedUpdate(slug=update.slug, error="No compatible version found")
                 )
                 continue
-
-            if error is not None:
-                result.failed.append(FailedUpdate(slug=update.slug, error=error))
-                continue
-
-            # When error is None, project_type must not be None
-            assert project_type is not None
 
             task = DownloadTask(
                 url=update.latest_file.url,
@@ -608,7 +583,7 @@ class ProjectManager:
                 version_number=update.latest_version or "unknown",
             )
             tasks.append(task)
-            update_info[update.slug] = (update, project_type)
+            update_info[update.slug] = update
 
         # Download all files
         if tasks:
@@ -624,7 +599,7 @@ class ProjectManager:
                     )
                     continue
 
-                update, project_type = update_info[slug]
+                update = update_info[slug]
                 final_path: Path | None = None
 
                 try:
@@ -635,7 +610,7 @@ class ProjectManager:
                         continue
 
                     # Place new file
-                    target_dir = self.get_target_directory(project_type)
+                    target_dir = self.get_target_directory(update.project_type)
                     if download_result.file_path is None:
                         result.failed.append(
                             FailedUpdate(slug=slug, error="Download path is None")
@@ -668,7 +643,7 @@ class ProjectManager:
 
                     installed_file = InstalledFile(
                         slug=slug,
-                        project_type=project_type,
+                        project_type=update.project_type,
                         filename=final_path.name,
                         version_id=update.latest_version_id,
                         version_number=update.latest_version or "unknown",

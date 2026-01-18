@@ -46,7 +46,7 @@
 @dataclass
 class AppConfig:
     minecraft_version: str
-    loader: Loader
+    mod_loader: Loader
     minecraft_dir: Path
     mods_dir: Path
     shaders_dir: Path
@@ -60,7 +60,7 @@ class AppConfig:
 | 属性 | 型 | 必須 | デフォルト | 説明 |
 |-----|-----|------|-----------|------|
 | minecraft_version | str | ✓ | - | Minecraft バージョン（例: "1.21.4"） |
-| loader | Loader | ✓ | - | Mod Loader |
+| mod_loader | Loader | ✓ | - | Mod Loader |
 | minecraft_dir | Path | ✓ | - | Minecraft ディレクトリ |
 | mods_dir | Path | - | {minecraft_dir}/mods | MOD 配置ディレクトリ |
 | shaders_dir | Path | - | {minecraft_dir}/shaderpacks | Shader 配置ディレクトリ |
@@ -99,6 +99,7 @@ class ProjectConfig:
     slug: str
     version: str | None = None
     channel: ReleaseChannel = ReleaseChannel.RELEASE
+    project_type: ProjectType
 ```
 
 #### 属性
@@ -108,19 +109,23 @@ class ProjectConfig:
 | slug | str | ✓ | - | Modrinth のプロジェクト slug |
 | version | str \| None | - | None | 固定するバージョン（None=最新） |
 | channel | ReleaseChannel | - | RELEASE | リリースチャネル |
+| project_type | ProjectType | ✓ | - | プロジェクト種別 |
 
 #### TOML 形式
 
 ```toml
 [[projects]]
 slug = "fabric-api"
+project_type = "mod"
 
 [[projects]]
 slug = "sodium"
+project_type = "mod"
 version = "0.6.0"  # バージョン固定
 
 [[projects]]
 slug = "some-mod"
+project_type = "mod"
 channel = "beta"  # ベータ版も許可
 ```
 
@@ -449,7 +454,7 @@ class InstallStatus(str, Enum):
 │   AppConfig     │       │  ProjectConfig  │
 ├─────────────────┤       ├─────────────────┤
 │ minecraft_ver   │       │ slug            │
-│ loader          │       │ version         │
+│ mod_loader      │       │ version         │
 │ minecraft_dir   │       │ channel         │
 │ mods_dir        │       └────────┬────────┘
 │ shaders_dir     │                │

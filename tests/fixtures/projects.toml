@@ -1,8 +1,11 @@
 [[projects]]
 slug = "fabric-api"
+project_type = "mod"
 
 [[projects]]
 slug = "sodium"
+project_type = "mod"
 
 [[projects]]
 slug = "complementary-unbound"
+project_type = "shader"
