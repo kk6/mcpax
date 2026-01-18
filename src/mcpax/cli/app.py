@@ -33,6 +33,7 @@ from mcpax.core.models import (
     ReleaseChannel,
     SearchHit,
     UpdateCheckResult,
+    UpdateResult,
 )
 
 app = typer.Typer(
@@ -399,14 +400,6 @@ def install(
         mcpax install sodium
         mcpax install --all
     """
-    # Check if config.toml exists
-    config_path = get_default_config_path()
-    if not config_path.exists():
-        console.print(
-            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
-        )
-        raise typer.Exit(code=1)
-
     # Load config
     try:
         config = load_config()
@@ -828,6 +821,140 @@ def search(
         console.print(f"   Downloads: {downloads_formatted}\n")
 
     console.print("Run 'mcpax add <slug>' to add a project.")
+
+
+@app.command()
+def update(
+    check: Annotated[
+        bool,
+        typer.Option("--check", "-c", help="Check for updates without applying them"),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip confirmation prompts"),
+    ] = False,
+) -> None:
+    """Check for and apply updates to registered projects.
+
+    Example:
+        mcpax update --check
+        mcpax update --yes
+    """
+    # Check if config.toml exists
+    config_path = get_default_config_path()
+    if not config_path.exists():
+        console.print(
+            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
+        )
+        raise typer.Exit(code=1)
+
+    # Load config
+    try:
+        config = load_config()
+    except FileNotFoundError:
+        console.print(
+            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
+        )
+        raise typer.Exit(code=1) from None
+
+    # Load projects
+    try:
+        projects = load_projects()
+    except FileNotFoundError:
+        console.print(
+            "[yellow]Warning:[/yellow] projects.toml not found. No projects to update."
+        )
+        raise typer.Exit(code=0) from None
+
+    if not projects:
+        console.print("No projects to check.")
+        return
+
+    # Check for updates
+    console.print("Checking for updates...")
+
+    async def _check_updates() -> list[UpdateCheckResult]:
+        async with ProjectManager(config) as manager:
+            return await manager.check_updates(projects)
+
+    results = asyncio.run(_check_updates())
+
+    # Group results by status
+    grouped: dict[InstallStatus, list[UpdateCheckResult]] = defaultdict(list)
+    for result in results:
+        grouped[result.status].append(result)
+
+    updates_available = (
+        grouped[InstallStatus.OUTDATED] + grouped[InstallStatus.NOT_INSTALLED]
+    )
+
+    display_groups = [
+        ("Updates available", updates_available, "updates"),
+        ("Not compatible", grouped[InstallStatus.NOT_COMPATIBLE], "not_compatible"),
+        ("Check failed", grouped[InstallStatus.CHECK_FAILED], "check_failed"),
+        ("Up to date", grouped[InstallStatus.INSTALLED], "up_to_date"),
+    ]
+
+    # Display results
+    for title, items, kind in display_groups:
+        if not items:
+            continue
+        console.print(f"\n{title} ({len(items)}):")
+        if kind == "updates":
+            for result in items:
+                current = result.current_version or "not installed"
+                latest = result.latest_version or "unknown"
+                arrow = f"{current} → {latest}"
+                console.print(f"  {result.slug:<20} {arrow}")
+            continue
+        if kind == "up_to_date":
+            slugs = ", ".join(r.slug for r in items)
+            console.print(f"  {slugs}")
+            continue
+        note = "no compatible version" if kind == "not_compatible" else "check failed"
+        for result in items:
+            console.print(f"  {result.slug:<20} ({note})")
+
+    # If check-only mode, exit here
+    if check:
+        if updates_available:
+            console.print("\nRun 'mcpax update' to apply updates.")
+        return
+
+    # If no updates available, exit
+    if not updates_available:
+        console.print("\nAll projects are up to date.")
+        return
+
+    # Ask for confirmation unless --yes is specified
+    if not yes:
+        confirmed = typer.confirm("\nApply updates?")
+        if not confirmed:
+            console.print("Update cancelled.")
+            return
+
+    # Apply updates
+    console.print("\nApplying updates...")
+
+    async def _apply_updates() -> UpdateResult:
+        async with ProjectManager(config) as manager:
+            return await manager.apply_updates(results)
+
+    update_result = asyncio.run(_apply_updates())
+
+    # Display results
+    if update_result.failed:
+        console.print(
+            f"\n[yellow]Updates completed with {len(update_result.failed)} "
+            f"errors.[/yellow]"
+        )
+        for failed in update_result.failed:
+            console.print(f"  [red]✗[/red] {failed.slug}: {failed.error}")
+    else:
+        updated_count = len(update_result.successful)
+        console.print(
+            f"\n[green]✓[/green] {updated_count} project(s) updated successfully."
+        )
 
 
 def main() -> None:

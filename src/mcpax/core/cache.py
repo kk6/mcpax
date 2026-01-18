@@ -48,7 +48,7 @@ class ApiCache:
         ts = entry.get("ts")
         data = entry.get("data")
         if (
-            isinstance(ts, (int, float))
+            isinstance(ts, int | float)
             and isinstance(data, dict)
             and self._is_fresh(ts)
         ):
@@ -66,7 +66,7 @@ class ApiCache:
         ts = entry.get("ts")
         data = entry.get("data")
         if (
-            isinstance(ts, (int, float))
+            isinstance(ts, int | float)
             and isinstance(data, list)
             and self._is_fresh(ts)
         ):

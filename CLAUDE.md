@@ -169,7 +169,9 @@ mcpax search <query> [OPTIONS]          # Search Modrinth
   --limit/-l N                          #   Number of results (default: 10)
   --json                                #   Output in JSON format
 mcpax install [--all]                   # Install projects
-mcpax update [--check]                  # Check/apply updates
+mcpax update [OPTIONS]                  # Check/apply updates
+  --check/-c                            #   Check for updates without applying them
+  --yes/-y                              #   Skip confirmation prompts
 mcpax status                            # Show installation status
 ```
 
