@@ -14,6 +14,19 @@ from .models import AppConfig, Loader, ProjectConfig, ProjectType, ReleaseChanne
 APP_NAME = "mcpax"
 MINECRAFT_VERSION_PATTERN = re.compile(r"^\d+\.\d+(\.\d+)?(-\w+)?$")
 
+# Key mapping for config command
+CONFIG_KEY_MAP: dict[str, tuple[str, str]] = {
+    "minecraft.version": ("minecraft", "version"),
+    "minecraft.mod_loader": ("minecraft", "mod_loader"),
+    "minecraft.shader_loader": ("minecraft", "shader_loader"),
+    "paths.minecraft_dir": ("paths", "minecraft_dir"),
+    "paths.mods_dir": ("paths", "mods_dir"),
+    "paths.shaders_dir": ("paths", "shaders_dir"),
+    "paths.resourcepacks_dir": ("paths", "resourcepacks_dir"),
+    "download.max_concurrent": ("download", "max_concurrent"),
+    "download.verify_hash": ("download", "verify_hash"),
+}
+
 
 @dataclass
 class ValidationError:
@@ -331,3 +344,139 @@ def validate_config(config: AppConfig) -> list[ValidationError]:
         )
 
     return errors
+
+
+def get_config_value(key: str, path: Path | None = None) -> str | int | bool | None:
+    """Get a config value by dot notation key.
+
+    Args:
+        key: Dot notation key (e.g., "minecraft.version")
+        path: Path to config file (defaults to XDG_CONFIG_HOME/mcpax/config.toml)
+
+    Returns:
+        Config value (string, int, or bool) or None if key is invalid or not found
+
+    Raises:
+        FileNotFoundError: If config file doesn't exist
+    """
+    config_path = path or get_default_config_path()
+
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    # Check if key is valid
+    if key not in CONFIG_KEY_MAP:
+        return None
+
+    section, field = CONFIG_KEY_MAP[key]
+
+    # Load config with tomlkit to preserve structure
+    with open(config_path, encoding="utf-8") as f:
+        doc = tomlkit.load(f)
+
+    # Navigate to section and field
+    if section not in doc:
+        return None
+
+    section_data = doc[section]
+    if not isinstance(section_data, dict):
+        return None
+    if field not in section_data:
+        return None
+
+    value = section_data[field]
+    if isinstance(value, str | int | bool):
+        return value
+    return None
+
+
+def set_config_value(key: str, value: str, path: Path | None = None) -> None:
+    """Set a config value by dot notation key (preserves TOML formatting).
+
+    Args:
+        key: Dot notation key (e.g., "minecraft.version")
+        value: Value to set (as string, will be converted to appropriate type)
+        path: Path to config file (defaults to XDG_CONFIG_HOME/mcpax/config.toml)
+
+    Raises:
+        ValueError: If key is invalid
+        FileNotFoundError: If config file doesn't exist
+    """
+    config_path = path or get_default_config_path()
+
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    # Check if key is valid
+    if key not in CONFIG_KEY_MAP:
+        raise ValueError(f"Unknown config key: {key}")
+
+    section, field = CONFIG_KEY_MAP[key]
+
+    # Load config with tomlkit to preserve structure
+    with open(config_path, encoding="utf-8") as f:
+        doc = tomlkit.load(f)
+
+    # Create section if it doesn't exist
+    if section not in doc:
+        doc[section] = tomlkit.table()
+
+    # Convert value to appropriate type based on field
+    converted_value: str | int | bool
+    if field == "max_concurrent":
+        # Integer field
+        converted_value = int(value)
+    elif field == "verify_hash":
+        # Boolean field
+        value_lower = value.lower()
+        if value_lower in ("true", "1", "yes"):
+            converted_value = True
+        elif value_lower in ("false", "0", "no"):
+            converted_value = False
+        else:
+            raise ValueError(f"Invalid boolean value: {value}")
+    else:
+        # String field
+        converted_value = value
+
+    # Set the value
+    doc[section][field] = converted_value  # type: ignore[index]
+
+    # Write back to file
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(tomlkit.dumps(doc))
+
+
+def get_all_config_values(
+    path: Path | None = None,
+) -> dict[str, str | int | bool | None]:
+    """Get all config values as flat dict with dot notation keys.
+
+    Args:
+        path: Path to config file (defaults to XDG_CONFIG_HOME/mcpax/config.toml)
+
+    Returns:
+        Dictionary with dot notation keys and their values
+
+    Raises:
+        FileNotFoundError: If config file doesn't exist
+    """
+    config_path = path or get_default_config_path()
+
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    with open(config_path, encoding="utf-8") as f:
+        doc = tomlkit.load(f)
+
+    result: dict[str, str | int | bool | None] = {}
+    for key, (section, field) in CONFIG_KEY_MAP.items():
+        value = None
+        section_data = doc.get(section)
+        if isinstance(section_data, dict):
+            raw_value = section_data.get(field)
+            if isinstance(raw_value, (str, int, bool)):
+                value = raw_value
+        result[key] = value
+
+    return result
