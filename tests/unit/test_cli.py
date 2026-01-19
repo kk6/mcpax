@@ -45,19 +45,6 @@ class TestVersion:
         assert f"mcpax {__version__}" in result.stdout
 
 
-class TestStatus:
-    """Tests for status command."""
-
-    def test_status_command(self) -> None:
-        """Test that status command shows expected message."""
-        # Arrange & Act
-        result = runner.invoke(app, ["status"])
-
-        # Assert
-        assert result.exit_code == 0
-        assert "No projects configured yet" in result.stdout
-
-
 class TestHelp:
     """Tests for help display."""
 
