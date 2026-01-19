@@ -176,12 +176,6 @@ def init(
         raise typer.Exit(code=1) from None
 
 
-@app.command()
-def status() -> None:
-    """Show installation status."""
-    typer.echo("No projects configured yet. Run 'mcpax init' to get started.")
-
-
 async def _fetch_project(slug: str) -> ModrinthProject:
     """Fetch project information from Modrinth API.
 

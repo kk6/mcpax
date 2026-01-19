@@ -163,7 +163,7 @@ slug = "complementary-unbound"  # shader
 mcpax init                              # Initialize configuration files
 mcpax add <slug>                        # Add project
 mcpax remove <slug>                     # Remove project
-mcpax list [--type TYPE] [--json]       # List registered projects
+mcpax list [--type TYPE] [--json]       # List registered projects (includes install status/filters)
 mcpax search <query> [OPTIONS]          # Search Modrinth
   --type/-t TYPE                        #   Filter by type (mod/modpack/shader/resourcepack)
   --limit/-l N                          #   Number of results (default: 10)
@@ -172,7 +172,6 @@ mcpax install [--all]                   # Install projects
 mcpax update [OPTIONS]                  # Check/apply updates
   --check/-c                            #   Check for updates without applying them
   --yes/-y                              #   Skip confirmation prompts
-mcpax status                            # Show installation status
 ```
 
 ## Testing Strategy
