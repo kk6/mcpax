@@ -3277,3 +3277,32 @@ minecraft_dir = "~/.minecraft"
         # Assert
         assert result.exit_code == 1
         assert "Unknown config key" in result.stdout or "Error" in result.stdout
+
+
+class TestTUI:
+    """Tests for tui command."""
+
+    def test_tui_command_launches_app(self) -> None:
+        """Test that tui command launches the TUI app."""
+        # Arrange
+        with patch("mcpax.tui.run_tui") as mock_run_tui:
+            # Act
+            result = runner.invoke(app, ["tui"])
+
+            # Assert
+            assert result.exit_code == 0
+            mock_run_tui.assert_called_once()
+
+    def test_tui_command_import_error(self) -> None:
+        """Test that tui command handles ImportError gracefully."""
+        # Arrange
+        with patch(
+            "mcpax.tui.run_tui",
+            side_effect=ImportError("No module named 'textual'"),
+        ):
+            # Act
+            result = runner.invoke(app, ["tui"])
+
+            # Assert
+            assert result.exit_code == 1
+            assert "TUI dependencies not installed" in result.stdout

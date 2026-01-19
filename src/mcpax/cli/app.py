@@ -1065,6 +1065,21 @@ def set(
         raise typer.Exit(code=1) from None
 
 
+@app.command()
+def tui() -> None:
+    """Launch the TUI interface."""
+    try:
+        from mcpax.tui import run_tui
+
+        run_tui()
+    except ImportError as e:
+        console.print(
+            "[red]Error:[/red] TUI dependencies not installed. "
+            "Run 'uv pip install -e \".\\[tui]\"' to install them."
+        )
+        raise typer.Exit(1) from e
+
+
 def main() -> None:
     """Entry point for the CLI."""
     app()
