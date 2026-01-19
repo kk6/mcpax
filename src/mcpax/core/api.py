@@ -130,11 +130,14 @@ class ModrinthClient:
         """
         if response.status_code == 404:
             # Use provided slug or extract from path
+            extracted_slug: str
             if slug is None:
                 # Try to extract slug from path (e.g., /project/{slug})
                 match = re.search(r"/project/([^/]+)", str(response.url.path))
-                slug = match.group(1) if match else "unknown"
-            raise ProjectNotFoundError(slug)
+                extracted_slug = match.group(1) if match else "unknown"
+            else:
+                extracted_slug = slug
+            raise ProjectNotFoundError(extracted_slug)
 
         if response.status_code == 429:
             retry_after_str = response.headers.get("Retry-After")
