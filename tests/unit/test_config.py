@@ -1091,3 +1091,607 @@ class TestValidateConfig:
         assert len(errors) > 0
         assert all(isinstance(e.message, str) for e in errors)
         assert all(e.message != "" for e in errors)
+
+
+class TestConfigKeyMap:
+    """Tests for CONFIG_KEY_MAP constant."""
+
+    def test_config_key_map_exists(self) -> None:
+        """CONFIG_KEY_MAP constant exists."""
+        # Arrange & Act
+        from mcpax.core.config import CONFIG_KEY_MAP
+
+        # Assert
+        assert CONFIG_KEY_MAP is not None
+        assert isinstance(CONFIG_KEY_MAP, dict)
+
+    def test_config_key_map_has_all_expected_keys(self) -> None:
+        """CONFIG_KEY_MAP contains all expected dot notation keys."""
+        # Arrange
+        from mcpax.core.config import CONFIG_KEY_MAP
+
+        expected_keys = {
+            "minecraft.version",
+            "minecraft.mod_loader",
+            "minecraft.shader_loader",
+            "paths.minecraft_dir",
+            "paths.mods_dir",
+            "paths.shaders_dir",
+            "paths.resourcepacks_dir",
+            "download.max_concurrent",
+            "download.verify_hash",
+        }
+
+        # Act & Assert
+        assert set(CONFIG_KEY_MAP.keys()) == expected_keys
+
+    def test_config_key_map_values_are_tuples(self) -> None:
+        """CONFIG_KEY_MAP values are tuples of (section, field)."""
+        # Arrange
+        from mcpax.core.config import CONFIG_KEY_MAP
+
+        # Act & Assert
+        for key, value in CONFIG_KEY_MAP.items():
+            assert isinstance(value, tuple), f"Value for {key} is not a tuple"
+            assert len(value) == 2, f"Value for {key} does not have 2 elements"
+            assert isinstance(value[0], str), f"Section for {key} is not a string"
+            assert isinstance(value[1], str), f"Field for {key} is not a string"
+
+    def test_config_key_map_minecraft_version(self) -> None:
+        """CONFIG_KEY_MAP maps minecraft.version correctly."""
+        # Arrange
+        from mcpax.core.config import CONFIG_KEY_MAP
+
+        # Act & Assert
+        assert CONFIG_KEY_MAP["minecraft.version"] == ("minecraft", "version")
+
+    def test_config_key_map_download_verify_hash(self) -> None:
+        """CONFIG_KEY_MAP maps download.verify_hash correctly."""
+        # Arrange
+        from mcpax.core.config import CONFIG_KEY_MAP
+
+        # Act & Assert
+        assert CONFIG_KEY_MAP["download.verify_hash"] == ("download", "verify_hash")
+
+
+class TestGetConfigValue:
+    """Tests for get_config_value function."""
+
+    def test_get_string_value(self, sample_config: Path) -> None:
+        """get_config_value retrieves string value correctly."""
+        # Arrange
+        from mcpax.core.config import get_config_value
+
+        # Act
+        result = get_config_value("minecraft.version", path=sample_config)
+
+        # Assert
+        assert result == "1.21.4"
+
+    def test_get_mod_loader_value(self, sample_config: Path) -> None:
+        """get_config_value retrieves mod_loader value correctly."""
+        # Arrange
+        from mcpax.core.config import get_config_value
+
+        # Act
+        result = get_config_value("minecraft.mod_loader", path=sample_config)
+
+        # Assert
+        assert result == "fabric"
+
+    def test_get_integer_value(self, tmp_path: Path) -> None:
+        """get_config_value retrieves integer value correctly."""
+        # Arrange
+        from mcpax.core.config import get_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 10
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = get_config_value("download.max_concurrent", path=config_file)
+
+        # Assert
+        assert result == 10
+
+    def test_get_boolean_value(self, tmp_path: Path) -> None:
+        """get_config_value retrieves boolean value correctly."""
+        # Arrange
+        from mcpax.core.config import get_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = false
+"""
+        )
+
+        # Act
+        result = get_config_value("download.verify_hash", path=config_file)
+
+        # Assert
+        assert result is False
+
+    def test_get_invalid_key_returns_none(self, sample_config: Path) -> None:
+        """get_config_value returns None for invalid key."""
+        # Arrange
+        from mcpax.core.config import get_config_value
+
+        # Act
+        result = get_config_value("invalid.key", path=sample_config)
+
+        # Assert
+        assert result is None
+
+    def test_get_missing_optional_field_returns_none(self, tmp_path: Path) -> None:
+        """get_config_value returns None for missing optional field."""
+        # Arrange
+        from mcpax.core.config import get_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+"""
+        )
+
+        # Act
+        result = get_config_value("minecraft.shader_loader", path=config_file)
+
+        # Assert
+        assert result is None
+
+    def test_get_config_file_not_found(self, tmp_path: Path) -> None:
+        """get_config_value raises FileNotFoundError for missing file."""
+        # Arrange
+        from mcpax.core.config import get_config_value
+
+        nonexistent = tmp_path / "nonexistent.toml"
+
+        # Act & Assert
+        with pytest.raises(FileNotFoundError):
+            get_config_value("minecraft.version", path=nonexistent)
+
+    def test_get_uses_default_path(
+        self, sample_config: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """get_config_value uses default config path when path is None."""
+        # Arrange
+        from mcpax.core.config import get_config_value
+
+        # Mock get_default_config_path to return sample_config
+        def mock_get_default_config_path() -> Path:
+            return sample_config
+
+        monkeypatch.setattr(
+            "mcpax.core.config.get_default_config_path", mock_get_default_config_path
+        )
+
+        # Act
+        result = get_config_value("minecraft.version")
+
+        # Assert
+        assert result == "1.21.4"
+
+
+class TestSetConfigValue:
+    """Tests for set_config_value function."""
+
+    def test_set_string_value(self, tmp_path: Path) -> None:
+        """set_config_value sets string value correctly."""
+        # Arrange
+        from mcpax.core.config import get_config_value, set_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        set_config_value("minecraft.version", "1.21.5", path=config_file)
+
+        # Assert
+        result = get_config_value("minecraft.version", path=config_file)
+        assert result == "1.21.5"
+
+    def test_set_integer_value(self, tmp_path: Path) -> None:
+        """set_config_value sets integer value correctly."""
+        # Arrange
+        from mcpax.core.config import get_config_value, set_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        set_config_value("download.max_concurrent", "10", path=config_file)
+
+        # Assert
+        result = get_config_value("download.max_concurrent", path=config_file)
+        assert result == 10
+
+    def test_set_boolean_value_true(self, tmp_path: Path) -> None:
+        """set_config_value sets boolean value to true correctly."""
+        # Arrange
+        from mcpax.core.config import get_config_value, set_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = false
+"""
+        )
+
+        # Act
+        set_config_value("download.verify_hash", "true", path=config_file)
+
+        # Assert
+        result = get_config_value("download.verify_hash", path=config_file)
+        assert result is True
+
+    def test_set_boolean_value_false(self, tmp_path: Path) -> None:
+        """set_config_value sets boolean value to false correctly."""
+        # Arrange
+        from mcpax.core.config import get_config_value, set_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        set_config_value("download.verify_hash", "false", path=config_file)
+
+        # Assert
+        result = get_config_value("download.verify_hash", path=config_file)
+        assert result is False
+
+    def test_set_boolean_value_with_variants(self, tmp_path: Path) -> None:
+        """set_config_value accepts various boolean representations."""
+        # Arrange
+        from mcpax.core.config import get_config_value, set_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act & Assert for "1" (true)
+        set_config_value("download.verify_hash", "1", path=config_file)
+        assert get_config_value("download.verify_hash", path=config_file) is True
+
+        # Act & Assert for "0" (false)
+        set_config_value("download.verify_hash", "0", path=config_file)
+        assert get_config_value("download.verify_hash", path=config_file) is False
+
+        # Act & Assert for "yes" (true)
+        set_config_value("download.verify_hash", "yes", path=config_file)
+        assert get_config_value("download.verify_hash", path=config_file) is True
+
+        # Act & Assert for "no" (false)
+        set_config_value("download.verify_hash", "no", path=config_file)
+        assert get_config_value("download.verify_hash", path=config_file) is False
+
+    def test_set_preserves_comments(self, tmp_path: Path) -> None:
+        """set_config_value preserves TOML comments."""
+        # Arrange
+        from mcpax.core.config import set_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """# Minecraft configuration
+[minecraft]
+version = "1.21.4"  # Current version
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        set_config_value("minecraft.version", "1.21.5", path=config_file)
+
+        # Assert
+        content = config_file.read_text()
+        assert "# Minecraft configuration" in content
+
+    def test_set_invalid_key_raises_error(self, tmp_path: Path) -> None:
+        """set_config_value raises ValueError for invalid key."""
+        # Arrange
+        from mcpax.core.config import set_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+"""
+        )
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="Unknown config key"):
+            set_config_value("invalid.key", "value", path=config_file)
+
+    def test_set_config_file_not_found(self, tmp_path: Path) -> None:
+        """set_config_value raises FileNotFoundError for missing file."""
+        # Arrange
+        from mcpax.core.config import set_config_value
+
+        nonexistent = tmp_path / "nonexistent.toml"
+
+        # Act & Assert
+        with pytest.raises(FileNotFoundError):
+            set_config_value("minecraft.version", "1.21.5", path=nonexistent)
+
+    def test_set_creates_missing_section(self, tmp_path: Path) -> None:
+        """set_config_value creates missing section if needed."""
+        # Arrange
+        from mcpax.core.config import get_config_value, set_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+"""
+        )
+
+        # Act
+        set_config_value("download.max_concurrent", "10", path=config_file)
+
+        # Assert
+        result = get_config_value("download.max_concurrent", path=config_file)
+        assert result == 10
+
+    def test_set_creates_missing_field(self, tmp_path: Path) -> None:
+        """set_config_value creates missing field if section exists."""
+        # Arrange
+        from mcpax.core.config import get_config_value, set_config_value
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+"""
+        )
+
+        # Act
+        set_config_value("download.verify_hash", "true", path=config_file)
+
+        # Assert
+        result = get_config_value("download.verify_hash", path=config_file)
+        assert result is True
+
+
+class TestGetAllConfigValues:
+    """Tests for get_all_config_values function."""
+
+    def test_get_all_values(self, tmp_path: Path) -> None:
+        """get_all_config_values returns all config values."""
+        # Arrange
+        from mcpax.core.config import get_all_config_values
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+shader_loader = "iris"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+mods_dir = "~/.minecraft/mods"
+shaders_dir = "~/.minecraft/shaderpacks"
+resourcepacks_dir = "~/.minecraft/resourcepacks"
+
+[download]
+max_concurrent = 10
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = get_all_config_values(path=config_file)
+
+        # Assert
+        assert result["minecraft.version"] == "1.21.4"
+        assert result["minecraft.mod_loader"] == "fabric"
+        assert result["minecraft.shader_loader"] == "iris"
+        assert result["paths.minecraft_dir"] == "~/.minecraft"
+        assert result["paths.mods_dir"] == "~/.minecraft/mods"
+        assert result["paths.shaders_dir"] == "~/.minecraft/shaderpacks"
+        assert result["paths.resourcepacks_dir"] == "~/.minecraft/resourcepacks"
+        assert result["download.max_concurrent"] == 10
+        assert result["download.verify_hash"] is True
+
+    def test_get_all_values_with_missing_optional_fields(self, tmp_path: Path) -> None:
+        """get_all_config_values returns None for missing optional fields."""
+        # Arrange
+        from mcpax.core.config import get_all_config_values
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "~/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+"""
+        )
+
+        # Act
+        result = get_all_config_values(path=config_file)
+
+        # Assert
+        assert result["minecraft.version"] == "1.21.4"
+        assert result["minecraft.shader_loader"] is None
+        assert result["paths.mods_dir"] is None
+        assert result["paths.shaders_dir"] is None
+        assert result["paths.resourcepacks_dir"] is None
+
+    def test_get_all_values_returns_dict(self, sample_config: Path) -> None:
+        """get_all_config_values returns a dictionary."""
+        # Arrange
+        from mcpax.core.config import get_all_config_values
+
+        # Act
+        result = get_all_config_values(path=sample_config)
+
+        # Assert
+        assert isinstance(result, dict)
+
+    def test_get_all_values_uses_dot_notation_keys(self, sample_config: Path) -> None:
+        """get_all_config_values uses dot notation keys."""
+        # Arrange
+        from mcpax.core.config import get_all_config_values
+
+        # Act
+        result = get_all_config_values(path=sample_config)
+
+        # Assert
+        assert "minecraft.version" in result
+        assert "minecraft.mod_loader" in result
+        assert "paths.minecraft_dir" in result
+        assert "download.max_concurrent" in result
+        assert "download.verify_hash" in result
+
+    def test_get_all_values_file_not_found(self, tmp_path: Path) -> None:
+        """get_all_config_values raises FileNotFoundError for missing file."""
+        # Arrange
+        from mcpax.core.config import get_all_config_values
+
+        nonexistent = tmp_path / "nonexistent.toml"
+
+        # Act & Assert
+        with pytest.raises(FileNotFoundError):
+            get_all_config_values(path=nonexistent)
+
+    def test_get_all_values_uses_default_path(
+        self, sample_config: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """get_all_config_values uses default config path when path is None."""
+        # Arrange
+        from mcpax.core.config import get_all_config_values
+
+        # Mock get_default_config_path to return sample_config
+        def mock_get_default_config_path() -> Path:
+            return sample_config
+
+        monkeypatch.setattr(
+            "mcpax.core.config.get_default_config_path", mock_get_default_config_path
+        )
+
+        # Act
+        result = get_all_config_values()
+
+        # Assert
+        assert "minecraft.version" in result
+        assert result["minecraft.version"] == "1.21.4"
