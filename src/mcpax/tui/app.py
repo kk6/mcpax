@@ -2,12 +2,11 @@
 
 from pathlib import Path
 
-from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header
+from textual.app import App
 
 from mcpax.core.config import ConfigValidationError, load_config
 from mcpax.core.models import AppConfig
-from mcpax.tui.widgets import StatusBar
+from mcpax.tui.screens import MainScreen
 
 
 class McpaxApp(App[None]):
@@ -15,9 +14,6 @@ class McpaxApp(App[None]):
 
     CSS_PATH = Path(__file__).parent / "styles" / "app.tcss"
     TITLE = "mcpax"
-    BINDINGS = [
-        ("q", "quit", "Quit"),
-    ]
 
     def __init__(self) -> None:
         """Initialize the TUI application."""
@@ -33,12 +29,9 @@ class McpaxApp(App[None]):
             # Config will be None if not found or invalid
             self._config = None
 
-    def compose(self) -> ComposeResult:
-        """Compose the app layout."""
-        yield Header()
-        yield StatusBar(config=self._config)
-        yield Footer()
-
-    async def action_quit(self) -> None:
-        """Quit the application."""
-        self.exit()
+    def on_mount(self) -> None:
+        """Push MainScreen when app is mounted."""
+        if self._config is not None:
+            self.push_screen(MainScreen(config=self._config))
+        else:
+            self.exit(message="Error: Configuration not found or invalid")
