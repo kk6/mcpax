@@ -77,6 +77,30 @@ StatusBar > .status-label {
 }
 
 /* ============================================================================
+ * ProjectTable Widget
+ * ============================================================================ */
+
+ProjectTable {
+    background: $surface;
+    border: solid $border;
+    height: 100%;
+}
+
+ProjectTable > .datatable--header {
+    background: $surface-elevated;
+    color: $text;
+    text-style: bold;
+}
+
+ProjectTable > .datatable--cursor {
+    background: $primary-muted;
+}
+
+ProjectTable > .datatable--hover {
+    background: $surface-elevated;
+}
+
+/* ============================================================================
  * Utility Classes
  * ============================================================================ */
 
