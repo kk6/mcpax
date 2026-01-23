@@ -145,6 +145,49 @@ ProjectTable > .datatable--hover {
 }
 
 /* ============================================================================
+ * ProjectDetailScreen (Modal)
+ * ============================================================================ */
+
+ProjectDetailScreen {
+    align: center middle;
+}
+
+#detail-container {
+    width: 70;
+    height: auto;
+    background: $surface-elevated;
+    border: thick $primary;
+    padding: 1 2;
+}
+
+#detail-title {
+    text-style: bold;
+    color: $primary;
+    margin-bottom: 1;
+}
+
+#button-container {
+    layout: horizontal;
+    height: auto;
+    margin-top: 1;
+    align: center middle;
+}
+
+Button {
+    margin: 0 1;
+    min-width: 16;
+}
+
+Button.-error {
+    background: $error;
+    color: $text;
+}
+
+Button.-error:hover {
+    background: #b83f3c;
+}
+
+/* ============================================================================
  * Future Widget Placeholders (commented out for now)
  * ============================================================================ */
 
@@ -166,20 +209,6 @@ ProjectListItem:hover {
 ProjectListItem.-selected {
     background: $primary-muted;
     color: $text;
-}
-
-Dialog {
-    background: $surface-elevated;
-    border: thick $primary;
-}
-
-Button {
-    background: $primary;
-    color: $background;
-}
-
-Button:hover {
-    background: $primary-muted;
 }
 
 Input {

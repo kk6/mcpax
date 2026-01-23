@@ -1,14 +1,17 @@
 """Main screen for displaying project list."""
 
+import logging
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
-from textual.widgets import Footer
+from textual.widgets import DataTable, Footer
 from textual.worker import Worker, WorkerState
 
 from mcpax.core.config import ConfigValidationError, load_projects
 from mcpax.core.manager import ProjectManager
 from mcpax.core.models import AppConfig, ProjectConfig, UpdateCheckResult
+from mcpax.tui.screens.detail import ProjectDetailScreen
 from mcpax.tui.widgets import ProjectTable, StatusBar
 
 
@@ -54,6 +57,7 @@ class MainScreen(Screen[None]):
         except (FileNotFoundError, ConfigValidationError) as e:
             self.notify(f"Error loading projects: {e}", severity="error")
         except Exception as e:
+            logging.exception("Unexpected error in _load_and_check_updates")
             self.notify(f"Unexpected error: {e}", severity="error")
 
     async def _check_updates_worker(self) -> list[UpdateCheckResult]:
@@ -77,9 +81,7 @@ class MainScreen(Screen[None]):
             result = event.worker.result
             if isinstance(result, list):
                 table.load_projects(result)
-                self.notify(
-                    "Projects loaded successfully", severity="information"
-                )
+                self.notify("Projects loaded successfully", severity="information")
         elif event.state == WorkerState.ERROR:
             self.notify(
                 f"Failed to check updates: {event.worker.error}",
@@ -95,14 +97,31 @@ class MainScreen(Screen[None]):
         self._load_and_check_updates()
 
     def action_view_detail(self) -> None:
-        """View detail of selected project (stub for future)."""
+        """View detail of selected project."""
         table = self.query_one(ProjectTable)
         selected = table.selected_project
 
         if selected:
-            self.notify(
-                f"Detail view for {selected.slug} (coming soon)",
-                severity="information",
+            self.app.push_screen(
+                ProjectDetailScreen(project=selected, config=self._config),
+                callback=self._on_detail_dismissed,
             )
         else:
             self.notify("No project selected", severity="warning")
+
+    def _on_detail_dismissed(self, deleted: bool | None) -> None:
+        """Handle modal dismissal.
+
+        Args:
+            deleted: True if project was deleted, False or None otherwise
+        """
+        if deleted:
+            self._load_and_check_updates()
+
+    def on_data_table_row_activated(self, event: DataTable.RowActivated) -> None:  # type: ignore[attr-defined]
+        """Handle row activation (Enter key press) in the data table.
+
+        Args:
+            event: Row activated event
+        """
+        self.action_view_detail()

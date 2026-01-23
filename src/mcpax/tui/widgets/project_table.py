@@ -26,6 +26,7 @@ class ProjectTable(DataTable[str]):
             **kwargs: Additional arguments passed to DataTable
         """
         super().__init__(**kwargs)
+        self.cursor_type = "row"
         self._projects: list[UpdateCheckResult] = []
         self._sort_column: str | None = None
         self._sort_reverse: bool = False
