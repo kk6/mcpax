@@ -1,5 +1,7 @@
 """Main TUI application for mcpax."""
 
+from pathlib import Path
+
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header
 
@@ -11,6 +13,7 @@ from mcpax.tui.widgets import StatusBar
 class McpaxApp(App[None]):
     """Minecraft MOD/Shader/Resource Pack manager TUI."""
 
+    CSS_PATH = Path(__file__).parent / "styles" / "app.tcss"
     TITLE = "mcpax"
     BINDINGS = [
         ("q", "quit", "Quit"),

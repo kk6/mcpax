@@ -1,0 +1,150 @@
+/*
+ * mcpax TUI Stylesheet
+ * Minecraft-inspired dark theme
+ */
+
+/* ============================================================================
+ * Color Palette (Minecraft-inspired Dark Theme)
+ * ============================================================================ */
+
+/* Background colors */
+$background: #1a1a1a;           /* Main background (Minecraft night sky) */
+$surface: #2d2d2d;              /* Widget background */
+$surface-elevated: #3a3a3a;     /* Modal/elevated surface */
+
+/* Primary colors */
+$primary: #5cb85c;              /* Grass block green */
+$primary-muted: #3d8b3d;        /* Muted green */
+$secondary: #4a90d9;            /* Water blue */
+
+/* Text colors */
+$text: #e0e0e0;                 /* Primary text */
+$text-muted: #808080;           /* Secondary/muted text */
+
+/* Border colors */
+$border: #404040;               /* Border color */
+
+/* Status colors */
+$success: #5cb85c;              /* Installed */
+$warning: #f0ad4e;              /* Update available */
+$error: #d9534f;                /* Error/incompatible */
+$neutral: #808080;              /* Not installed */
+
+/* ============================================================================
+ * Global Styles
+ * ============================================================================ */
+
+Screen {
+    background: $background;
+}
+
+/* ============================================================================
+ * Header
+ * ============================================================================ */
+
+Header {
+    background: $primary;
+    color: $background;
+    text-style: bold;
+}
+
+/* ============================================================================
+ * Footer
+ * ============================================================================ */
+
+Footer {
+    background: $surface;
+    color: $text;
+}
+
+/* ============================================================================
+ * StatusBar Widget
+ * ============================================================================ */
+
+StatusBar {
+    background: $surface;
+    color: $text;
+    height: auto;
+    padding: 1;
+}
+
+StatusBar > .status-item {
+    color: $text;
+}
+
+StatusBar > .status-label {
+    color: $text-muted;
+}
+
+/* ============================================================================
+ * Utility Classes
+ * ============================================================================ */
+
+.success {
+    color: $success;
+}
+
+.warning {
+    color: $warning;
+}
+
+.error {
+    color: $error;
+}
+
+.neutral {
+    color: $neutral;
+}
+
+.muted {
+    color: $text-muted;
+}
+
+/* ============================================================================
+ * Future Widget Placeholders (commented out for now)
+ * ============================================================================ */
+
+/*
+ProjectList {
+    background: $surface;
+    border: solid $border;
+}
+
+ProjectListItem {
+    background: $surface;
+    color: $text;
+}
+
+ProjectListItem:hover {
+    background: $surface-elevated;
+}
+
+ProjectListItem.-selected {
+    background: $primary-muted;
+    color: $text;
+}
+
+Dialog {
+    background: $surface-elevated;
+    border: thick $primary;
+}
+
+Button {
+    background: $primary;
+    color: $background;
+}
+
+Button:hover {
+    background: $primary-muted;
+}
+
+Input {
+    background: $surface;
+    border: solid $border;
+    color: $text;
+}
+
+Input:focus {
+    border: solid $primary;
+}
+*/
