@@ -218,6 +218,55 @@ SearchInput > Select {
 }
 
 /* ============================================================================
+ * SearchScreen
+ * ============================================================================ */
+
+SearchScreen {
+    layout: vertical;
+}
+
+#search-header {
+    dock: top;
+    height: auto;
+    background: $surface;
+    color: $primary;
+    text-style: bold;
+    padding: 1;
+}
+
+SearchScreen > SearchResultTable {
+    height: 1fr;
+}
+
+SearchScreen > Footer {
+    dock: bottom;
+}
+
+/* ============================================================================
+ * SearchResultTable Widget
+ * ============================================================================ */
+
+SearchResultTable {
+    background: $surface;
+    border: solid $border;
+    height: 100%;
+}
+
+SearchResultTable > .datatable--header {
+    background: $surface-elevated;
+    color: $text;
+    text-style: bold;
+}
+
+SearchResultTable > .datatable--cursor {
+    background: $primary-muted;
+}
+
+SearchResultTable > .datatable--hover {
+    background: $surface-elevated;
+}
+
+/* ============================================================================
  * Future Widget Placeholders (commented out for now)
  * ============================================================================ */
 
