@@ -10,9 +10,9 @@ from textual.worker import Worker, WorkerState
 
 from mcpax.core.config import ConfigValidationError, load_projects
 from mcpax.core.manager import ProjectManager
-from mcpax.core.models import AppConfig, ProjectConfig, UpdateCheckResult
+from mcpax.core.models import AppConfig, ProjectConfig, ProjectType, UpdateCheckResult
 from mcpax.tui.screens.detail import ProjectDetailScreen
-from mcpax.tui.widgets import ProjectTable, StatusBar
+from mcpax.tui.widgets import ProjectTable, SearchInput, StatusBar
 
 
 class MainScreen(Screen[None]):
@@ -38,9 +38,10 @@ class MainScreen(Screen[None]):
         """Create child widgets.
 
         Yields:
-            StatusBar, ProjectTable, Footer
+            StatusBar, SearchInput, ProjectTable, Footer
         """
         yield StatusBar(config=self._config)
+        yield SearchInput()
         yield ProjectTable()
         yield Footer()
 
@@ -102,12 +103,19 @@ class MainScreen(Screen[None]):
         selected = table.selected_project
 
         if selected:
-            self.app.push_screen(
-                ProjectDetailScreen(project=selected, config=self._config),
-                callback=self._on_detail_dismissed,
-            )
+            self._open_detail(selected)
         else:
             self.notify("No project selected", severity="warning")
+
+    def _open_detail(self, project: UpdateCheckResult) -> None:
+        """Open the detail modal for the given project."""
+        if isinstance(self.app.screen, ProjectDetailScreen):
+            return
+
+        self.app.push_screen(
+            ProjectDetailScreen(project=project, config=self._config),
+            callback=self._on_detail_dismissed,
+        )
 
     def _on_detail_dismissed(self, deleted: bool | None) -> None:
         """Handle modal dismissal.
@@ -118,10 +126,39 @@ class MainScreen(Screen[None]):
         if deleted:
             self._load_and_check_updates()
 
-    def on_data_table_row_activated(self, event: DataTable.RowActivated) -> None:  # type: ignore[attr-defined]
-        """Handle row activation (Enter key press) in the data table.
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:  # type: ignore[attr-defined]
+        """Handle row selection (Enter key or click) in the data table.
 
         Args:
-            event: Row activated event
+            event: Row selected event
         """
-        self.action_view_detail()
+        table = self.query_one(ProjectTable)
+        selected = table.selected_project
+        if selected:
+            self._open_detail(selected)
+
+    def on_search_input_search_requested(
+        self, message: SearchInput.SearchRequested
+    ) -> None:
+        """Handle search request from SearchInput.
+
+        Args:
+            message: SearchRequested message with query and project_type
+
+        Note:
+            Actual search functionality will be implemented in #66.
+            For now, just notify the user.
+        """
+        query: str = message.query
+        project_type: ProjectType | None = message.project_type
+
+        # Placeholder notification (search logic will be in #66)
+        if query:
+            type_str = f" (type: {project_type.value})" if project_type else ""
+            self.notify(
+                f"Search requested: '{query}'{type_str}",
+                severity="information",
+            )
+        else:
+            # Empty query - could reset to show all projects
+            self.notify("Search cleared", severity="information")

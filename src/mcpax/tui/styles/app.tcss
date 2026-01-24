@@ -88,6 +88,10 @@ MainScreen > StatusBar {
     dock: top;
 }
 
+MainScreen > SearchInput {
+    dock: top;
+}
+
 MainScreen > ProjectTable {
     height: 1fr;
 }
@@ -188,6 +192,32 @@ Button.-error:hover {
 }
 
 /* ============================================================================
+ * SearchInput Widget
+ * ============================================================================ */
+
+SearchInput {
+    layout: horizontal;
+    height: auto;
+    padding: 1;
+    background: $surface;
+}
+
+SearchInput > Input {
+    width: 1fr;
+    background: $surface;
+    border: solid $border;
+}
+
+SearchInput > Input:focus {
+    border: solid $primary;
+}
+
+SearchInput > Select {
+    width: 20;
+    margin-left: 1;
+}
+
+/* ============================================================================
  * Future Widget Placeholders (commented out for now)
  * ============================================================================ */
 
@@ -209,15 +239,5 @@ ProjectListItem:hover {
 ProjectListItem.-selected {
     background: $primary-muted;
     color: $text;
-}
-
-Input {
-    background: $surface;
-    border: solid $border;
-    color: $text;
-}
-
-Input:focus {
-    border: solid $primary;
 }
 */

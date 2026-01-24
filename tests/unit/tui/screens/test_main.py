@@ -15,7 +15,7 @@ from mcpax.core.models import (
     UpdateCheckResult,
 )
 from mcpax.tui.screens import MainScreen
-from mcpax.tui.widgets import ProjectTable, StatusBar
+from mcpax.tui.widgets import ProjectTable, SearchInput, StatusBar
 
 
 def create_test_config() -> AppConfig:
@@ -58,7 +58,7 @@ async def test_main_screen_initialization() -> None:
 
 @pytest.mark.asyncio
 async def test_main_screen_compose() -> None:
-    """Test MainScreen compose includes StatusBar, ProjectTable, Footer."""
+    """Test MainScreen compose includes all required widgets."""
 
     class TestApp(App[None]):
         def compose(self):
@@ -71,6 +71,9 @@ async def test_main_screen_compose() -> None:
         # Check that required widgets are present
         status_bar = screen.query_one(StatusBar)
         assert status_bar is not None
+
+        search_input = screen.query_one(SearchInput)
+        assert search_input is not None
 
         project_table = screen.query_one(ProjectTable)
         assert project_table is not None
@@ -290,7 +293,9 @@ async def test_main_screen_action_view_detail_with_selection() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="RowActivated event interaction with enter binding needs investigation")
+@pytest.mark.skip(
+    reason="RowActivated event interaction with enter binding needs investigation"
+)
 async def test_main_screen_row_activated_event() -> None:
     """Test that pressing Enter on a row triggers detail view."""
 
@@ -344,3 +349,42 @@ async def test_main_screen_row_activated_event() -> None:
                 from mcpax.tui.screens.detail import ProjectDetailScreen
 
                 assert isinstance(app.screen, ProjectDetailScreen)
+
+
+@pytest.mark.asyncio
+async def test_main_screen_search_requested_handler() -> None:
+    """Test MainScreen handles SearchRequested message."""
+
+    class TestApp(App[None]):
+        def compose(self):
+            yield MainScreen(config=create_test_config())
+
+    app = TestApp()
+    async with app.run_test() as pilot:
+        screen = app.query_one(MainScreen)
+        search_input = screen.query_one(SearchInput)
+
+        with patch.object(screen, "notify") as mock_notify:
+            # Trigger search with query
+            search_input.post_message(
+                SearchInput.SearchRequested("sodium", ProjectType.MOD)
+            )
+            await pilot.pause(0.1)
+
+            # Verify notify was called with correct message
+            mock_notify.assert_called_with(
+                "Search requested: 'sodium' (type: mod)",
+                severity="information",
+            )
+
+            mock_notify.reset_mock()
+
+            # Trigger search with empty query
+            search_input.post_message(SearchInput.SearchRequested("", None))
+            await pilot.pause(0.1)
+
+            # Verify notify was called for empty query
+            mock_notify.assert_called_with(
+                "Search cleared",
+                severity="information",
+            )
