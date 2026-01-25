@@ -76,10 +76,7 @@ async def test_search_screen_executes_search() -> None:
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(
-                SearchScreen(
-                    query="sodium", project_type=None                )
-            )
+            self.push_screen(SearchScreen(query="sodium", project_type=None))
 
     mock_search_result = SearchResult(
         hits=[
@@ -152,10 +149,7 @@ async def test_search_screen_escape_closes() -> None:
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(
-                SearchScreen(
-                    query="test", project_type=None                )
-            )
+            self.push_screen(SearchScreen(query="test", project_type=None))
 
     with patch("mcpax.tui.screens.search.ModrinthClient") as mock_client_class:
         mock_client = AsyncMock()
@@ -188,10 +182,7 @@ async def test_search_screen_add_project() -> None:
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(
-                SearchScreen(
-                    query="sodium", project_type=None                )
-            )
+            self.push_screen(SearchScreen(query="sodium", project_type=None))
 
     mock_search_result = SearchResult(
         hits=[
@@ -235,10 +226,7 @@ async def test_search_screen_add_duplicate_project() -> None:
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(
-                SearchScreen(
-                    query="sodium", project_type=None                )
-            )
+            self.push_screen(SearchScreen(query="sodium", project_type=None))
 
     mock_search_result = SearchResult(
         hits=[
@@ -288,10 +276,7 @@ async def test_search_screen_add_project_with_invalid_config() -> None:
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(
-                SearchScreen(
-                    query="sodium", project_type=None                )
-            )
+            self.push_screen(SearchScreen(query="sodium", project_type=None))
 
     mock_search_result = SearchResult(
         hits=[

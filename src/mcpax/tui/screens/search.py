@@ -29,9 +29,7 @@ class SearchScreen(Screen[bool]):
         Binding("a", "add_project", "Add"),
     ]
 
-    def __init__(
-        self, query: str, project_type: ProjectType | None
-    ) -> None:
+    def __init__(self, query: str, project_type: ProjectType | None) -> None:
         """Initialize SearchScreen.
 
         Args:

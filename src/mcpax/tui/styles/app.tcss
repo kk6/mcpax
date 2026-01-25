@@ -267,6 +267,57 @@ SearchResultTable > .datatable--hover {
 }
 
 /* ============================================================================
+ * ProgressPanel Widget
+ * ============================================================================ */
+
+ProgressPanel {
+    background: $surface;
+    border: solid $border;
+    padding: 1;
+    height: auto;
+}
+
+ProgressPanel > .progress-row {
+    height: auto;
+    margin: 1 0;
+}
+
+ProgressPanel > .progress-label {
+    color: $text;
+}
+
+ProgressPanel > .progress-bar {
+    width: 100%;
+}
+
+ProgressPanel > .success-icon {
+    color: $success;
+    text-style: bold;
+}
+
+ProgressPanel > .error-icon {
+    color: $error;
+    text-style: bold;
+}
+
+ProgressPanel > .downloading-icon {
+    color: $secondary;
+    text-style: bold;
+}
+
+ProgressPanel > .success-bar {
+    color: $success;
+}
+
+ProgressPanel > .error-bar {
+    color: $error;
+}
+
+ProgressPanel > .downloading-bar {
+    color: $secondary;
+}
+
+/* ============================================================================
  * Future Widget Placeholders (commented out for now)
  * ============================================================================ */
 
