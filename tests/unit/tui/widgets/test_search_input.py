@@ -18,17 +18,6 @@ async def test_search_input_initialization() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_input_custom_debounce() -> None:
-    """Test SearchInput initialization with custom debounce delay."""
-    from mcpax.tui.widgets.search_input import SearchInput
-
-    search_input = SearchInput(debounce_delay=0.5)
-
-    # SearchInput should be instantiated with custom debounce
-    assert search_input is not None
-
-
-@pytest.mark.asyncio
 async def test_search_input_in_app() -> None:
     """Test SearchInput integration in a minimal app."""
     from mcpax.tui.widgets.search_input import SearchInput
@@ -73,8 +62,8 @@ async def test_search_input_has_input_and_select() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_input_emits_search_requested() -> None:
-    """Test SearchInput emits SearchRequested message."""
+async def test_search_input_emits_search_requested_on_enter() -> None:
+    """Test SearchInput emits SearchRequested message only on Enter key."""
     from mcpax.tui.widgets.search_input import SearchInput
 
     class TestApp(App[None]):
@@ -85,7 +74,7 @@ async def test_search_input_emits_search_requested() -> None:
             self.messages: list[tuple[str, ProjectType | None]] = []
 
         def compose(self) -> ComposeResult:
-            yield SearchInput(debounce_delay=0.0)
+            yield SearchInput()
 
         def on_search_input_search_requested(
             self, message: SearchInput.SearchRequested
@@ -101,11 +90,18 @@ async def test_search_input_emits_search_requested() -> None:
         # Type a query
         input_widget.focus()
         await pilot.press(*"sodium")
-        await pilot.pause(0.1)  # Wait for debounce
+        await pilot.pause(0.1)
 
-        # Should have received a message
-        assert len(app.messages) >= 1
-        assert app.messages[-1] == ("sodium", None)
+        # Should NOT have received a message yet (no Enter pressed)
+        assert len(app.messages) == 0
+
+        # Press Enter
+        await pilot.press("enter")
+        await pilot.pause(0.1)
+
+        # Now should have received a message
+        assert len(app.messages) == 1
+        assert app.messages[0] == ("sodium", None)
 
 
 @pytest.mark.asyncio
@@ -121,7 +117,7 @@ async def test_search_input_includes_type_filter() -> None:
             self.messages: list[tuple[str, ProjectType | None]] = []
 
         def compose(self) -> ComposeResult:
-            yield SearchInput(debounce_delay=0.0)
+            yield SearchInput()
 
         def on_search_input_search_requested(
             self, message: SearchInput.SearchRequested
@@ -132,112 +128,30 @@ async def test_search_input_includes_type_filter() -> None:
     app = TestApp()
     async with app.run_test() as pilot:
         search_input = app.query_one(SearchInput)
-        from textual.widgets import Select
+        from textual.widgets import Input, Select
 
+        input_widget = search_input.query_one(Input)
         select_widget = search_input.query_one(Select)
+
+        # Type a query
+        input_widget.focus()
+        await pilot.press(*"sodium")
+        await pilot.pause(0.1)
 
         # Change type filter to Mod
         select_widget.value = ProjectType.MOD
         await pilot.pause(0.1)
 
+        # Should NOT have received a message yet (no Enter pressed)
+        assert len(app.messages) == 0
+
+        # Press Enter
+        await pilot.press("enter")
+        await pilot.pause(0.1)
+
         # Should have received a message with Mod type
-        assert len(app.messages) >= 1
-        # Find message with Mod type
-        mod_messages = [msg for msg in app.messages if msg[1] == ProjectType.MOD]
-        assert len(mod_messages) >= 1
-
-
-@pytest.mark.asyncio
-async def test_search_input_debounce_delays_event() -> None:
-    """Test SearchInput debounce delays event emission."""
-    from mcpax.tui.widgets.search_input import SearchInput
-
-    class TestApp(App[None]):
-        """Minimal app for testing SearchInput."""
-
-        def __init__(self) -> None:
-            super().__init__()
-            self.messages: list[tuple[str, ProjectType | None]] = []
-
-        def compose(self) -> ComposeResult:
-            yield SearchInput(debounce_delay=0.2)
-
-        def on_search_input_search_requested(
-            self, message: SearchInput.SearchRequested
-        ) -> None:
-            """Handle SearchRequested message."""
-            self.messages.append((message.query, message.project_type))
-
-    app = TestApp()
-    async with app.run_test() as pilot:
-        search_input = app.query_one(SearchInput)
-        input_widget = search_input.query_one("Input")
-
-        # Clear initial messages (focus may trigger events)
-        app.messages.clear()
-
-        # Type a query
-        input_widget.focus()
-        await pilot.press("a")
-        await pilot.pause(0.05)  # Wait less than debounce delay
-
-        # Should not have received a message yet (still debouncing)
-        # Note: may have initial message, so check for growth
-        initial_count = len(app.messages)
-
-        # Wait for debounce to complete
-        await pilot.pause(0.2)
-
-        # Now should have received at least one more message
-        assert len(app.messages) > initial_count
-
-
-@pytest.mark.asyncio
-async def test_search_input_debounce_resets_on_new_input() -> None:
-    """Test SearchInput debounce timer resets on new input."""
-    from mcpax.tui.widgets.search_input import SearchInput
-
-    class TestApp(App[None]):
-        """Minimal app for testing SearchInput."""
-
-        def __init__(self) -> None:
-            super().__init__()
-            self.messages: list[tuple[str, ProjectType | None]] = []
-
-        def compose(self) -> ComposeResult:
-            yield SearchInput(debounce_delay=0.2)
-
-        def on_search_input_search_requested(
-            self, message: SearchInput.SearchRequested
-        ) -> None:
-            """Handle SearchRequested message."""
-            self.messages.append((message.query, message.project_type))
-
-    app = TestApp()
-    async with app.run_test() as pilot:
-        search_input = app.query_one(SearchInput)
-        input_widget = search_input.query_one("Input")
-
-        # Clear initial messages
-        app.messages.clear()
-
-        # Type characters one by one
-        input_widget.focus()
-        await pilot.press("a")
-        await pilot.pause(0.1)  # Wait less than debounce
-        await pilot.press("b")
-        await pilot.pause(0.1)  # Wait less than debounce
-
-        # Should not have received many messages yet (still debouncing)
-        initial_count = len(app.messages)
-
-        # Wait for debounce to complete
-        await pilot.pause(0.2)
-
-        # Should have received at least one more message with final query
-        assert len(app.messages) > initial_count
-        # Last message should contain "ab"
-        assert "ab" in app.messages[-1][0]
+        assert len(app.messages) == 1
+        assert app.messages[0] == ("sodium", ProjectType.MOD)
 
 
 @pytest.mark.asyncio

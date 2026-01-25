@@ -12,6 +12,7 @@ from mcpax.core.config import ConfigValidationError, load_projects
 from mcpax.core.manager import ProjectManager
 from mcpax.core.models import AppConfig, ProjectConfig, ProjectType, UpdateCheckResult
 from mcpax.tui.screens.detail import ProjectDetailScreen
+from mcpax.tui.screens.search import SearchScreen
 from mcpax.tui.widgets import ProjectTable, SearchInput, StatusBar
 
 
@@ -144,21 +145,22 @@ class MainScreen(Screen[None]):
 
         Args:
             message: SearchRequested message with query and project_type
-
-        Note:
-            Actual search functionality will be implemented in #66.
-            For now, just notify the user.
         """
         query: str = message.query
         project_type: ProjectType | None = message.project_type
 
-        # Placeholder notification (search logic will be in #66)
+        # Only open SearchScreen if query is not empty
         if query:
-            type_str = f" (type: {project_type.value})" if project_type else ""
-            self.notify(
-                f"Search requested: '{query}'{type_str}",
-                severity="information",
+            self.app.push_screen(
+                SearchScreen(query=query, project_type=project_type),
+                callback=self._on_search_dismissed,
             )
-        else:
-            # Empty query - could reset to show all projects
-            self.notify("Search cleared", severity="information")
+
+    def _on_search_dismissed(self, added: bool | None) -> None:
+        """Handle search screen dismissal.
+
+        Args:
+            added: True if project was added, False or None otherwise
+        """
+        if added:
+            self._load_and_check_updates()

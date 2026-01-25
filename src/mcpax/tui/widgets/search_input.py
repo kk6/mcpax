@@ -4,7 +4,6 @@ from typing import Any, cast
 
 from textual.app import ComposeResult
 from textual.message import Message
-from textual.timer import Timer
 from textual.widget import Widget
 from textual.widgets import Input, Select
 
@@ -28,16 +27,13 @@ class SearchInput(Widget):
             self.query = query
             self.project_type = project_type
 
-    def __init__(self, debounce_delay: float = 0.3, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         """Initialize the SearchInput widget.
 
         Args:
-            debounce_delay: Delay before emitting search events (default: 0.3)
             **kwargs: Additional arguments passed to Widget
         """
         super().__init__(**kwargs)
-        self._debounce_delay = debounce_delay
-        self._debounce_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the SearchInput widget.
@@ -71,29 +67,11 @@ class SearchInput(Widget):
 
         self.post_message(self.SearchRequested(query, project_type))
 
-    def on_input_changed(self, event: Input.Changed) -> None:
-        """Handle Input.Changed event.
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Input.Submitted event (Enter key pressed).
 
         Args:
-            event: Input.Changed event
-        """
-        # Cancel previous timer if exists
-        if self._debounce_timer is not None:
-            self._debounce_timer.stop()
-
-        # Set new timer
-        if self._debounce_delay > 0:
-            self._debounce_timer = self.set_timer(
-                self._debounce_delay, self._emit_search_requested
-            )
-        else:
-            self._emit_search_requested()
-
-    def on_select_changed(self, event: Select.Changed) -> None:
-        """Handle Select.Changed event.
-
-        Args:
-            event: Select.Changed event
+            event: Input.Submitted event
         """
         self._emit_search_requested()
 

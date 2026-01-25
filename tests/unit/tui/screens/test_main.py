@@ -353,38 +353,74 @@ async def test_main_screen_row_activated_event() -> None:
 
 @pytest.mark.asyncio
 async def test_main_screen_search_requested_handler() -> None:
-    """Test MainScreen handles SearchRequested message."""
+    """Test MainScreen opens SearchScreen when search is requested."""
 
     class TestApp(App[None]):
         def compose(self):
             yield MainScreen(config=create_test_config())
 
-    app = TestApp()
-    async with app.run_test() as pilot:
-        screen = app.query_one(MainScreen)
-        search_input = screen.query_one(SearchInput)
+    with (
+        patch("mcpax.tui.screens.main.load_projects") as mock_load_projects,
+        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+    ):
+        mock_load_projects.return_value = []
+        mock_manager = AsyncMock()
+        mock_manager.__aenter__.return_value = mock_manager
+        mock_manager.__aexit__.return_value = None
+        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager_class.return_value = mock_manager
 
-        with patch.object(screen, "notify") as mock_notify:
+        app = TestApp()
+        async with app.run_test() as pilot:
+            # Wait for mount
+            await pilot.pause()
+
+            screen = app.query_one(MainScreen)
+            search_input = screen.query_one(SearchInput)
+
             # Trigger search with query
             search_input.post_message(
                 SearchInput.SearchRequested("sodium", ProjectType.MOD)
             )
             await pilot.pause(0.1)
 
-            # Verify notify was called with correct message
-            mock_notify.assert_called_with(
-                "Search requested: 'sodium' (type: mod)",
-                severity="information",
-            )
+            # Verify SearchScreen was pushed
+            from mcpax.tui.screens.search import SearchScreen
 
-            mock_notify.reset_mock()
+            assert isinstance(app.screen, SearchScreen)
+
+
+@pytest.mark.asyncio
+async def test_main_screen_search_with_empty_query() -> None:
+    """Test MainScreen does not open SearchScreen with empty query."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            self.push_screen(MainScreen(config=create_test_config()))
+
+    with (
+        patch("mcpax.tui.screens.main.load_projects") as mock_load_projects,
+        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+    ):
+        mock_load_projects.return_value = []
+        mock_manager = AsyncMock()
+        mock_manager.__aenter__.return_value = mock_manager
+        mock_manager.__aexit__.return_value = None
+        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager_class.return_value = mock_manager
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            # Wait for mount
+            await pilot.pause()
+
+            screen = app.screen
+            assert isinstance(screen, MainScreen)
+            search_input = screen.query_one(SearchInput)
 
             # Trigger search with empty query
             search_input.post_message(SearchInput.SearchRequested("", None))
             await pilot.pause(0.1)
 
-            # Verify notify was called for empty query
-            mock_notify.assert_called_with(
-                "Search cleared",
-                severity="information",
-            )
+            # Verify SearchScreen was NOT pushed (still on MainScreen)
+            assert isinstance(app.screen, MainScreen)
