@@ -424,3 +424,55 @@ async def test_main_screen_search_with_empty_query() -> None:
 
             # Verify SearchScreen was NOT pushed (still on MainScreen)
             assert isinstance(app.screen, MainScreen)
+
+
+@pytest.mark.asyncio
+async def test_main_screen_has_install_binding() -> None:
+    """Test MainScreen has install (i) keybinding."""
+    config = create_test_config()
+    screen = MainScreen(config=config)
+
+    # Check that 'i' is bound to install action
+    bindings = {binding.key: binding.action for binding in screen.BINDINGS}
+    assert "i" in bindings
+    assert bindings["i"] == "install"
+
+
+@pytest.mark.asyncio
+async def test_main_screen_install_action_no_updates() -> None:
+    """Test install action shows notification when no projects need installation."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            config = create_test_config()
+            self.push_screen(MainScreen(config=config))
+
+    mock_projects = []
+    mock_results = [
+        create_test_update_result("fabric-api", status=InstallStatus.INSTALLED),
+    ]
+
+    with (
+        patch("mcpax.tui.screens.main.load_projects") as mock_load,
+        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+    ):
+        mock_load.return_value = mock_projects
+        mock_manager = AsyncMock()
+        mock_manager.check_updates = AsyncMock(return_value=mock_results)
+        mock_manager_class.return_value.__aenter__.return_value = mock_manager
+        mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            # Wait for initial load to complete
+            await app.workers.wait_for_complete()
+
+            screen = app.screen
+            assert isinstance(screen, MainScreen)
+
+            # Trigger install action
+            await pilot.press("i")
+            await pilot.pause()
+
+            # Verify we're still on MainScreen (no InstallScreen pushed)
+            assert isinstance(app.screen, MainScreen)
