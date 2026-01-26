@@ -10,8 +10,16 @@ from textual.worker import Worker, WorkerState
 
 from mcpax.core.config import ConfigValidationError, load_projects
 from mcpax.core.manager import ProjectManager
-from mcpax.core.models import AppConfig, ProjectConfig, ProjectType, UpdateCheckResult
+from mcpax.core.models import (
+    AppConfig,
+    InstallStatus,
+    ProjectConfig,
+    ProjectType,
+    UpdateCheckResult,
+    UpdateResult,
+)
 from mcpax.tui.screens.detail import ProjectDetailScreen
+from mcpax.tui.screens.install import InstallScreen
 from mcpax.tui.screens.search import SearchScreen
 from mcpax.tui.widgets import ProjectTable, SearchInput, StatusBar
 
@@ -22,6 +30,7 @@ class MainScreen(Screen[None]):
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
+        Binding("i", "install", "Install All"),
         Binding("enter", "view_detail", "View Detail"),
     ]
 
@@ -34,6 +43,7 @@ class MainScreen(Screen[None]):
         super().__init__()
         self._config = config
         self._projects: list[ProjectConfig] = []
+        self._results: list[UpdateCheckResult] = []
 
     def compose(self) -> ComposeResult:
         """Create child widgets.
@@ -82,6 +92,7 @@ class MainScreen(Screen[None]):
             table = self.query_one(ProjectTable)
             result = event.worker.result
             if isinstance(result, list):
+                self._results = result
                 table.load_projects(result)
                 self.notify("Projects loaded successfully", severity="information")
         elif event.state == WorkerState.ERROR:
@@ -96,6 +107,30 @@ class MainScreen(Screen[None]):
 
     def action_refresh(self) -> None:
         """Refresh project list."""
+        self._load_and_check_updates()
+
+    def action_install(self) -> None:
+        """Install all projects that need installation or updates."""
+        updates = [
+            r
+            for r in self._results
+            if r.status in (InstallStatus.NOT_INSTALLED, InstallStatus.OUTDATED)
+        ]
+        if not updates:
+            self.notify("No projects to install", severity="information")
+            return
+        self.app.push_screen(
+            InstallScreen(updates=updates, config=self._config),
+            callback=self._on_install_dismissed,
+        )
+
+    def _on_install_dismissed(self, result: UpdateResult | None) -> None:
+        """Handle install screen dismissal.
+
+        Args:
+            result: UpdateResult from installation (unused)
+        """
+        # Refresh to reflect new installation status
         self._load_and_check_updates()
 
     def action_view_detail(self) -> None:
@@ -127,7 +162,7 @@ class MainScreen(Screen[None]):
         if deleted:
             self._load_and_check_updates()
 
-    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:  # type: ignore[attr-defined]
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Handle row selection (Enter key or click) in the data table.
 
         Args:

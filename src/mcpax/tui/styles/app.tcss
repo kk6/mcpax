@@ -318,6 +318,46 @@ ProgressPanel > .downloading-bar {
 }
 
 /* ============================================================================
+ * InstallScreen
+ * ============================================================================ */
+
+InstallScreen {
+    layout: vertical;
+}
+
+#install-header {
+    dock: top;
+    height: auto;
+    background: $surface;
+    color: $primary;
+    text-style: bold;
+    padding: 1;
+}
+
+#install-progress {
+    height: 1fr;
+    padding: 1;
+}
+
+#install-summary {
+    height: 1fr;
+    border: solid $border;
+    background: $surface;
+    padding: 2;
+    color: $text;
+}
+
+#install-close-button {
+    dock: bottom;
+    margin: 1;
+    width: auto;
+}
+
+InstallScreen > Footer {
+    dock: bottom;
+}
+
+/* ============================================================================
  * Future Widget Placeholders (commented out for now)
  * ============================================================================ */
 

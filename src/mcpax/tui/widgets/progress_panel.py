@@ -1,16 +1,22 @@
 """ProgressPanel widget for displaying download progress."""
 
 import uuid
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from time import time
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from rich.console import RenderableType
 from rich.table import Table
 from rich.text import Text
 from textual.message import Message
 from textual.widget import Widget
+
+if TYPE_CHECKING:
+    from mcpax.core.downloader import (
+        ProgressCallback,
+        TaskCompleteCallback,
+        TaskStartCallback,
+    )
 
 
 @dataclass
@@ -28,12 +34,7 @@ class DownloadProgress:
 
 
 class ProgressPanel(Widget):
-    """Widget for displaying download progress.
-
-    TODO: This widget needs to be integrated into a TUI screen (e.g., InstallScreen).
-    The create_*_callback() methods should be used to wire up Downloader callbacks.
-    See issue #68 for integration work.
-    """
+    """Widget for displaying download progress."""
 
     COMPONENT_CLASSES = {
         "success-icon",
@@ -278,7 +279,7 @@ class ProgressPanel(Widget):
             return True
         return all(task.status != "downloading" for task in self._tasks.values())
 
-    def create_task_start_callback(self) -> "Callable[[str, str, int | None], object]":
+    def create_task_start_callback(self) -> "TaskStartCallback":
         """Create a callback for task start events.
 
         Returns:
@@ -309,7 +310,7 @@ class ProgressPanel(Widget):
 
         return callback
 
-    def create_progress_callback(self) -> "Callable[[object, int, int | None], None]":
+    def create_progress_callback(self) -> "ProgressCallback":
         """Create a callback for progress update events.
 
         Returns:
@@ -337,7 +338,7 @@ class ProgressPanel(Widget):
 
     def create_task_complete_callback(
         self,
-    ) -> "Callable[[object, bool, str | None], None]":
+    ) -> "TaskCompleteCallback":
         """Create a callback for task complete events.
 
         Returns:
