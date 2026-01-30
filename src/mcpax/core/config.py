@@ -381,10 +381,13 @@ def get_config_value(key: str, path: Path | None = None) -> str | int | bool | N
     section_data = doc[section]
     if not isinstance(section_data, dict):
         return None
-    if field not in section_data:
+
+    # Type assertion for dict access
+    section_dict: dict[str, object] = section_data  # type: ignore[assignment]
+    if field not in section_dict:
         return None
 
-    value = section_data[field]
+    value = section_dict[field]
     if isinstance(value, str | int | bool):
         return value
     return None
