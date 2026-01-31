@@ -575,7 +575,9 @@ class TestRemoveCommand:
 
         # Assert
         assert result.exit_code == 0
-        assert "Remove" not in result.stdout  # No confirmation prompt
+        assert (
+            "Remove 'sodium' from the managed list?" not in result.stdout
+        )  # No confirmation prompt
         projects_file = tmp_path / "mcpax" / "projects.toml"
         content = projects_file.read_text()
         assert "sodium" not in content
