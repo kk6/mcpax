@@ -15,6 +15,7 @@ Minecraft の MOD / Modpack / Shader / Resource Pack を Modrinth API 経由で�
 
 - Python 3.13+
 - Minecraft（Fabric Loader）
+- TUI 利用時: `textual`（optional dependency）
 
 ## インストール
 
@@ -23,6 +24,9 @@ Minecraft の MOD / Modpack / Shader / Resource Pack を Modrinth API 経由で�
 git clone https://github.com/kk6/mcpax.git
 cd mcpax
 uv sync
+
+# TUI を使う場合
+uv pip install -e ".[tui]"
 ```
 
 ## 使い方
@@ -127,6 +131,29 @@ mcpax list --no-cache
 mcpax list --max-concurrency 5
 ```
 
+### 7. TUI（Terminal UI）
+
+TUI は optional dependency です。利用する場合は `textual` を追加インストールしてください。
+
+```bash
+uv pip install -e ".[tui]"
+```
+
+起動:
+
+```bash
+mcpax tui
+```
+
+主な操作:
+
+- `q`: 終了
+- `r`: 更新チェック
+- `i`: 全プロジェクトのインストール/更新
+- `s`: 設定画面
+- `Enter`: 詳細表示
+- 検索: 検索欄で Enter → 検索結果画面（`a` で追加 / `Esc` で戻る）
+
 ## 開発
 
 ```bash
@@ -162,9 +189,13 @@ ruff check src
 - F-401～F-406（ファイル管理機能 6件）
 - F-501～F-503（更新管理機能 3件）
 
-### Phase 2: CLI 実装 🚧
+### Phase 2: CLI 実装 ✅
 
-次のフェーズではCLIコマンドの実装を行います。
+主要な CLI コマンドは実装済みです。
+
+### Phase 3: TUI 実装 🧪
+
+`mcpax tui` で利用可能（`textual` の optional dependency が必要）。
 
 ## ドキュメント
 

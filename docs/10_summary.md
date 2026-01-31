@@ -21,6 +21,7 @@
 | 09 | CRUD マトリックス | 09_crud_matrix.md | 仕上げ編 |
 | 10 | 一覧 | 10_summary.md | 仕上げ編 |
 | 11 | アーキテクチャ設計書 | 11_architecture.md | 仕上げ編 |
+| 12 | TUI ガイド | 12_tui.md | 補足 |
 
 ---
 
@@ -50,7 +51,7 @@
 
 | ID | 要件 | 対応シナリオ | 対応機能 |
 |----|------|-------------|---------|
-| R-011 | TUI モード | - | （将来実装） |
+| R-011 | TUI モード | - | F-041 |
 | R-012 | 依存関係の自動解決 | - | （将来実装） |
 | R-013 | バージョン固定 | S-002 | F-104, F-204 |
 | R-014 | リリースチャネル指定 | S-002 | F-104, F-204 |
@@ -82,6 +83,7 @@
 | mcpax search \<query\> | 検索 | --type, --limit |
 | mcpax update | 更新確認・適用 | --check, --yes |
 | mcpax install | インストール | --all |
+| mcpax tui | TUI 起動 | - |
 
 ---
 
@@ -226,7 +228,7 @@
 | テスト | pytest, pytest-asyncio, pytest-httpx |
 | HTTP クライアント | httpx |
 | CLI フレームワーク | typer |
-| TUI フレームワーク | textual（将来） |
+| TUI フレームワーク | textual |
 | 出力装飾 | rich |
 | TOML 処理 | tomllib (stdlib), tomlkit |
 | バリデーション | pydantic |
@@ -239,7 +241,7 @@
 |---------|------|---------|
 | Phase 1 | Core 実装 | 2-3 日 |
 | Phase 2 | CLI 実装 | 1-2 日 |
-| Phase 3 | TUI 実装 | 将来 |
+| Phase 3 | TUI 実装 | 実装済み |
 
 ---
 
