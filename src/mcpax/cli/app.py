@@ -124,9 +124,8 @@ def init(
                 break
             except ValueError:
                 console.print(
-                    "[red]無効なローダーです。"
-                    "fabric, forge, neoforge, quilt "
-                    "のいずれかを入力してください。[/red]"
+                    "[red]Invalid mod loader. "
+                    "Enter one of: fabric, forge, neoforge, quilt.[/red]"
                 )
         while True:
             shader_loader_str = typer.prompt(
@@ -140,9 +139,8 @@ def init(
                 break
             except ValueError:
                 console.print(
-                    "[red]無効なシェーダーローダーです。"
-                    "iris, optifine, none "
-                    "のいずれかを入力してください。[/red]"
+                    "[red]Invalid shader loader. "
+                    "Enter one of: iris, optifine, none.[/red]"
                 )
         minecraft_dir_str = typer.prompt(
             "Minecraft directory", default=str(DEFAULT_MINECRAFT_DIR)
@@ -303,7 +301,7 @@ def remove(
     projects = [p for p in projects if p.slug != slug]
     save_projects(projects)
 
-    console.print(f"✓ '{slug}' を削除しました", style="green")
+    console.print(f"✓ Removed '{slug}'", style="green")
 
 
 @app.command()
@@ -383,9 +381,7 @@ def add(
 
     # Show success message
     project_type_str = project.project_type.value
-    console.print(
-        f"✓ {project.title} ({project_type_str}) を追加しました", style="green"
-    )
+    console.print(f"✓ Added {project.title} ({project_type_str})", style="green")
 
 
 @app.command()
@@ -468,9 +464,7 @@ def install(
             # Show results
             if result.successful:
                 for slug_success in result.successful:
-                    console.print(
-                        f"✓ '{slug_success}' をインストールしました", style="green"
-                    )
+                    console.print(f"✓ Installed '{slug_success}'", style="green")
 
             if result.failed:
                 for failed in result.failed:
@@ -1063,6 +1057,21 @@ def set(
             "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
         )
         raise typer.Exit(code=1) from None
+
+
+@app.command()
+def tui() -> None:
+    """Launch the TUI interface."""
+    try:
+        from mcpax.tui import run_tui
+
+        run_tui()
+    except ImportError as e:
+        console.print(
+            "[red]Error:[/red] TUI dependencies not installed. "
+            "Run 'uv pip install -e \".\\[tui]\"' to install them."
+        )
+        raise typer.Exit(1) from e
 
 
 def main() -> None:
