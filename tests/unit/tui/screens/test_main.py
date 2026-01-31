@@ -12,57 +12,26 @@ from mcpax.core.models import (
     InstallStatus,
     Loader,
     ProjectType,
-    UpdateCheckResult,
 )
 from mcpax.tui.screens import MainScreen
 from mcpax.tui.widgets import ProjectTable, SearchInput, StatusBar
 
 
-def create_test_config() -> AppConfig:
-    """Create a test AppConfig instance."""
-    return AppConfig(
-        minecraft_version="1.21.4",
-        mod_loader=Loader.FABRIC,
-        shader_loader=Loader.IRIS,
-        minecraft_dir=Path("/tmp/.minecraft"),
-    )
-
-
-def create_test_update_result(
-    slug: str,
-    project_type: ProjectType = ProjectType.MOD,
-    status: InstallStatus = InstallStatus.INSTALLED,
-    current_version: str | None = "1.0.0",
-    latest_version: str | None = "1.0.0",
-) -> UpdateCheckResult:
-    """Create a test UpdateCheckResult instance."""
-    return UpdateCheckResult(
-        slug=slug,
-        project_type=project_type,
-        status=status,
-        current_version=current_version,
-        latest_version=latest_version,
-        current_file=None,
-        latest_file=None,
-    )
-
-
 @pytest.mark.asyncio
-async def test_main_screen_initialization() -> None:
+async def test_main_screen_initialization(app_config) -> None:
     """Test MainScreen initialization."""
-    config = create_test_config()
-    screen = MainScreen(config=config)
+    screen = MainScreen(config=app_config)
     assert screen is not None
-    assert screen._config == config
+    assert screen._config == app_config
 
 
 @pytest.mark.asyncio
-async def test_main_screen_compose() -> None:
+async def test_main_screen_compose(app_config) -> None:
     """Test MainScreen compose includes all required widgets."""
 
     class TestApp(App[None]):
         def compose(self):
-            yield MainScreen(config=create_test_config())
+            yield MainScreen(config=app_config)
 
     app = TestApp()
     async with app.run_test():
@@ -83,10 +52,9 @@ async def test_main_screen_compose() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_has_quit_binding() -> None:
+async def test_main_screen_has_quit_binding(app_config) -> None:
     """Test MainScreen has quit (q) keybinding."""
-    config = create_test_config()
-    screen = MainScreen(config=config)
+    screen = MainScreen(config=app_config)
 
     # Check that 'q' is bound to quit action
     bindings = {binding.key: binding.action for binding in screen.BINDINGS}
@@ -95,10 +63,9 @@ async def test_main_screen_has_quit_binding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_has_refresh_binding() -> None:
+async def test_main_screen_has_refresh_binding(app_config) -> None:
     """Test MainScreen has refresh (r) keybinding."""
-    config = create_test_config()
-    screen = MainScreen(config=config)
+    screen = MainScreen(config=app_config)
 
     # Check that 'r' is bound to refresh action
     bindings = {binding.key: binding.action for binding in screen.BINDINGS}
@@ -107,10 +74,9 @@ async def test_main_screen_has_refresh_binding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_has_detail_binding() -> None:
+async def test_main_screen_has_detail_binding(app_config) -> None:
     """Test MainScreen has view detail (enter) keybinding."""
-    config = create_test_config()
-    screen = MainScreen(config=config)
+    screen = MainScreen(config=app_config)
 
     # Check that 'enter' is bound to view_detail action
     bindings = {binding.key: binding.action for binding in screen.BINDINGS}
@@ -119,12 +85,12 @@ async def test_main_screen_has_detail_binding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_action_quit() -> None:
+async def test_main_screen_action_quit(app_config) -> None:
     """Test quit action exits the app."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     app = TestApp()
     async with app.run_test() as pilot:
@@ -134,21 +100,23 @@ async def test_main_screen_action_quit() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_loads_projects_on_mount() -> None:
+async def test_main_screen_loads_projects_on_mount(
+    app_config, make_update_check_result
+) -> None:
     """Test MainScreen loads projects on mount."""
 
     test_projects = [
-        create_test_update_result(
+        make_update_check_result(
             "fabric-api", ProjectType.MOD, InstallStatus.INSTALLED
         ),
-        create_test_update_result(
+        make_update_check_result(
             "sodium", ProjectType.MOD, InstallStatus.OUTDATED, "0.5.0", "0.6.0"
         ),
     ]
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     with patch("mcpax.tui.screens.main.load_projects") as mock_load_projects:
         mock_load_projects.return_value = ["fabric-api", "sodium"]
@@ -171,12 +139,12 @@ async def test_main_screen_loads_projects_on_mount() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_handles_missing_projects_file() -> None:
+async def test_main_screen_handles_missing_projects_file(app_config) -> None:
     """Test MainScreen handles missing projects.toml file gracefully."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     with patch("mcpax.tui.screens.main.load_projects") as mock_load_projects:
         mock_load_projects.side_effect = FileNotFoundError("projects.toml not found")
@@ -190,18 +158,18 @@ async def test_main_screen_handles_missing_projects_file() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_action_refresh() -> None:
+async def test_main_screen_action_refresh(app_config, make_update_check_result) -> None:
     """Test refresh action reloads projects."""
 
     test_projects = [
-        create_test_update_result(
+        make_update_check_result(
             "fabric-api", ProjectType.MOD, InstallStatus.INSTALLED
         ),
     ]
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     with patch("mcpax.tui.screens.main.load_projects") as mock_load_projects:
         mock_load_projects.return_value = ["fabric-api"]
@@ -224,12 +192,12 @@ async def test_main_screen_action_refresh() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_action_view_detail_no_selection() -> None:
+async def test_main_screen_action_view_detail_no_selection(app_config) -> None:
     """Test view_detail action shows warning when no project is selected."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     app = TestApp()
     async with app.run_test() as pilot:
@@ -242,21 +210,23 @@ async def test_main_screen_action_view_detail_no_selection() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_action_view_detail_with_selection() -> None:
+async def test_main_screen_action_view_detail_with_selection(
+    app_config, make_update_check_result
+) -> None:
     """Test view_detail action with a selected project."""
 
     test_projects = [
-        create_test_update_result(
+        make_update_check_result(
             "fabric-api", ProjectType.MOD, InstallStatus.INSTALLED
         ),
-        create_test_update_result(
+        make_update_check_result(
             "sodium", ProjectType.MOD, InstallStatus.OUTDATED, "0.5.0", "0.6.0"
         ),
     ]
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     with patch("mcpax.tui.screens.main.load_projects") as mock_load_projects:
         mock_load_projects.return_value = ["fabric-api", "sodium"]
@@ -296,18 +266,20 @@ async def test_main_screen_action_view_detail_with_selection() -> None:
 @pytest.mark.skip(
     reason="RowActivated event interaction with enter binding needs investigation"
 )
-async def test_main_screen_row_activated_event() -> None:
+async def test_main_screen_row_activated_event(
+    app_config, make_update_check_result
+) -> None:
     """Test that pressing Enter on a row triggers detail view."""
 
     test_projects = [
-        create_test_update_result(
+        make_update_check_result(
             "fabric-api", ProjectType.MOD, InstallStatus.INSTALLED
         ),
     ]
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     with patch("mcpax.tui.screens.main.load_projects") as mock_load_projects:
         mock_load_projects.return_value = ["fabric-api"]
@@ -352,12 +324,12 @@ async def test_main_screen_row_activated_event() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_search_requested_handler() -> None:
+async def test_main_screen_search_requested_handler(app_config) -> None:
     """Test MainScreen opens SearchScreen when search is requested."""
 
     class TestApp(App[None]):
         def compose(self):
-            yield MainScreen(config=create_test_config())
+            yield MainScreen(config=app_config)
 
     with (
         patch("mcpax.tui.screens.main.load_projects") as mock_load_projects,
@@ -391,12 +363,12 @@ async def test_main_screen_search_requested_handler() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_search_with_empty_query() -> None:
+async def test_main_screen_search_with_empty_query(app_config) -> None:
     """Test MainScreen does not open SearchScreen with empty query."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     with (
         patch("mcpax.tui.screens.main.load_projects") as mock_load_projects,
@@ -427,10 +399,9 @@ async def test_main_screen_search_with_empty_query() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_has_install_binding() -> None:
+async def test_main_screen_has_install_binding(app_config) -> None:
     """Test MainScreen has install (i) keybinding."""
-    config = create_test_config()
-    screen = MainScreen(config=config)
+    screen = MainScreen(config=app_config)
 
     # Check that 'i' is bound to install action
     bindings = {binding.key: binding.action for binding in screen.BINDINGS}
@@ -439,17 +410,18 @@ async def test_main_screen_has_install_binding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_install_action_no_updates() -> None:
+async def test_main_screen_install_action_no_updates(
+    app_config, make_update_check_result
+) -> None:
     """Test install action shows notification when no projects need installation."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            config = create_test_config()
-            self.push_screen(MainScreen(config=config))
+            self.push_screen(MainScreen(config=app_config))
 
     mock_projects = []
     mock_results = [
-        create_test_update_result("fabric-api", status=InstallStatus.INSTALLED),
+        make_update_check_result("fabric-api", status=InstallStatus.INSTALLED),
     ]
 
     with (
@@ -479,21 +451,21 @@ async def test_main_screen_install_action_no_updates() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_has_settings_binding() -> None:
+async def test_main_screen_has_settings_binding(app_config) -> None:
     """Test that MainScreen has settings key binding."""
-    screen = MainScreen(config=create_test_config())
+    screen = MainScreen(config=app_config)
     binding_keys = [b.key for b in screen.BINDINGS]
     assert "s" in binding_keys
 
 
 @pytest.mark.asyncio
-async def test_main_screen_action_settings_opens_screen() -> None:
+async def test_main_screen_action_settings_opens_screen(app_config) -> None:
     """Test that action_settings opens SettingsScreen."""
     from unittest.mock import MagicMock, patch
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     # Mock load_projects to return empty list
     with (
@@ -530,13 +502,13 @@ async def test_main_screen_action_settings_opens_screen() -> None:
 
 
 @pytest.mark.asyncio
-async def test_main_screen_on_settings_dismissed_reloads_config() -> None:
+async def test_main_screen_on_settings_dismissed_reloads_config(app_config) -> None:
     """Test that config is reloaded when settings are changed."""
     from unittest.mock import patch
 
     class TestApp(App[None]):
         def on_mount(self):
-            self.push_screen(MainScreen(config=create_test_config()))
+            self.push_screen(MainScreen(config=app_config))
 
     # Mock load_projects to return empty list
     with (

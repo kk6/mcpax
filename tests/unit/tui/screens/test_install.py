@@ -1,72 +1,38 @@
 """Tests for InstallScreen."""
 
 import asyncio
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from textual.app import App
 
 from mcpax.core.models import (
-    AppConfig,
-    InstallStatus,
-    Loader,
-    ProjectType,
-    UpdateCheckResult,
     UpdateResult,
 )
 from mcpax.tui.screens.install import InstallPhase, InstallScreen
 
 
-def create_test_app_config() -> AppConfig:
-    """Create a test AppConfig instance."""
-    return AppConfig(
-        minecraft_version="1.21.4",
-        mod_loader=Loader.FABRIC,
-        minecraft_dir=Path("/tmp/minecraft"),
-        max_concurrent_downloads=5,
-        verify_hash=True,
-    )
-
-
-def create_test_update_result(
-    slug: str,
-    status: InstallStatus = InstallStatus.NOT_INSTALLED,
-    project_type: ProjectType = ProjectType.MOD,
-    latest_version: str = "1.0.0",
-) -> UpdateCheckResult:
-    """Create a test UpdateCheckResult instance."""
-    return UpdateCheckResult(
-        slug=slug,
-        project_type=project_type,
-        status=status,
-        current_version=None,
-        current_file=None,
-        latest_version=latest_version,
-        latest_version_id="version-id-123",
-        latest_file=None,
-    )
-
-
 @pytest.mark.asyncio
-async def test_install_screen_initialization() -> None:
+async def test_install_screen_initialization(
+    app_config, make_update_check_result
+) -> None:
     """Test InstallScreen initialization."""
-    config = create_test_app_config()
-    updates = [create_test_update_result("sodium")]
-    screen = InstallScreen(updates=updates, config=config)
+    updates = [make_update_check_result("sodium")]
+    screen = InstallScreen(updates=updates, config=app_config)
 
     assert screen is not None
     assert screen._updates == updates
-    assert screen._config == config
+    assert screen._config == app_config
     assert screen._phase == InstallPhase.INSTALLING
 
 
 @pytest.mark.asyncio
-async def test_install_screen_has_escape_binding() -> None:
+async def test_install_screen_has_escape_binding(
+    app_config, make_update_check_result
+) -> None:
     """Test InstallScreen has escape keybinding for cancel."""
-    config = create_test_app_config()
-    updates = [create_test_update_result("sodium")]
-    screen = InstallScreen(updates=updates, config=config)
+    updates = [make_update_check_result("sodium")]
+    screen = InstallScreen(updates=updates, config=app_config)
 
     # Check that 'escape' is bound to cancel action
     bindings = {binding.key: binding.action for binding in screen.BINDINGS}
@@ -75,13 +41,14 @@ async def test_install_screen_has_escape_binding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_screen_composes_progress_panel() -> None:
+async def test_install_screen_composes_progress_panel(
+    app_config, make_update_check_result
+) -> None:
     """Test InstallScreen composes ProgressPanel widget."""
     from mcpax.tui.widgets.progress_panel import ProgressPanel
 
-    config = create_test_app_config()
-    updates = [create_test_update_result("sodium")]
-    screen = InstallScreen(updates=updates, config=config)
+    updates = [make_update_check_result("sodium")]
+    screen = InstallScreen(updates=updates, config=app_config)
 
     # Check that compose() yields ProgressPanel
     widgets = list(screen.compose())
@@ -90,14 +57,15 @@ async def test_install_screen_composes_progress_panel() -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_screen_executes_install_worker() -> None:
+async def test_install_screen_executes_install_worker(
+    app_config, make_update_check_result
+) -> None:
     """Test InstallScreen executes install worker on mount."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            config = create_test_app_config()
-            updates = [create_test_update_result("sodium")]
-            self.push_screen(InstallScreen(updates=updates, config=config))
+            updates = [make_update_check_result("sodium")]
+            self.push_screen(InstallScreen(updates=updates, config=app_config))
 
     mock_update_result = UpdateResult(successful=["sodium"], failed=[], backed_up=[])
 
@@ -124,14 +92,15 @@ async def test_install_screen_executes_install_worker() -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_screen_cancel_during_installation() -> None:
+async def test_install_screen_cancel_during_installation(
+    app_config, make_update_check_result
+) -> None:
     """Test cancelling installation with escape key."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            config = create_test_app_config()
-            updates = [create_test_update_result("sodium")]
-            self.push_screen(InstallScreen(updates=updates, config=config))
+            updates = [make_update_check_result("sodium")]
+            self.push_screen(InstallScreen(updates=updates, config=app_config))
 
     mock_update_result = UpdateResult(successful=[], failed=[], backed_up=[])
 
@@ -179,14 +148,15 @@ async def test_install_screen_cancel_during_installation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_screen_dismiss_after_cancel() -> None:
+async def test_install_screen_dismiss_after_cancel(
+    app_config, make_update_check_result
+) -> None:
     """Test that ESC dismisses the screen after cancellation."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            config = create_test_app_config()
-            updates = [create_test_update_result("sodium")]
-            self.push_screen(InstallScreen(updates=updates, config=config))
+            updates = [make_update_check_result("sodium")]
+            self.push_screen(InstallScreen(updates=updates, config=app_config))
 
     mock_update_result = UpdateResult(successful=[], failed=[], backed_up=[])
 
@@ -233,17 +203,18 @@ async def test_install_screen_dismiss_after_cancel() -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_screen_successful_installation_summary() -> None:
+async def test_install_screen_successful_installation_summary(
+    app_config, make_update_check_result
+) -> None:
     """Test successful installation shows proper summary."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            config = create_test_app_config()
             updates = [
-                create_test_update_result("sodium"),
-                create_test_update_result("lithium"),
+                make_update_check_result("sodium"),
+                make_update_check_result("lithium"),
             ]
-            self.push_screen(InstallScreen(updates=updates, config=config))
+            self.push_screen(InstallScreen(updates=updates, config=app_config))
 
     from mcpax.core.models import FailedUpdate
 
@@ -298,14 +269,15 @@ async def test_install_screen_successful_installation_summary() -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_screen_error_during_installation() -> None:
+async def test_install_screen_error_during_installation(
+    app_config, make_update_check_result
+) -> None:
     """Test that worker errors show summary with error message."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            config = create_test_app_config()
-            updates = [create_test_update_result("sodium")]
-            self.push_screen(InstallScreen(updates=updates, config=config))
+            updates = [make_update_check_result("sodium")]
+            self.push_screen(InstallScreen(updates=updates, config=app_config))
 
     with (
         patch("mcpax.tui.screens.install.Downloader") as mock_downloader_class,

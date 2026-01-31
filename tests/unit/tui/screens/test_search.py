@@ -8,27 +8,9 @@ from textual.app import App
 
 from mcpax.core.models import (
     ProjectType,
-    SearchHit,
     SearchResult,
 )
 from mcpax.tui.screens.search import MODRINTH_SEARCH_LIMIT, SearchScreen
-
-
-def create_test_search_hit(
-    slug: str,
-    title: str,
-    project_type: ProjectType = ProjectType.MOD,
-    downloads: int = 1000,
-) -> SearchHit:
-    """Create a test SearchHit instance."""
-    return SearchHit(
-        slug=slug,
-        title=title,
-        description="Test description",
-        project_type=project_type,
-        downloads=downloads,
-        icon_url=None,
-    )
 
 
 @pytest.mark.asyncio
@@ -71,7 +53,7 @@ async def test_search_screen_has_add_binding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_screen_executes_search() -> None:
+async def test_search_screen_executes_search(make_search_hit) -> None:
     """Test SearchScreen executes search on mount."""
 
     class TestApp(App[None]):
@@ -80,8 +62,8 @@ async def test_search_screen_executes_search() -> None:
 
     mock_search_result = SearchResult(
         hits=[
-            create_test_search_hit("sodium", "Sodium", ProjectType.MOD, 3000000),
-            create_test_search_hit("lithium", "Lithium", ProjectType.MOD, 2000000),
+            make_search_hit("sodium", "Sodium", ProjectType.MOD, 3000000),
+            make_search_hit("lithium", "Lithium", ProjectType.MOD, 2000000),
         ],
         total_hits=2,
         offset=0,
@@ -105,7 +87,7 @@ async def test_search_screen_executes_search() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_screen_with_project_type_facet() -> None:
+async def test_search_screen_with_project_type_facet(make_search_hit) -> None:
     """Test SearchScreen applies project_type as facet."""
 
     class TestApp(App[None]):
@@ -119,7 +101,7 @@ async def test_search_screen_with_project_type_facet() -> None:
 
     mock_search_result = SearchResult(
         hits=[
-            create_test_search_hit("iris", "Iris Shaders", ProjectType.SHADER, 2000000),
+            make_search_hit("iris", "Iris Shaders", ProjectType.SHADER, 2000000),
         ],
         total_hits=1,
         offset=0,
@@ -177,7 +159,7 @@ async def test_search_screen_escape_closes() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_screen_add_project() -> None:
+async def test_search_screen_add_project(make_search_hit) -> None:
     """Test adding a project from search results."""
 
     class TestApp(App[None]):
@@ -186,7 +168,7 @@ async def test_search_screen_add_project() -> None:
 
     mock_search_result = SearchResult(
         hits=[
-            create_test_search_hit("sodium", "Sodium", ProjectType.MOD, 3000000),
+            make_search_hit("sodium", "Sodium", ProjectType.MOD, 3000000),
         ],
         total_hits=1,
         offset=0,
@@ -221,7 +203,7 @@ async def test_search_screen_add_project() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_screen_add_duplicate_project() -> None:
+async def test_search_screen_add_duplicate_project(make_search_hit) -> None:
     """Test adding a duplicate project shows warning."""
 
     class TestApp(App[None]):
@@ -230,7 +212,7 @@ async def test_search_screen_add_duplicate_project() -> None:
 
     mock_search_result = SearchResult(
         hits=[
-            create_test_search_hit("sodium", "Sodium", ProjectType.MOD, 3000000),
+            make_search_hit("sodium", "Sodium", ProjectType.MOD, 3000000),
         ],
         total_hits=1,
         offset=0,
@@ -271,7 +253,7 @@ async def test_search_screen_add_duplicate_project() -> None:
 
 
 @pytest.mark.asyncio
-async def test_search_screen_add_project_with_invalid_config() -> None:
+async def test_search_screen_add_project_with_invalid_config(make_search_hit) -> None:
     """Test adding a project when projects.toml is invalid shows error."""
 
     class TestApp(App[None]):
@@ -280,7 +262,7 @@ async def test_search_screen_add_project_with_invalid_config() -> None:
 
     mock_search_result = SearchResult(
         hits=[
-            create_test_search_hit("sodium", "Sodium", ProjectType.MOD, 3000000),
+            make_search_hit("sodium", "Sodium", ProjectType.MOD, 3000000),
         ],
         total_hits=1,
         offset=0,

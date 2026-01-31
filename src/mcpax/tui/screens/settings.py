@@ -94,9 +94,7 @@ class SettingsScreen(Screen[bool]):
         self._ordered_keys: list[str] = []
         # Build reverse map: key -> section name for O(1) lookup
         self._key_to_section: dict[str, str] = {
-            key: section
-            for section, keys in SETTINGS_SECTIONS.items()
-            for key in keys
+            key: section for section, keys in SETTINGS_SECTIONS.items() for key in keys
         }
 
     def compose(self) -> ComposeResult:
