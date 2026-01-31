@@ -9,21 +9,10 @@ from mcpax.core.models import AppConfig, Loader
 from mcpax.tui.widgets import StatusBar
 
 
-def create_test_config() -> AppConfig:
-    """Create a test AppConfig instance."""
-    return AppConfig(
-        minecraft_version="1.21.4",
-        mod_loader=Loader.FABRIC,
-        shader_loader=Loader.IRIS,
-        minecraft_dir=Path("/tmp/.minecraft"),
-    )
-
-
 @pytest.mark.asyncio
-async def test_status_bar_with_config() -> None:
+async def test_status_bar_with_config(app_config) -> None:
     """Test StatusBar initialization with config."""
-    config = create_test_config()
-    status_bar = StatusBar(config=config)
+    status_bar = StatusBar(config=app_config)
 
     # Status bar should be instantiated
     assert status_bar is not None
@@ -39,10 +28,9 @@ async def test_status_bar_without_config() -> None:
 
 
 @pytest.mark.asyncio
-async def test_status_bar_render_with_config() -> None:
+async def test_status_bar_render_with_config(app_config) -> None:
     """Test StatusBar renders correct text with config."""
-    config = create_test_config()
-    status_bar = StatusBar(config=config)
+    status_bar = StatusBar(config=app_config)
 
     # Render should return formatted config info
     rendered = status_bar.render()
@@ -61,7 +49,7 @@ async def test_status_bar_render_without_config() -> None:
 
 
 @pytest.mark.asyncio
-async def test_status_bar_update_config() -> None:
+async def test_status_bar_update_config(app_config) -> None:
     """Test StatusBar can update config after initialization."""
     status_bar = StatusBar(config=None)
 
@@ -70,8 +58,7 @@ async def test_status_bar_update_config() -> None:
     assert "Config not loaded" in rendered
 
     # Update with config
-    config = create_test_config()
-    status_bar.update_config(config)
+    status_bar.update_config(app_config)
 
     # After update, should show config info
     rendered = status_bar.render()
@@ -80,15 +67,14 @@ async def test_status_bar_update_config() -> None:
 
 
 @pytest.mark.asyncio
-async def test_status_bar_in_app() -> None:
+async def test_status_bar_in_app(app_config) -> None:
     """Test StatusBar integration in a minimal app."""
 
     class TestApp(App[None]):
         """Minimal app for testing StatusBar."""
 
         def compose(self) -> ComposeResult:
-            config = create_test_config()
-            yield StatusBar(config=config)
+            yield StatusBar(config=app_config)
 
     app = TestApp()
     async with app.run_test():
@@ -103,10 +89,9 @@ async def test_status_bar_in_app() -> None:
 
 
 @pytest.mark.asyncio
-async def test_status_bar_with_shader_loader() -> None:
+async def test_status_bar_with_shader_loader(app_config) -> None:
     """Test StatusBar displays shader loader when available."""
-    config = create_test_config()
-    status_bar = StatusBar(config=config)
+    status_bar = StatusBar(config=app_config)
 
     rendered = status_bar.render()
     # Should show both mod loader and shader loader

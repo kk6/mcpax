@@ -31,17 +31,11 @@ async def test_app_quit_binding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_app_has_status_bar() -> None:
+async def test_app_has_status_bar(app_config) -> None:
     """Test that the app includes StatusBar widget."""
-    test_config = AppConfig(
-        minecraft_version="1.21.4",
-        mod_loader=Loader.FABRIC,
-        shader_loader=None,
-        minecraft_dir=Path("/tmp/.minecraft"),
-    )
 
     with (
-        patch("mcpax.tui.app.load_config", return_value=test_config),
+        patch("mcpax.tui.app.load_config", return_value=app_config),
         patch("mcpax.tui.screens.main.load_projects", return_value=[]),
         patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
     ):
@@ -66,7 +60,7 @@ async def test_app_has_status_bar() -> None:
 @pytest.mark.asyncio
 async def test_app_loads_config_successfully() -> None:
     """Test that the app loads config successfully when available."""
-    test_config = AppConfig(
+    test_app_config = AppConfig(
         minecraft_version="1.21.4",
         mod_loader=Loader.FABRIC,
         shader_loader=None,
@@ -74,7 +68,7 @@ async def test_app_loads_config_successfully() -> None:
     )
 
     with (
-        patch("mcpax.tui.app.load_config", return_value=test_config),
+        patch("mcpax.tui.app.load_config", return_value=test_app_config),
         patch("mcpax.tui.screens.main.load_projects", return_value=[]),
         patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
     ):

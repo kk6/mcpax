@@ -1,79 +1,45 @@
 """Tests for ProjectDetailScreen."""
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from textual.app import App
 
 from mcpax.core.models import (
-    AppConfig,
     InstallStatus,
-    Loader,
     ProjectType,
-    UpdateCheckResult,
 )
 from mcpax.tui.screens.detail import ProjectDetailScreen
 
 
-def create_test_config() -> AppConfig:
-    """Create a test AppConfig instance."""
-    return AppConfig(
-        minecraft_version="1.21.4",
-        mod_loader=Loader.FABRIC,
-        shader_loader=Loader.IRIS,
-        minecraft_dir=Path("/tmp/.minecraft"),
-    )
-
-
-def create_test_update_result(
-    slug: str = "fabric-api",
-    project_type: ProjectType = ProjectType.MOD,
-    status: InstallStatus = InstallStatus.INSTALLED,
-    current_version: str | None = "1.0.0",
-    latest_version: str | None = "1.0.0",
-    error: str | None = None,
-) -> UpdateCheckResult:
-    """Create a test UpdateCheckResult instance."""
-    return UpdateCheckResult(
-        slug=slug,
-        project_type=project_type,
-        status=status,
-        current_version=current_version,
-        latest_version=latest_version,
-        current_file=None,
-        latest_file=None,
-        error=error,
-    )
-
-
 @pytest.mark.asyncio
-async def test_detail_screen_initialization() -> None:
+async def test_detail_screen_initialization(
+    app_config, make_update_check_result
+) -> None:
     """Test ProjectDetailScreen initialization."""
-    config = create_test_config()
-    project = create_test_update_result()
-    screen = ProjectDetailScreen(project=project, config=config)
+    project = make_update_check_result(slug="test-project")
+    screen = ProjectDetailScreen(project=project, config=app_config)
     assert screen is not None
     assert screen._project == project
-    assert screen._config == config
+    assert screen._config == app_config
 
 
 @pytest.mark.asyncio
-async def test_detail_screen_displays_project_info() -> None:
+async def test_detail_screen_displays_project_info(
+    app_config, make_update_check_result
+) -> None:
     """Test ProjectDetailScreen displays project information."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            project = create_test_update_result(
+            project = make_update_check_result(
                 slug="sodium",
                 project_type=ProjectType.MOD,
                 status=InstallStatus.OUTDATED,
                 current_version="0.5.0",
                 latest_version="0.6.0",
             )
-            self.push_screen(
-                ProjectDetailScreen(project=project, config=create_test_config())
-            )
+            self.push_screen(ProjectDetailScreen(project=project, config=app_config))
 
     app = TestApp()
     async with app.run_test():
@@ -84,11 +50,12 @@ async def test_detail_screen_displays_project_info() -> None:
 
 
 @pytest.mark.asyncio
-async def test_detail_screen_has_escape_binding() -> None:
+async def test_detail_screen_has_escape_binding(
+    app_config, make_update_check_result
+) -> None:
     """Test ProjectDetailScreen has escape keybinding."""
-    config = create_test_config()
-    project = create_test_update_result()
-    screen = ProjectDetailScreen(project=project, config=config)
+    project = make_update_check_result(slug="test-project")
+    screen = ProjectDetailScreen(project=project, config=app_config)
 
     # Check that 'escape' is bound to cancel action
     bindings = {binding.key: binding.action for binding in screen.BINDINGS}
@@ -97,11 +64,12 @@ async def test_detail_screen_has_escape_binding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_detail_screen_has_delete_binding() -> None:
+async def test_detail_screen_has_delete_binding(
+    app_config, make_update_check_result
+) -> None:
     """Test ProjectDetailScreen has delete (d) keybinding."""
-    config = create_test_config()
-    project = create_test_update_result()
-    screen = ProjectDetailScreen(project=project, config=config)
+    project = make_update_check_result(slug="test-project")
+    screen = ProjectDetailScreen(project=project, config=app_config)
 
     # Check that 'd' is bound to delete action
     bindings = {binding.key: binding.action for binding in screen.BINDINGS}
@@ -110,15 +78,15 @@ async def test_detail_screen_has_delete_binding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_detail_screen_escape_closes() -> None:
+async def test_detail_screen_escape_closes(
+    app_config, make_update_check_result
+) -> None:
     """Test escape key closes the modal."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            project = create_test_update_result()
-            self.push_screen(
-                ProjectDetailScreen(project=project, config=create_test_config())
-            )
+            project = make_update_check_result(slug="test-project")
+            self.push_screen(ProjectDetailScreen(project=project, config=app_config))
 
     app = TestApp()
     async with app.run_test() as pilot:
@@ -134,15 +102,15 @@ async def test_detail_screen_escape_closes() -> None:
 
 
 @pytest.mark.asyncio
-async def test_detail_screen_delete_removes_project() -> None:
+async def test_detail_screen_delete_removes_project(
+    app_config, make_update_check_result
+) -> None:
     """Test delete action removes project from projects.toml."""
 
     class TestApp(App[None]):
         def on_mount(self):
-            project = create_test_update_result(slug="fabric-api")
-            self.push_screen(
-                ProjectDetailScreen(project=project, config=create_test_config())
-            )
+            project = make_update_check_result(slug="fabric-api")
+            self.push_screen(ProjectDetailScreen(project=project, config=app_config))
 
     with (
         patch("mcpax.tui.screens.detail.load_projects") as mock_load,
