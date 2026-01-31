@@ -476,3 +476,101 @@ async def test_main_screen_install_action_no_updates() -> None:
 
             # Verify we're still on MainScreen (no InstallScreen pushed)
             assert isinstance(app.screen, MainScreen)
+
+
+@pytest.mark.asyncio
+async def test_main_screen_has_settings_binding() -> None:
+    """Test that MainScreen has settings key binding."""
+    screen = MainScreen(config=create_test_config())
+    binding_keys = [b.key for b in screen.BINDINGS]
+    assert "s" in binding_keys
+
+
+@pytest.mark.asyncio
+async def test_main_screen_action_settings_opens_screen() -> None:
+    """Test that action_settings opens SettingsScreen."""
+    from unittest.mock import MagicMock, patch
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            self.push_screen(MainScreen(config=create_test_config()))
+
+    # Mock load_projects to return empty list
+    with (
+        patch("mcpax.tui.screens.main.load_projects") as mock_load,
+        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+    ):
+        mock_load.return_value = []
+        mock_manager = AsyncMock()
+        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager_class.return_value.__aenter__.return_value = mock_manager
+        mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
+
+        app = TestApp()
+        async with app.run_test():
+            # Wait for initial load
+            await app.workers.wait_for_complete()
+
+            screen = app.screen
+            assert isinstance(screen, MainScreen)
+
+            # Mock push_screen to verify it's called
+            app.push_screen = MagicMock()  # type: ignore
+
+            # Call action_settings directly
+            screen.action_settings()
+
+            # Verify push_screen was called
+            assert app.push_screen.called
+            # Verify first argument is SettingsScreen instance
+            from mcpax.tui.screens.settings import SettingsScreen
+
+            args, kwargs = app.push_screen.call_args
+            assert isinstance(args[0], SettingsScreen)
+
+
+@pytest.mark.asyncio
+async def test_main_screen_on_settings_dismissed_reloads_config() -> None:
+    """Test that config is reloaded when settings are changed."""
+    from unittest.mock import patch
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            self.push_screen(MainScreen(config=create_test_config()))
+
+    # Mock load_projects to return empty list
+    with (
+        patch("mcpax.tui.screens.main.load_projects") as mock_load,
+        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.load_config") as mock_load_config,
+    ):
+        mock_load.return_value = []
+        mock_manager = AsyncMock()
+        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager_class.return_value.__aenter__.return_value = mock_manager
+        mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
+
+        # Create a new config for reload
+        new_config = AppConfig(
+            minecraft_version="1.22.0",
+            mod_loader=Loader.FABRIC,
+            minecraft_dir=Path("/tmp/.minecraft"),
+        )
+        mock_load_config.return_value = new_config
+
+        app = TestApp()
+        async with app.run_test():
+            # Wait for initial load
+            await app.workers.wait_for_complete()
+
+            screen = app.screen
+            assert isinstance(screen, MainScreen)
+
+            # Call _on_settings_dismissed with True (changed)
+            screen._on_settings_dismissed(True)
+
+            # Verify load_config was called
+            mock_load_config.assert_called_once()
+
+            # Verify config was updated
+            assert screen._config == new_config

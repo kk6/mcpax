@@ -358,6 +358,65 @@ InstallScreen > Footer {
 }
 
 /* ============================================================================
+ * SettingsScreen
+ * ============================================================================ */
+
+SettingsScreen {
+    layout: vertical;
+}
+
+#settings-header {
+    dock: top;
+    height: auto;
+    background: $surface;
+    color: $primary;
+    text-style: bold;
+    padding: 1;
+}
+
+#settings-table {
+    height: 1fr;
+    background: $surface;
+    border: solid $border;
+}
+
+SettingsScreen > Footer {
+    dock: bottom;
+}
+
+/* ============================================================================
+ * EditSettingModal
+ * ============================================================================ */
+
+EditSettingModal {
+    align: center middle;
+}
+
+#edit-setting-container {
+    width: 70;
+    height: auto;
+    background: $surface-elevated;
+    border: thick $primary;
+    padding: 1 2;
+}
+
+#edit-setting-header {
+    text-style: bold;
+    color: $primary;
+    margin-bottom: 1;
+}
+
+#setting-input {
+    margin-bottom: 1;
+}
+
+#button-row {
+    layout: horizontal;
+    height: auto;
+    align: center middle;
+}
+
+/* ============================================================================
  * Future Widget Placeholders (commented out for now)
  * ============================================================================ */
 
