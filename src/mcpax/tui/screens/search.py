@@ -113,16 +113,16 @@ class SearchScreen(Screen[bool]):
         except FileNotFoundError:
             projects = []
         except ConfigValidationError as e:
-            self.notify(f"設定ファイルの読み込みに失敗しました: {e}", severity="error")
+            self.notify(f"Failed to load configuration: {e}", severity="error")
             return
 
         # Check for duplicates
         if any(p.slug == hit.slug for p in projects):
-            self.notify(f"'{hit.slug}' は既に登録済みです", severity="warning")
+            self.notify(f"'{hit.slug}' is already in the list", severity="warning")
             return
 
         # Add new project
         projects.append(ProjectConfig(slug=hit.slug, project_type=hit.project_type))
         save_projects(projects)
         self._added = True
-        self.notify(f"'{hit.slug}' を追加しました", severity="information")
+        self.notify(f"Added '{hit.slug}'", severity="information")
