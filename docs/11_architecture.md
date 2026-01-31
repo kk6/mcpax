@@ -12,17 +12,19 @@ mcpax/
 │   ├── 03_requirements_list.md
 │   ├── 04_user_scenarios.md
 │   ├── 05_conceptual_data_model.md
-│   ├── architecture.md
+│   ├── 06_ui_definition.md
+│   ├── 07_function_definition.md
+│   ├── 08_data_definition.md
+│   ├── 09_crud_matrix.md
+│   ├── 10_summary.md
+│   ├── 11_architecture.md
 │   ├── modrinth-api.md
-│   └── roadmap.md
-├── config.toml              # ユーザー設定（実行時・カレントディレクトリ）
-├── projects.toml            # プロジェクトリスト（実行時・カレントディレクトリ）
+│   └── requirements.md
 ├── tests/                   # テスト
-│   ├── __init__.py
-│   ├── test_api.py
-│   ├── test_config.py
-│   ├── test_downloader.py
-│   └── test_manager.py
+│   ├── conftest.py
+│   ├── fixtures/
+│   ├── integration/
+│   └── unit/
 └── src/
     └── mcpax/
         ├── __init__.py
@@ -36,9 +38,12 @@ mcpax/
         ├── cli/             # CLI インターフェース
         │   ├── __init__.py
         │   └── app.py
-        └── tui/             # TUI インターフェース（将来）
+        └── tui/             # TUI インターフェース
             ├── __init__.py
-            └── app.py
+            ├── app.py
+            ├── screens/
+            ├── styles/
+            └── widgets/
 ```
 
 ## 2. レイヤー構成
@@ -658,7 +663,7 @@ def search(query: str):
 | httpx | HTTP クライアント（async 対応） | ^0.27 |
 | typer | CLI フレームワーク | ^0.12 |
 | rich | ターミナル出力装飾 | ^13.0 |
-| textual | TUI フレームワーク（将来） | ^0.50 |
+| textual | TUI フレームワーク | ^0.50 |
 
 ## 5. 設定ファイル形式
 

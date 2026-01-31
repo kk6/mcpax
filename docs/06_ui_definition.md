@@ -439,8 +439,7 @@ Downloading...
 
 ## 設定ファイルの探索順序
 
-1. `--config` オプションで指定されたパス
-2. カレントディレクトリの `config.toml`
-3. （将来）`~/.config/mcpax/config.toml`
+1. `$XDG_CONFIG_HOME/mcpax/config.toml` (`XDG_CONFIG_HOME` 環境変数が設定されている場合)
+2. `~/.config/mcpax/config.toml` (上記以外の場合)
 
 `projects.toml` は `config.toml` と同じディレクトリに配置する。

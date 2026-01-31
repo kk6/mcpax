@@ -29,7 +29,24 @@ Automate the manual update process when managing approximately 30 Minecraft proj
 | HTTP Client | httpx |
 | CLI Framework | typer |
 | Output Decoration | rich |
-| TUI (Future) | textual |
+| TUI | textual |
+
+## TUI Architecture
+
+- Entry point: `mcpax tui` -> `mcpax.tui.run_tui()` -> `McpaxApp`
+- App loads config from default paths; if missing/invalid, exits with an error message
+- Screens:
+  - `MainScreen`: project list + search input + status (bindings: quit/refresh/install/settings/detail)
+  - `SearchScreen`: Modrinth search results; add selected project to `projects.toml`
+  - `ProjectDetailScreen`: project detail modal with delete action
+  - `InstallScreen`: apply updates with progress + summary
+  - `SettingsScreen`: edit `config.toml` values
+- Widgets: `ProjectTable`, `SearchInput`, `SearchResultTable`, `ProgressPanel`, `StatusBar`
+- Core integration:
+  - `ProjectManager` for update checks and installs
+  - `ModrinthClient` for search
+  - `core.config` for reading/writing config + projects
+- Dependency: TUI is provided via optional extra `.[tui]` (Textual)
 
 ## Issue Workflow
 
