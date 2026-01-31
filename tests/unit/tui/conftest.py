@@ -172,3 +172,49 @@ def mock_downloader():
     mock.__aenter__.return_value = mock
     mock.__aexit__.return_value = None
     return mock
+
+
+# Test App Fixtures for MainScreen
+
+
+@pytest.fixture
+def patched_main_screen_dependencies():
+    """Patch dependencies for MainScreen tests.
+
+    Yields:
+        tuple: (mock_load_projects, mock_manager_class, mock_manager)
+    """
+    with (
+        patch("mcpax.tui.screens.main.load_projects") as mock_load,
+        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+    ):
+        mock_load.return_value = []
+        mock_manager = AsyncMock()
+        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager_class.return_value.__aenter__.return_value = mock_manager
+        mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
+        yield mock_load, mock_manager_class, mock_manager
+
+
+# Test App Fixtures for SettingsScreen
+
+
+@pytest.fixture
+def settings_config_path(tmp_path: Path) -> Path:
+    """Create a temporary config.toml for SettingsScreen tests.
+
+    Args:
+        tmp_path: Pytest temporary directory
+
+    Returns:
+        Path: Path to temporary config file
+    """
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("""[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "/tmp/.minecraft"
+""")
+    return config_path

@@ -143,3 +143,125 @@ async def test_detail_screen_delete_removes_project(
             mock_load.assert_called_once()
             updated_projects = [p for p in existing_projects if p.slug != "fabric-api"]
             mock_save.assert_called_once_with(updated_projects)
+
+
+# Phase 2: Error Handling Tests
+
+
+@pytest.mark.asyncio
+async def test_detail_screen_delete_handles_exception(
+    app_config, make_update_check_result
+) -> None:
+    """Test that delete action handles exceptions gracefully."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            project = make_update_check_result(slug="fabric-api")
+            self.push_screen(ProjectDetailScreen(project=project, config=app_config))
+
+    with patch("mcpax.tui.screens.detail.load_projects") as mock_load:
+        mock_load.side_effect = Exception("File access error")
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            # Verify detail screen is active
+            assert isinstance(app.screen, ProjectDetailScreen)
+
+            # Press 'd' to delete
+            await pilot.press("d")
+            await pilot.pause()
+
+            # Screen should still be ProjectDetailScreen (not dismissed)
+            assert isinstance(app.screen, ProjectDetailScreen)
+
+
+@pytest.mark.asyncio
+async def test_detail_screen_displays_error_when_present(
+    app_config, make_update_check_result
+) -> None:
+    """Test that error messages are displayed when present in project."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            project = make_update_check_result(
+                slug="test-project",
+                status=InstallStatus.CHECK_FAILED,
+            )
+            # Add error message to project
+            project.error = "Version lookup failed"
+            self.push_screen(ProjectDetailScreen(project=project, config=app_config))
+
+    app = TestApp()
+    async with app.run_test():
+        screen = app.screen
+        assert isinstance(screen, ProjectDetailScreen)
+
+        # Check that error Static widget exists with "error" class
+        error_widgets = screen.query(".error")
+        assert len(error_widgets) > 0
+
+
+# Phase 4: Button/Event Operation Tests
+
+
+@pytest.mark.asyncio
+async def test_detail_screen_delete_button_click(
+    app_config, make_update_check_result
+) -> None:
+    """Test that clicking delete button removes project."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            project = make_update_check_result(slug="fabric-api")
+            self.push_screen(ProjectDetailScreen(project=project, config=app_config))
+
+    with (
+        patch("mcpax.tui.screens.detail.load_projects") as mock_load,
+        patch("mcpax.tui.screens.detail.save_projects") as mock_save,
+    ):
+        from mcpax.core.models import ProjectConfig, ReleaseChannel
+
+        # Mock existing projects
+        existing_projects = [
+            ProjectConfig(
+                slug="fabric-api",
+                project_type=ProjectType.MOD,
+                channel=ReleaseChannel.RELEASE,
+            ),
+        ]
+        mock_load.return_value = existing_projects
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            # Click delete button
+            delete_button = app.screen.query_one("#delete-button")
+            await pilot.click(delete_button)
+            await pilot.pause()
+
+            # Verify save_projects was called
+            mock_save.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_detail_screen_close_button_click(
+    app_config, make_update_check_result
+) -> None:
+    """Test that clicking close button dismisses screen."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            project = make_update_check_result(slug="test-project")
+            self.push_screen(ProjectDetailScreen(project=project, config=app_config))
+
+    app = TestApp()
+    async with app.run_test() as pilot:
+        # Verify detail screen is active
+        assert isinstance(app.screen, ProjectDetailScreen)
+
+        # Click close button
+        close_button = app.screen.query_one("#close-button")
+        await pilot.click(close_button)
+        await pilot.pause()
+
+        # Screen should be dismissed
+        assert not isinstance(app.screen, ProjectDetailScreen)
