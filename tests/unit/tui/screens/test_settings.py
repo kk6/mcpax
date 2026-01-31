@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from textual.app import App
+from textual.coordinate import Coordinate
 
 from mcpax.core.config import CONFIG_KEY_MAP
 
@@ -616,3 +617,274 @@ minecraft_dir = "/tmp/.minecraft"
                 )
                 # Ensure it's NOT called with human label "Forge"
                 assert mock_set.call_args[0][1] != "Forge"
+
+
+# Phase 3: Settings Action Tests
+
+
+class TestSettingsActions:
+    """Test settings screen actions."""
+
+    @pytest.mark.asyncio
+    async def test_settings_screen_cancel_without_changes(
+        self, settings_config_path: Path
+    ) -> None:
+        """Test that cancel without changes returns False."""
+        from mcpax.tui.screens.settings import SettingsScreen
+
+        result = None
+
+        class TestApp(App[None]):
+            def on_mount(self):
+                self.push_screen(
+                    SettingsScreen(config_path=settings_config_path),
+                    callback=self.handle_result,
+                )
+
+            def handle_result(self, changed: bool | None):
+                nonlocal result
+                result = changed
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            # Press ESC without making changes
+            await pilot.press("escape")
+            await pilot.pause()
+
+            # Result should be False (no changes)
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_settings_screen_cancel_with_changes(
+        self, settings_config_path: Path
+    ) -> None:
+        """Test that cancel with changes returns True."""
+
+        from mcpax.tui.screens.settings import SettingsScreen
+
+        result = None
+
+        class TestApp(App[None]):
+            def on_mount(self):
+                self.push_screen(
+                    SettingsScreen(config_path=settings_config_path),
+                    callback=self.handle_result,
+                )
+
+            def handle_result(self, changed: bool | None):
+                nonlocal result
+                result = changed
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.screen
+            assert isinstance(screen, SettingsScreen)
+
+            # Simulate a change by setting _changed flag
+            screen._changed = True
+
+            # Press ESC
+            await pilot.press("escape")
+            await pilot.pause()
+
+            # Result should be True (changes were made)
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_settings_screen_action_edit_setting_pushes_edit_modal(
+        self, settings_config_path: Path
+    ) -> None:
+        """Test that action_edit_setting pushes EditSettingModal with correct params."""
+        from unittest.mock import MagicMock
+
+        from mcpax.tui.screens.settings import EditSettingModal, SettingsScreen
+
+        config_path = settings_config_path
+        config_path.write_text("""
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "/tmp/.minecraft"
+""")
+
+        class TestApp(App[None]):
+            def on_mount(self):
+                self.push_screen(SettingsScreen(config_path=config_path))
+
+        app = TestApp()
+        async with app.run_test():
+            screen = app.screen
+            table = screen.query_one("#settings-table")
+
+            # Set cursor to first row (minecraft.version)
+            table.cursor_coordinate = Coordinate(0, 0)
+
+            # Mock push_screen
+            app.push_screen = MagicMock()  # type: ignore
+
+            # Call action_edit_setting
+            screen.action_edit_setting()
+
+            # Verify push_screen was called with EditSettingModal
+            app.push_screen.assert_called_once()
+            args, kwargs = app.push_screen.call_args
+            assert isinstance(args[0], EditSettingModal)
+            # Check parameters
+            modal = args[0]
+            assert modal._key == "minecraft.version"
+            assert modal._label == "Minecraft Version"
+            assert modal._current_value == "1.21.4"
+
+    @pytest.mark.asyncio
+    async def test_settings_screen_action_edit_setting_none_value_passes_empty_string(
+        self, settings_config_path: Path
+    ) -> None:
+        """Test that None values are passed as empty string to EditSettingModal."""
+        from unittest.mock import MagicMock
+
+        from mcpax.tui.screens.settings import SettingsScreen
+
+        class TestApp(App[None]):
+            def on_mount(self):
+                self.push_screen(SettingsScreen(config_path=settings_config_path))
+
+        app = TestApp()
+        async with app.run_test():
+            screen = app.screen
+            table = screen.query_one("#settings-table")
+
+            # Set cursor to shader_loader row (index 2) which should be None
+            table.cursor_coordinate = Coordinate(2, 0)
+
+            # Mock push_screen
+            app.push_screen = MagicMock()  # type: ignore
+
+            # Call action_edit_setting
+            screen.action_edit_setting()
+
+            # Verify current_value is empty string
+            args, _ = app.push_screen.call_args
+            modal = args[0]
+            assert modal._current_value == ""
+
+    @pytest.mark.asyncio
+    async def test_settings_screen_action_edit_setting_bool_value_passes_string(
+        self, settings_config_path: Path
+    ) -> None:
+        """Test that boolean values are passed as string to EditSettingModal."""
+        from unittest.mock import MagicMock
+
+        from mcpax.tui.screens.settings import SettingsScreen
+
+        # Override config with download section
+        settings_config_path.write_text("""
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "/tmp/.minecraft"
+
+[download]
+max_concurrent = 5
+verify_hash = true
+""")
+
+        class TestApp(App[None]):
+            def on_mount(self):
+                self.push_screen(SettingsScreen(config_path=settings_config_path))
+
+        app = TestApp()
+        async with app.run_test():
+            screen = app.screen
+            table = screen.query_one("#settings-table")
+
+            # Set cursor to verify_hash row (index 8)
+            table.cursor_coordinate = Coordinate(8, 0)
+
+            # Mock push_screen
+            app.push_screen = MagicMock()  # type: ignore
+
+            # Call action_edit_setting
+            screen.action_edit_setting()
+
+            # Verify current_value is "True" (string)
+            args, _ = app.push_screen.call_args
+            modal = args[0]
+            assert modal._current_value == "True"
+
+    @pytest.mark.asyncio
+    async def test_settings_screen_row_selected_delegates_to_edit_setting(
+        self, settings_config_path: Path
+    ) -> None:
+        """Test that DataTable.RowSelected delegates to action_edit_setting."""
+        from unittest.mock import MagicMock
+
+        from mcpax.tui.screens.settings import SettingsScreen
+
+        class TestApp(App[None]):
+            def on_mount(self):
+                self.push_screen(SettingsScreen(config_path=settings_config_path))
+
+        app = TestApp()
+        async with app.run_test():
+            screen = app.screen
+
+            # Mock action_edit_setting
+            screen.action_edit_setting = MagicMock()
+
+            # Simulate pressing Enter (will trigger RowSelected event)
+            await app.workers.wait_for_complete()
+            table = screen.query_one("#settings-table")
+
+            table.cursor_coordinate = Coordinate(0, 0)
+
+            # Create a mock event object
+            class MockEvent:
+                pass
+
+            event = MockEvent()
+            screen.on_data_table_row_selected(event)
+
+            # Verify action_edit_setting was called
+            screen.action_edit_setting.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_edit_modal_enter_key_saves_value(self, tmp_path: Path) -> None:
+        """Test that Enter key saves the value in EditSettingModal."""
+        from mcpax.tui.screens.settings import EditSettingModal
+
+        result = None
+
+        class TestApp(App[None]):
+            def on_mount(self):
+                self.push_screen(
+                    EditSettingModal(
+                        key="minecraft.version",
+                        label="Minecraft Version",
+                        current_value="1.21.4",
+                    ),
+                    callback=self.handle_result,
+                )
+
+            def handle_result(self, value: str | None):
+                nonlocal result
+                result = value
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            screen = app.screen
+            # Change the input value
+            from textual.widgets import Input
+
+            input_widget = screen.query_one(Input)
+            input_widget.value = "1.22.0"
+
+            # Press Enter
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # Result should be the new value
+            assert result == "1.22.0"
