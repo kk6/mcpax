@@ -8,7 +8,7 @@ from textual.screen import Screen
 from textual.widgets import DataTable, Footer
 from textual.worker import Worker, WorkerState
 
-from mcpax.core.config import ConfigValidationError, load_projects
+from mcpax.core.config import ConfigValidationError, load_config, load_projects
 from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
     AppConfig,
@@ -21,6 +21,7 @@ from mcpax.core.models import (
 from mcpax.tui.screens.detail import ProjectDetailScreen
 from mcpax.tui.screens.install import InstallScreen
 from mcpax.tui.screens.search import SearchScreen
+from mcpax.tui.screens.settings import SettingsScreen
 from mcpax.tui.widgets import ProjectTable, SearchInput, StatusBar
 
 
@@ -31,6 +32,7 @@ class MainScreen(Screen[None]):
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
         Binding("i", "install", "Install All"),
+        Binding("s", "settings", "Settings"),
         Binding("enter", "view_detail", "View Detail"),
     ]
 
@@ -199,3 +201,29 @@ class MainScreen(Screen[None]):
         """
         if added:
             self._load_and_check_updates()
+
+    def action_settings(self) -> None:
+        """Open settings screen."""
+        self.app.push_screen(
+            SettingsScreen(),
+            callback=self._on_settings_dismissed,
+        )
+
+    def _on_settings_dismissed(self, changed: bool | None) -> None:
+        """Handle settings screen dismissal.
+
+        Args:
+            changed: True if settings were changed, False or None otherwise
+        """
+        if changed:
+            # Reload config
+            try:
+                self._config = load_config()
+                # Update StatusBar
+                status_bar = self.query_one(StatusBar)
+                status_bar.update_config(self._config)
+                # Reload projects
+                self._load_and_check_updates()
+            except Exception as e:
+                logging.exception("Error reloading config after settings change")
+                self.notify(f"Error reloading config: {e}", severity="error")
