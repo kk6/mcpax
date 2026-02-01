@@ -9,7 +9,12 @@ from textual.widgets import Footer, Static
 from textual.worker import Worker, WorkerState
 
 from mcpax.core.api import ModrinthClient
-from mcpax.core.config import ConfigValidationError, load_projects, save_projects
+from mcpax.core.config import (
+    ConfigValidationError,
+    load_config,
+    load_projects,
+    save_projects,
+)
 from mcpax.core.models import (
     ProjectConfig,
     ProjectType,
@@ -100,13 +105,54 @@ class SearchScreen(Screen[bool]):
             self.notify("No project selected", severity="warning")
             return
 
-        self._add_project_to_config(selected)
+        # Show version selection screen
+        self.run_worker(self._show_version_select(selected), exclusive=False)
 
-    def _add_project_to_config(self, hit: SearchHit) -> None:
+    async def _show_version_select(self, hit: SearchHit) -> None:
+        """Show version selection screen and add project.
+
+        Args:
+            hit: Selected search hit
+        """
+        from mcpax.tui.screens.version_select import (
+            VERSION_SELECT_CANCELLED,
+            VERSION_SELECT_LATEST,
+            VersionSelectScreen,
+        )
+
+        try:
+            # Load config to get minecraft version and mod loader
+            config = load_config()
+        except (FileNotFoundError, ConfigValidationError) as e:
+            self.notify(f"Failed to load config: {e}", severity="error")
+            return
+
+        # Push version selection screen
+        version_select_screen = VersionSelectScreen(
+            slug=hit.slug,
+            project_type=hit.project_type,
+            minecraft_version=config.minecraft_version,
+            mod_loader=config.mod_loader.value,
+        )
+
+        selected_version = await self.app.push_screen_wait(version_select_screen)
+
+        # Handle version selection result
+        if selected_version == VERSION_SELECT_CANCELLED:
+            return  # User cancelled, don't add project
+        elif selected_version == VERSION_SELECT_LATEST:
+            self._add_project_to_config(hit, version=None)  # No version pinning
+        else:
+            self._add_project_to_config(hit, version=selected_version)
+
+    def _add_project_to_config(
+        self, hit: SearchHit, version: str | None = None
+    ) -> None:
         """Add project to projects.toml.
 
         Args:
             hit: Selected search hit to add
+            version: Optional version to pin
         """
         try:
             projects = load_projects()
@@ -122,7 +168,15 @@ class SearchScreen(Screen[bool]):
             return
 
         # Add new project
-        projects.append(ProjectConfig(slug=hit.slug, project_type=hit.project_type))
+        projects.append(
+            ProjectConfig(slug=hit.slug, project_type=hit.project_type, version=version)
+        )
         save_projects(projects)
         self._added = True
-        self.notify(f"Added '{hit.slug}'", severity="information")
+
+        if version:
+            self.notify(
+                f"Added '{hit.slug}' (pinned to {version})", severity="information"
+            )
+        else:
+            self.notify(f"Added '{hit.slug}' (latest)", severity="information")

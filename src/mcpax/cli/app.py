@@ -901,7 +901,8 @@ def update(
                 current = result.current_version or "not installed"
                 latest = result.latest_version or "unknown"
                 arrow = f"{current} → {latest}"
-                console.print(f"  {result.slug:<20} {arrow}")
+                pinned_marker = " [pinned]" if result.pinned else ""
+                console.print(f"  {result.slug:<20} {arrow}{pinned_marker}")
             continue
         if kind == "up_to_date":
             slugs = ", ".join(r.slug for r in items)

@@ -958,6 +958,169 @@ class TestGetInstallStatusWithChannel:
         assert result == InstallStatus.INSTALLED
 
 
+class TestGetInstallStatusPinning:
+    """Tests for get_install_status with version pinning."""
+
+    async def test_pinned_version_installed(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Pinned version installed -> INSTALLED."""
+        # Arrange
+        config = _make_config(tmp_path)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True)
+        file_path.write_text("content")
+
+        pinned_hash = "pinnedhash" * 20
+        installed = _make_installed_file(
+            "sodium",
+            file_path=file_path,
+            version_number="1.5.0",
+            sha512=pinned_hash,
+        )
+
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="pinned-id",
+                    version_number="1.5.0",
+                    version_type="release",
+                    sha512=pinned_hash,
+                ),
+                _make_version_payload(
+                    version_id="newer-id",
+                    version_number="2.0.0",
+                    version_type="release",
+                    sha512="newerhash" * 20,
+                ),
+            ],
+        )
+
+        project_config = ProjectConfig(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            version="1.5.0",
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            result = await manager.get_install_status(
+                "sodium",
+                project_config=project_config,
+            )
+
+        # Assert
+        assert result == InstallStatus.INSTALLED
+
+    async def test_pinned_version_outdated(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Different version installed than pinned -> OUTDATED."""
+        # Arrange
+        config = _make_config(tmp_path)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True)
+        file_path.write_text("content")
+
+        installed = _make_installed_file(
+            "sodium",
+            file_path=file_path,
+            version_number="1.0.0",
+            sha512="oldhash" * 20,
+        )
+
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="pinned-id",
+                    version_number="1.5.0",
+                    version_type="release",
+                    sha512="pinnedhash" * 20,
+                ),
+            ],
+        )
+
+        project_config = ProjectConfig(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            version="1.5.0",
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            result = await manager.get_install_status(
+                "sodium",
+                project_config=project_config,
+            )
+
+        # Assert
+        assert result == InstallStatus.OUTDATED
+
+    async def test_pinned_version_not_found(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Pinned version not found -> NOT_COMPATIBLE."""
+        # Arrange
+        config = _make_config(tmp_path)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True)
+        file_path.write_text("content")
+
+        installed = _make_installed_file(
+            "sodium",
+            file_path=file_path,
+            sha512="hash" * 20,
+        )
+
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="other-id",
+                    version_number="1.0.0",
+                    version_type="release",
+                    sha512="otherhash" * 20,
+                ),
+            ],
+        )
+
+        project_config = ProjectConfig(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            version="1.5.0",
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            result = await manager.get_install_status(
+                "sodium",
+                project_config=project_config,
+            )
+
+        # Assert
+        assert result == InstallStatus.NOT_COMPATIBLE
+
+
 class TestNeedsUpdate:
     """Tests for F-502: needs_update."""
 
@@ -1197,6 +1360,276 @@ class TestCheckUpdates:
 
         # Assert
         assert results == []
+
+
+class TestCheckUpdatesPinning:
+    """Tests for check_updates with version pinning."""
+
+    async def test_pinned_not_installed(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Pinned version, not installed -> NOT_INSTALLED, pinned=True."""
+        # Arrange
+        config = _make_config(tmp_path)
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="pinned-id",
+                    version_number="1.5.0",
+                    version_type="release",
+                    sha512="pinnedhash" * 20,
+                )
+            ],
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates(
+                [
+                    ProjectConfig(
+                        slug="sodium",
+                        project_type=ProjectType.MOD,
+                        version="1.5.0",
+                    )
+                ]
+            )
+
+        # Assert
+        assert results[0].status == InstallStatus.NOT_INSTALLED
+        assert results[0].pinned is True
+        assert results[0].latest_version == "1.5.0"
+        assert results[0].latest_version_id == "pinned-id"
+
+    async def test_pinned_same_version_installed(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Pinned version matches installed -> INSTALLED, pinned=True."""
+        # Arrange
+        config = _make_config(tmp_path)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True)
+        file_path.write_text("content")
+
+        pinned_hash = "pinnedhash" * 20
+        installed = _make_installed_file(
+            "sodium",
+            file_path=file_path,
+            version_number="1.5.0",
+            sha512=pinned_hash,
+        )
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="pinned-id",
+                    version_number="1.5.0",
+                    version_type="release",
+                    sha512=pinned_hash,
+                )
+            ],
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates(
+                [
+                    ProjectConfig(
+                        slug="sodium",
+                        project_type=ProjectType.MOD,
+                        version="1.5.0",
+                    )
+                ]
+            )
+
+        # Assert
+        assert results[0].status == InstallStatus.INSTALLED
+        assert results[0].pinned is True
+        assert results[0].latest_version == "1.5.0"
+
+    async def test_pinned_different_version_installed(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Pinned version differs from installed -> OUTDATED, pinned=True."""
+        # Arrange
+        config = _make_config(tmp_path)
+        file_path = tmp_path / "mods" / "sodium.jar"
+        file_path.parent.mkdir(parents=True)
+        file_path.write_text("content")
+
+        installed = _make_installed_file(
+            "sodium",
+            file_path=file_path,
+            version_number="1.4.0",
+            sha512="oldhash" * 20,
+        )
+        manager_temp = ProjectManager(config)
+        state = StateFile(version=1, files={"sodium": installed})
+        await manager_temp._save_state(state)
+
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="pinned-id",
+                    version_number="1.5.0",
+                    version_type="release",
+                    sha512="pinnedhash" * 20,
+                )
+            ],
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates(
+                [
+                    ProjectConfig(
+                        slug="sodium",
+                        project_type=ProjectType.MOD,
+                        version="1.5.0",
+                    )
+                ]
+            )
+
+        # Assert
+        assert results[0].status == InstallStatus.OUTDATED
+        assert results[0].pinned is True
+        assert results[0].current_version == "1.4.0"
+        assert results[0].latest_version == "1.5.0"
+
+    async def test_pinned_version_not_found(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Pinned version not found -> NOT_COMPATIBLE, pinned=True, error set."""
+        # Arrange
+        config = _make_config(tmp_path)
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="other-id",
+                    version_number="1.0.0",
+                    version_type="release",
+                    sha512="otherhash" * 20,
+                )
+            ],
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates(
+                [
+                    ProjectConfig(
+                        slug="sodium",
+                        project_type=ProjectType.MOD,
+                        version="1.5.0",
+                    )
+                ]
+            )
+
+        # Assert
+        assert results[0].status == InstallStatus.NOT_COMPATIBLE
+        assert results[0].pinned is True
+        assert results[0].error is not None
+        assert "1.5.0" in results[0].error
+
+    async def test_pinned_version_not_compatible(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Pinned version exists but not compatible -> NOT_COMPATIBLE, pinned=True."""
+        # Arrange
+        config = _make_config(tmp_path)
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                {
+                    "id": "pinned-id",
+                    "project_id": "AANobbMI",
+                    "version_number": "1.5.0",
+                    "version_type": "release",
+                    "game_versions": ["1.20.1"],  # Not compatible with 1.21.4
+                    "loaders": ["fabric"],
+                    "files": [
+                        {
+                            "url": "https://cdn.modrinth.com/sodium.jar",
+                            "filename": "sodium.jar",
+                            "size": 1024,
+                            "hashes": {"sha512": "pinnedhash" * 20},
+                            "primary": True,
+                        }
+                    ],
+                    "dependencies": [],
+                    "date_published": "2024-01-15T10:30:00Z",
+                }
+            ],
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates(
+                [
+                    ProjectConfig(
+                        slug="sodium",
+                        project_type=ProjectType.MOD,
+                        version="1.5.0",
+                    )
+                ]
+            )
+
+        # Assert
+        assert results[0].status == InstallStatus.NOT_COMPATIBLE
+        assert results[0].pinned is True
+        assert results[0].error is not None
+
+    async def test_not_pinned_uses_existing_logic(
+        self,
+        tmp_path: Path,
+        httpx_mock: HTTPXMock,
+    ) -> None:
+        """Non-pinned project uses existing logic (regression test)."""
+        # Arrange
+        config = _make_config(tmp_path)
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium/version",
+            json=[
+                _make_version_payload(
+                    version_id="latest-id",
+                    version_number="2.0.0",
+                    version_type="release",
+                    sha512="latesthash" * 20,
+                )
+            ],
+        )
+
+        # Act
+        async with ProjectManager(config) as manager:
+            results = await manager.check_updates(
+                [
+                    ProjectConfig(
+                        slug="sodium",
+                        project_type=ProjectType.MOD,
+                    )
+                ]
+            )
+
+        # Assert
+        assert results[0].status == InstallStatus.NOT_INSTALLED
+        assert results[0].pinned is False
+        assert results[0].latest_version == "2.0.0"
 
 
 class TestApplyUpdates:

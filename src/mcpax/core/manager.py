@@ -23,6 +23,7 @@ from mcpax.core.models import (
     ProjectConfig,
     ProjectFile,
     ProjectType,
+    ProjectVersion,
     ReleaseChannel,
     StateFile,
     UpdateCheckResult,
@@ -369,14 +370,30 @@ class ProjectManager:
                 if installed.project_type == ProjectType.SHADER
                 else None
             )
-            latest = self._api_client.get_latest_compatible_version(
-                versions,
-                self._config.minecraft_version,
-                self._config.mod_loader,
-                channel=channel,
-                project_type=installed.project_type,
-                shader_loader=shader_loader,
-            )
+
+            # If version is pinned, use pinned logic
+            if project_config is not None and project_config.version is not None:
+                pinned_version, _error = self._get_pinned_compatible_version(
+                    versions,
+                    project_config.version,
+                    installed.project_type,
+                    channel,
+                )
+
+                if pinned_version is None:
+                    return InstallStatus.NOT_COMPATIBLE
+
+                latest = pinned_version
+            else:
+                # Non-pinned: use existing logic
+                latest = self._api_client.get_latest_compatible_version(
+                    versions,
+                    self._config.minecraft_version,
+                    self._config.mod_loader,
+                    channel=channel,
+                    project_type=installed.project_type,
+                    shader_loader=shader_loader,
+                )
 
             if latest is None:
                 return InstallStatus.NOT_COMPATIBLE
@@ -474,11 +491,18 @@ class ProjectManager:
             raise RuntimeError(msg)
 
         installed = await self.get_installed_file(project.slug)
-
         project_type = project.project_type
 
-        # Get latest compatible version
+        # Get all versions
         versions = await self._api_client.get_versions(project.slug)
+
+        # If version is pinned, use pinned logic
+        if project.version is not None:
+            return await self._resolve_pinned_version(
+                project, versions, installed, project_type
+            )
+
+        # Non-pinned: use existing logic
         shader_loader = (
             self._config.shader_loader if project_type == ProjectType.SHADER else None
         )
@@ -524,6 +548,131 @@ class ProjectManager:
             latest_version=latest.version_number,
             latest_version_id=latest.id,
             latest_file=primary_file,
+        )
+
+    def _get_pinned_compatible_version(
+        self,
+        versions: list[ProjectVersion],
+        version_number: str,
+        project_type: ProjectType,
+        channel: ReleaseChannel | None = None,
+    ) -> tuple[ProjectVersion | None, str | None]:
+        """Get pinned version and check compatibility.
+
+        Args:
+            versions: All available versions
+            version_number: Pinned version number
+            project_type: Project type
+            channel: Release channel filter
+
+        Returns:
+            Tuple of (pinned_version, error_message).
+            If successful, returns (version, None).
+            If failed, returns (None, error_message).
+        """
+        if self._api_client is None:
+            msg = "API client not initialized"
+            raise RuntimeError(msg)
+
+        # Find the pinned version
+        pinned_version = self._api_client.find_version_by_number(
+            versions, version_number
+        )
+
+        if pinned_version is None:
+            return None, f"Pinned version {version_number} not found"
+
+        # Check if the pinned version is compatible
+        shader_loader = (
+            self._config.shader_loader if project_type == ProjectType.SHADER else None
+        )
+        # Use default channel if not specified
+        release_channel = channel if channel is not None else ReleaseChannel.RELEASE
+        compatible_versions = self._api_client.filter_compatible_versions(
+            [pinned_version],
+            self._config.minecraft_version,
+            self._config.mod_loader,
+            release_channel,
+            project_type=project_type,
+            shader_loader=shader_loader,
+        )
+
+        if not compatible_versions:
+            return None, f"Pinned version {version_number} is not compatible"
+
+        return pinned_version, None
+
+    async def _resolve_pinned_version(
+        self,
+        project: ProjectConfig,
+        versions: list[ProjectVersion],
+        installed: InstalledFile | None,
+        project_type: ProjectType,
+    ) -> UpdateCheckResult:
+        """Resolve pinned version.
+
+        Args:
+            project: Project configuration with pinned version
+            versions: All available versions
+            installed: Currently installed file
+            project_type: Project type
+
+        Returns:
+            UpdateCheckResult with pinned=True
+        """
+        if self._api_client is None:
+            msg = "API client not initialized"
+            raise RuntimeError(msg)
+
+        # Ensure version is not None (should be guaranteed by caller)
+        version_number = project.version
+        if version_number is None:
+            msg = "_resolve_pinned_version called without pinned version"
+            raise RuntimeError(msg)
+
+        # Use helper method to get pinned compatible version
+        pinned_version, error = self._get_pinned_compatible_version(
+            versions, version_number, project_type, project.channel
+        )
+
+        if pinned_version is None:
+            # Version not found or not compatible
+            return UpdateCheckResult(
+                slug=project.slug,
+                project_type=project_type,
+                status=InstallStatus.NOT_COMPATIBLE,
+                current_version=installed.version_number if installed else None,
+                current_file=installed,
+                latest_version=None,
+                latest_version_id=None,
+                latest_file=None,
+                error=error,
+                pinned=True,
+            )
+
+        # Compatible pinned version found
+        primary_file = next(
+            (f for f in pinned_version.files if f.primary),
+            pinned_version.files[0] if pinned_version.files else None,
+        )
+
+        if installed is None:
+            status = InstallStatus.NOT_INSTALLED
+        elif self.needs_update(installed, primary_file):
+            status = InstallStatus.OUTDATED
+        else:
+            status = InstallStatus.INSTALLED
+
+        return UpdateCheckResult(
+            slug=project.slug,
+            project_type=project_type,
+            status=status,
+            current_version=installed.version_number if installed else None,
+            current_file=installed,
+            latest_version=pinned_version.version_number,
+            latest_version_id=pinned_version.id,
+            latest_file=primary_file,
+            pinned=True,
         )
 
     async def apply_updates(

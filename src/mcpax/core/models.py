@@ -177,6 +177,7 @@ class UpdateCheckResult(BaseModel):
     latest_version_id: str | None = None
     latest_file: ProjectFile | None
     error: str | None = None
+    pinned: bool = False
 
 
 class DownloadTask(BaseModel):
