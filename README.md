@@ -7,6 +7,7 @@ Minecraft の MOD / Modpack / Shader / Resource Pack を Modrinth API 経由で�
 - TOML 形式の設定ファイルでプロジェクトリストを管理
 - 指定した Minecraft バージョン・Loader に対応するプロジェクトを自動取得
 - プロジェクト種別（MOD / Shader / Resource Pack）に応じた適切なディレクトリ配置
+- バージョンピニング（特定バージョンで固定可能）
 - Modpack の検索機能（インストールは未対応）
 - ハッシュ検証による安全なダウンロード
 - 差分更新（変更があったプロジェクトのみダウンロード）
@@ -78,6 +79,12 @@ project_type = "mod"
 slug = "sodium"
 project_type = "mod"
 
+# バージョン固定（特定バージョンで維持したい場合）
+[[projects]]
+slug = "iris"
+project_type = "mod"
+version = "1.7.0"
+
 [[projects]]
 slug = "complementary-reimagined"
 project_type = "shader"
@@ -88,6 +95,9 @@ project_type = "shader"
 ```bash
 # slug がわかっている場合
 mcpax add sodium
+
+# 特定バージョンで固定したい場合
+mcpax add iris --version 1.7.0
 
 # slug がわからない場合は検索
 mcpax search shader

@@ -1071,3 +1071,65 @@ class TestGetLatestCompatibleVersion:
 
         # Assert
         assert result is None
+
+
+class TestFindVersionByNumber:
+    """Tests for ModrinthClient.find_version_by_number()."""
+
+    def test_returns_matching_version(self) -> None:
+        """Returns version with matching version_number."""
+        # Arrange
+        versions = [
+            _make_version("1.0.0"),
+            _make_version("1.1.0"),
+            _make_version("2.0.0"),
+        ]
+        client = ModrinthClient()
+
+        # Act
+        result = client.find_version_by_number(versions, "1.1.0")
+
+        # Assert
+        assert result is not None
+        assert result.version_number == "1.1.0"
+
+    def test_returns_none_when_not_found(self) -> None:
+        """Returns None when version_number is not found."""
+        # Arrange
+        versions = [
+            _make_version("1.0.0"),
+            _make_version("2.0.0"),
+        ]
+        client = ModrinthClient()
+
+        # Act
+        result = client.find_version_by_number(versions, "1.5.0")
+
+        # Assert
+        assert result is None
+
+    def test_exact_match_only(self) -> None:
+        """Returns None if version_number is not exact match."""
+        # Arrange
+        versions = [
+            _make_version("1.0.0"),
+        ]
+        client = ModrinthClient()
+
+        # Act
+        result = client.find_version_by_number(versions, "1.0")
+
+        # Assert
+        assert result is None
+
+    def test_returns_none_for_empty_list(self) -> None:
+        """Returns None when versions list is empty."""
+        # Arrange
+        versions: list[ProjectVersion] = []
+        client = ModrinthClient()
+
+        # Act
+        result = client.find_version_by_number(versions, "1.0.0")
+
+        # Assert
+        assert result is None

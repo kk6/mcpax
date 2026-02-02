@@ -359,6 +359,8 @@ class UpdateCheckResult:
     current_file: InstalledFile | None
     latest_version: str | None
     latest_file: ProjectFile | None
+    error: str | None = None
+    pinned: bool = False
 ```
 
 #### 属性
@@ -369,8 +371,10 @@ class UpdateCheckResult:
 | status | InstallStatus | インストール状態 |
 | current_version | str \| None | 現在のバージョン |
 | current_file | InstalledFile \| None | 現在のファイル |
-| latest_version | str \| None | 最新バージョン |
-| latest_file | ProjectFile \| None | 最新ファイル |
+| latest_version | str \| None | 最新バージョン（ピン留め時はピン留めバージョン） |
+| latest_file | ProjectFile \| None | 最新ファイル（ピン留め時はピン留めバージョンのファイル） |
+| error | str \| None | エラーメッセージ（エラー時のみ） |
+| pinned | bool | バージョンがピン留めされているか |
 
 ---
 

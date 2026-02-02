@@ -45,6 +45,11 @@ slug = "fabric-api"
 [[projects]]
 slug = "sodium"
 
+# Version pinning (optional)
+[[projects]]
+slug = "iris"
+version = "1.7.0"
+
 [[projects]]
 slug = "complementary-unbound"  # shader
 ```
@@ -53,7 +58,7 @@ slug = "complementary-unbound"  # shader
 
 ```bash
 mcpax init                              # Initialize configuration files
-mcpax add <slug>                        # Add project
+mcpax add <slug> [--version VERSION]    # Add project (optionally pin version)
 mcpax remove <slug>                     # Remove project
 mcpax list [--type TYPE] [--json]       # List registered projects (includes install status/filters)
 mcpax search <query> [OPTIONS]          # Search Modrinth

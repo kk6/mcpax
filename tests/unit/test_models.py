@@ -476,6 +476,37 @@ class TestUpdateCheckResult:
         assert result.current_file is None
         assert result.latest_version_id is None
 
+    def test_pinned_field_defaults_to_false(self) -> None:
+        """UpdateCheckResult.pinned defaults to False."""
+
+        result = UpdateCheckResult(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            status=InstallStatus.INSTALLED,
+            current_version="0.6.0",
+            current_file=None,
+            latest_version="0.6.0",
+            latest_file=None,
+        )
+
+        assert result.pinned is False
+
+    def test_pinned_field_can_be_set_to_true(self) -> None:
+        """UpdateCheckResult.pinned can be set to True."""
+
+        result = UpdateCheckResult(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            status=InstallStatus.INSTALLED,
+            current_version="0.6.0",
+            current_file=None,
+            latest_version="0.6.0",
+            latest_file=None,
+            pinned=True,
+        )
+
+        assert result.pinned is True
+
 
 class TestStateFile:
     """Tests for StateFile model."""

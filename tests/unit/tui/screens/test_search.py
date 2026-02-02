@@ -175,31 +175,50 @@ async def test_search_screen_add_project(make_search_hit) -> None:
         limit=MODRINTH_SEARCH_LIMIT,
     )
 
+    from pathlib import Path
+
+    from mcpax.core.models import AppConfig, Loader
+
+    mock_config = AppConfig(
+        minecraft_version="1.21.4",
+        mod_loader=Loader.FABRIC,
+        minecraft_dir=Path("~/.minecraft"),
+    )
+
     with (
         patch("mcpax.tui.screens.search.ModrinthClient") as mock_client_class,
         patch("mcpax.tui.screens.search.load_projects") as mock_load,
         patch("mcpax.tui.screens.search.save_projects") as mock_save,
+        patch("mcpax.tui.screens.search.load_config") as mock_load_config,
     ):
         mock_client = AsyncMock()
         mock_client.search = AsyncMock(return_value=mock_search_result)
         mock_client_class.return_value.__aenter__.return_value = mock_client
         mock_load.return_value = []
+        mock_load_config.return_value = mock_config
 
         app = TestApp()
-        async with app.run_test() as pilot:
-            # Wait for worker to complete
-            await app.workers.wait_for_complete()
 
-            # Press 'a' to add selected project
-            await pilot.press("a")
-            await pilot.pause()
+        from mcpax.tui.screens.version_select import VERSION_SELECT_LATEST
 
-            # Verify save_projects was called
-            mock_save.assert_called_once()
-            saved_projects = mock_save.call_args[0][0]
-            assert len(saved_projects) == 1
-            assert saved_projects[0].slug == "sodium"
-            assert saved_projects[0].project_type == ProjectType.MOD
+        # Mock push_screen_wait to return VERSION_SELECT_LATEST
+        with patch.object(
+            app, "push_screen_wait", new=AsyncMock(return_value=VERSION_SELECT_LATEST)
+        ):
+            async with app.run_test() as pilot:
+                # Wait for worker to complete
+                await app.workers.wait_for_complete()
+
+                # Press 'a' to add selected project
+                await pilot.press("a")
+                await app.workers.wait_for_complete()
+
+                # Verify save_projects was called
+                mock_save.assert_called_once()
+                saved_projects = mock_save.call_args[0][0]
+                assert len(saved_projects) == 1
+                assert saved_projects[0].slug == "sodium"
+                assert saved_projects[0].project_type == ProjectType.MOD
 
 
 @pytest.mark.asyncio
@@ -292,3 +311,64 @@ async def test_search_screen_add_project_with_invalid_config(make_search_hit) ->
 
             # Verify save_projects was NOT called (config error)
             mock_save.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_search_screen_cancel_version_select(make_search_hit) -> None:
+    """Test that cancelling version selection does not add the project."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            self.push_screen(SearchScreen(query="sodium", project_type=None))
+
+    mock_search_result = SearchResult(
+        hits=[
+            make_search_hit("sodium", "Sodium", ProjectType.MOD, 3000000),
+        ],
+        total_hits=1,
+        offset=0,
+        limit=MODRINTH_SEARCH_LIMIT,
+    )
+
+    from pathlib import Path
+
+    from mcpax.core.models import AppConfig, Loader
+
+    mock_config = AppConfig(
+        minecraft_version="1.21.4",
+        mod_loader=Loader.FABRIC,
+        minecraft_dir=Path("~/.minecraft"),
+    )
+
+    with (
+        patch("mcpax.tui.screens.search.ModrinthClient") as mock_client_class,
+        patch("mcpax.tui.screens.search.load_projects") as mock_load,
+        patch("mcpax.tui.screens.search.save_projects") as mock_save,
+        patch("mcpax.tui.screens.search.load_config") as mock_load_config,
+    ):
+        mock_client = AsyncMock()
+        mock_client.search = AsyncMock(return_value=mock_search_result)
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+        mock_load.return_value = []
+        mock_load_config.return_value = mock_config
+
+        from mcpax.tui.screens.version_select import VERSION_SELECT_CANCELLED
+
+        app = TestApp()
+
+        # Mock push_screen_wait to return VERSION_SELECT_CANCELLED
+        with patch.object(
+            app,
+            "push_screen_wait",
+            new=AsyncMock(return_value=VERSION_SELECT_CANCELLED),
+        ):
+            async with app.run_test() as pilot:
+                # Wait for worker to complete
+                await app.workers.wait_for_complete()
+
+                # Press 'a' to add selected project
+                await pilot.press("a")
+                await app.workers.wait_for_complete()
+
+                # Verify save_projects was NOT called (user cancelled)
+                mock_save.assert_not_called()

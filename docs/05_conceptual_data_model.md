@@ -62,7 +62,7 @@
 |------|-----|------|
 | slug | string | Modrinth のプロジェクト識別子（例: "sodium"） |
 | project_type | enum | プロジェクト種別: mod / shader / resourcepack |
-| version_pin | string? | バージョン固定（省略時は最新） |
+| version | string? | バージョン固定（省略時は最新の互換バージョン） |
 | channel | enum? | リリースチャネル: release / beta / alpha（省略時は release） |
 
 ### InstalledFile（インストール済みファイル）

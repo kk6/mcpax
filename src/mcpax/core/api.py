@@ -386,3 +386,22 @@ class ModrinthClient:
             versions, minecraft_version, loader, channel, project_type, shader_loader
         )
         return compatible[0] if compatible else None
+
+    def find_version_by_number(
+        self,
+        versions: list[ProjectVersion],
+        version_number: str,
+    ) -> ProjectVersion | None:
+        """Find a version by exact version number match.
+
+        Args:
+            versions: List of versions to search
+            version_number: Exact version number to find
+
+        Returns:
+            ProjectVersion with matching version_number or None
+        """
+        for version in versions:
+            if version.version_number == version_number:
+                return version
+        return None

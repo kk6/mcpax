@@ -649,7 +649,18 @@ class UpdateCheckResult:
     latest_version: str | None
     latest_file: ProjectFile | None
     error: str | None
+    pinned: bool = False
 ```
+
+#### バージョンピニング対応
+
+`ProjectConfig.version` が設定されている場合、指定されたバージョンを使用する：
+
+1. 指定バージョンが存在し互換性がある → `latest_version` にピン留めバージョンをセット、`pinned=True`
+2. 指定バージョンが存在しない → `status=NOT_COMPATIBLE`、`error` にメッセージ、`pinned=True`
+3. 指定バージョンが存在するが非互換 → `status=NOT_COMPATIBLE`、`error` にメッセージ、`pinned=True`
+
+ピン留めされたプロジェクトは、常にピン留めバージョンと比較される。
 
 ---
 
