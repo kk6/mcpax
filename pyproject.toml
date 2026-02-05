@@ -1,6 +1,6 @@
 [project]
 name = "mcpax"
-version = "0.10.0"
+version = "0.10.1"
 description = "Minecraft MOD/Shader/Resource Pack manager via Modrinth API"
 readme = "README.md"
 license = "MIT"
