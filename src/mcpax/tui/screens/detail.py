@@ -56,12 +56,12 @@ class ProjectDetailScreen(ModalScreen[bool]):
 
     def action_delete(self) -> None:
         """Show confirmation dialog before deleting."""
-        message = f"本当に '{self._project.slug}' を削除しますか?"
+        message = f"Are you sure you want to delete '{self._project.slug}'?"
         self.app.push_screen(
             ConfirmDialog(
                 message=message,
-                confirm_label="削除する",
-                cancel_label="キャンセル",
+                confirm_label="Delete",
+                cancel_label="Cancel",
             ),
             callback=self._on_confirm_dismissed,
         )
