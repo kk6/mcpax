@@ -6,6 +6,8 @@ CLI tool for managing Minecraft MODs/Shaders/Resource Packs via Modrinth API.
 
 **Important**: This CLAUDE.md file should always be written in English for optimal Claude comprehension. Messages shown by AI chat assistants (e.g., Claude Code, Codex) to their users must be in Japanese. This rule applies to AI chat responses only and does not set the language for mcpax CLI/TUI output.
 
+**Source Code Language Rule**: All user-facing strings in the source code (`src/` and `tests/`) MUST be written in **English only**. This includes CLI output, TUI labels/messages, error messages, log messages, button labels, dialog text, and test assertions for these strings. Never use Japanese or any other non-English language in source code strings.
+
 ## Project Overview
 
 ### Problem Statement

@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for Japanese strings in source code
+        run: ./scripts/check_no_japanese.sh $(find src tests -name '*.py')
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 

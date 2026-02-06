@@ -146,8 +146,8 @@ async def test_confirm_dialog_custom_button_labels():
             self.push_screen(
                 ConfirmDialog(
                     message="Test message",
-                    confirm_label="削除する",
-                    cancel_label="キャンセル",
+                    confirm_label="Delete",
+                    cancel_label="Cancel",
                 )
             )
 
@@ -157,5 +157,5 @@ async def test_confirm_dialog_custom_button_labels():
         assert isinstance(dialog, ConfirmDialog)
         confirm_btn = dialog.query_one("#confirm-button", Button)
         cancel_btn = dialog.query_one("#cancel-button", Button)
-        assert confirm_btn.label.plain == "削除する"
-        assert cancel_btn.label.plain == "キャンセル"
+        assert confirm_btn.label.plain == "Delete"
+        assert cancel_btn.label.plain == "Cancel"
