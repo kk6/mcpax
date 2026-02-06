@@ -1,5 +1,6 @@
 """TUI screens."""
 
+from .confirm import ConfirmDialog
 from .detail import ProjectDetailScreen
 from .install import InstallScreen
 from .main import MainScreen
@@ -12,12 +13,13 @@ from .version_select import (
 )
 
 __all__ = [
+    "ConfirmDialog",
+    "InstallScreen",
     "MainScreen",
     "ProjectDetailScreen",
     "SearchScreen",
-    "InstallScreen",
     "SettingsScreen",
-    "VersionSelectScreen",
     "VERSION_SELECT_CANCELLED",
     "VERSION_SELECT_LATEST",
+    "VersionSelectScreen",
 ]
