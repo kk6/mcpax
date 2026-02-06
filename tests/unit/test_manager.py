@@ -9,7 +9,11 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from mcpax.core.api import ModrinthClient
-from mcpax.core.exceptions import FileOperationError, StateFileError
+from mcpax.core.exceptions import (
+    FileOperationError,
+    StateFileError,
+    UnsupportedProjectTypeError,
+)
 from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
     AppConfig,
@@ -275,6 +279,21 @@ class TestGetTargetDirectory:
 
         # Assert
         assert result == custom_mods_dir
+
+    def test_raises_unsupported_project_type_error_for_modpack(
+        self, tmp_path: Path
+    ) -> None:
+        """Raises UnsupportedProjectTypeError for MODPACK project type."""
+        # Arrange
+        config = _make_config(tmp_path)
+        manager = ProjectManager(config)
+
+        # Act & Assert
+        with pytest.raises(UnsupportedProjectTypeError) as exc_info:
+            manager.get_target_directory(ProjectType.MODPACK)
+
+        assert exc_info.value.project_type == "modpack"
+        assert "not supported for installation" in str(exc_info.value)
 
 
 class TestPlaceFile:

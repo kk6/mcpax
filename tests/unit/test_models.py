@@ -7,6 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from mcpax.core.models import (
+    INSTALLABLE_PROJECT_TYPES,
     AppConfig,
     Dependency,
     DependencyType,
@@ -63,6 +64,40 @@ class TestProjectType:
 
         assert isinstance(ProjectType.MOD, str)
         assert ProjectType.MOD == "mod"
+
+
+class TestInstallableProjectTypes:
+    """Tests for INSTALLABLE_PROJECT_TYPES constant."""
+
+    def test_installable_project_types_is_frozenset(self) -> None:
+        """INSTALLABLE_PROJECT_TYPES is a frozenset."""
+
+        assert isinstance(INSTALLABLE_PROJECT_TYPES, frozenset)
+
+    def test_installable_project_types_contains_mod(self) -> None:
+        """INSTALLABLE_PROJECT_TYPES contains MOD."""
+
+        assert ProjectType.MOD in INSTALLABLE_PROJECT_TYPES
+
+    def test_installable_project_types_contains_shader(self) -> None:
+        """INSTALLABLE_PROJECT_TYPES contains SHADER."""
+
+        assert ProjectType.SHADER in INSTALLABLE_PROJECT_TYPES
+
+    def test_installable_project_types_contains_resourcepack(self) -> None:
+        """INSTALLABLE_PROJECT_TYPES contains RESOURCEPACK."""
+
+        assert ProjectType.RESOURCEPACK in INSTALLABLE_PROJECT_TYPES
+
+    def test_installable_project_types_does_not_contain_modpack(self) -> None:
+        """INSTALLABLE_PROJECT_TYPES does not contain MODPACK."""
+
+        assert ProjectType.MODPACK not in INSTALLABLE_PROJECT_TYPES
+
+    def test_installable_project_types_has_exactly_three_types(self) -> None:
+        """INSTALLABLE_PROJECT_TYPES contains exactly 3 types."""
+
+        assert len(INSTALLABLE_PROJECT_TYPES) == 3
 
 
 class TestReleaseChannel:

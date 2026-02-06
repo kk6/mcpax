@@ -16,6 +16,7 @@ from mcpax.core.config import (
     save_projects,
 )
 from mcpax.core.models import (
+    INSTALLABLE_PROJECT_TYPES,
     ProjectConfig,
     ProjectType,
     SearchHit,
@@ -114,6 +115,14 @@ class SearchScreen(Screen[bool]):
         Args:
             hit: Selected search hit
         """
+        # Check if project type is supported for installation
+        if hit.project_type not in INSTALLABLE_PROJECT_TYPES:
+            self.notify(
+                f"'{hit.project_type.value}' type is not supported for installation",
+                severity="error",
+            )
+            return
+
         from mcpax.tui.screens.version_select import (
             VERSION_SELECT_CANCELLED,
             VERSION_SELECT_LATEST,
@@ -154,6 +163,14 @@ class SearchScreen(Screen[bool]):
             hit: Selected search hit to add
             version: Optional version to pin
         """
+        # Defensive check: ensure project type is supported
+        if hit.project_type not in INSTALLABLE_PROJECT_TYPES:
+            self.notify(
+                f"'{hit.project_type.value}' type is not supported for installation",
+                severity="error",
+            )
+            return
+
         try:
             projects = load_projects()
         except FileNotFoundError:

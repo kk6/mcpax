@@ -29,6 +29,7 @@ from mcpax.core.config import (
 from mcpax.core.exceptions import APIError, ProjectNotFoundError
 from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
+    INSTALLABLE_PROJECT_TYPES,
     InstallStatus,
     Loader,
     ModrinthProject,
@@ -366,6 +367,15 @@ def add(
     except APIError as e:
         console.print(f"[red]Error:[/red] API error: {e}")
         raise typer.Exit(code=1) from None
+
+    # Check if project type is supported for installation
+    if project.project_type not in INSTALLABLE_PROJECT_TYPES:
+        console.print(
+            f"[red]Error:[/red] Project type '{project.project_type.value}' "
+            f"is not supported for installation. "
+            f"Modpacks cannot be managed by mcpax."
+        )
+        raise typer.Exit(code=1)
 
     # Create project config
     project_config = ProjectConfig(

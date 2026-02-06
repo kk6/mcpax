@@ -27,6 +27,16 @@ class ProjectType(StrEnum):
     RESOURCEPACK = "resourcepack"
 
 
+INSTALLABLE_PROJECT_TYPES: frozenset[ProjectType] = frozenset(
+    [
+        ProjectType.MOD,
+        ProjectType.SHADER,
+        ProjectType.RESOURCEPACK,
+    ]
+)
+"""Project types that can be installed by mcpax."""
+
+
 class ReleaseChannel(StrEnum):
     """Release channel types."""
 
