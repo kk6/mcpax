@@ -417,6 +417,33 @@ EditSettingModal {
 }
 
 /* ============================================================================
+ * ConfirmDialog
+ * ============================================================================ */
+
+ConfirmDialog {
+    align: center middle;
+}
+
+#confirm-container {
+    width: 60;
+    height: auto;
+    background: $surface-elevated;
+    border: thick $error;
+    padding: 1 2;
+}
+
+#confirm-message {
+    color: $text;
+    margin-bottom: 1;
+}
+
+#confirm-button-row {
+    layout: horizontal;
+    height: auto;
+    align: center middle;
+}
+
+/* ============================================================================
  * Future Widget Placeholders (commented out for now)
  * ============================================================================ */
 

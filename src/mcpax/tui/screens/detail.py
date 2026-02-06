@@ -8,6 +8,7 @@ from textual.widgets import Button, Label, Static
 
 from mcpax.core.config import load_projects, save_projects
 from mcpax.core.models import AppConfig, UpdateCheckResult
+from mcpax.tui.screens.confirm import ConfirmDialog
 
 
 class ProjectDetailScreen(ModalScreen[bool]):
@@ -54,9 +55,25 @@ class ProjectDetailScreen(ModalScreen[bool]):
         self.dismiss(False)
 
     def action_delete(self) -> None:
-        """Delete the project after confirmation."""
-        # TODO: Show confirmation dialog
-        self._delete_project()
+        """Show confirmation dialog before deleting."""
+        message = f"本当に '{self._project.slug}' を削除しますか?"
+        self.app.push_screen(
+            ConfirmDialog(
+                message=message,
+                confirm_label="削除する",
+                cancel_label="キャンセル",
+            ),
+            callback=self._on_confirm_dismissed,
+        )
+
+    def _on_confirm_dismissed(self, confirmed: bool | None) -> None:
+        """Handle confirmation dialog result.
+
+        Args:
+            confirmed: True if user confirmed deletion, False or None otherwise.
+        """
+        if confirmed:
+            self._delete_project()
 
     def _delete_project(self) -> None:
         """Delete the project from projects.toml."""

@@ -9,6 +9,7 @@ from mcpax.core.models import (
     InstallStatus,
     ProjectType,
 )
+from mcpax.tui.screens.confirm import ConfirmDialog
 from mcpax.tui.screens.detail import ProjectDetailScreen
 
 
@@ -102,6 +103,75 @@ async def test_detail_screen_escape_closes(
 
 
 @pytest.mark.asyncio
+async def test_detail_screen_delete_shows_confirmation(
+    app_config, make_update_check_result
+) -> None:
+    """Test that delete action shows confirmation dialog."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            project = make_update_check_result(slug="fabric-api")
+            self.push_screen(ProjectDetailScreen(project=project, config=app_config))
+
+    app = TestApp()
+    async with app.run_test() as pilot:
+        # Verify detail screen is active
+        assert isinstance(app.screen, ProjectDetailScreen)
+
+        # Press 'd' to delete
+        await pilot.press("d")
+        await pilot.pause()
+
+        # ConfirmDialog should be shown
+        assert isinstance(app.screen, ConfirmDialog)
+
+
+@pytest.mark.asyncio
+async def test_detail_screen_delete_cancelled_keeps_project(
+    app_config, make_update_check_result
+) -> None:
+    """Test that cancelling deletion keeps the project."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            project = make_update_check_result(slug="fabric-api")
+            self.push_screen(ProjectDetailScreen(project=project, config=app_config))
+
+    with (
+        patch("mcpax.tui.screens.detail.load_projects") as mock_load,
+        patch("mcpax.tui.screens.detail.save_projects") as mock_save,
+    ):
+        from mcpax.core.models import ProjectConfig, ReleaseChannel
+
+        # Mock existing projects
+        existing_projects = [
+            ProjectConfig(
+                slug="fabric-api",
+                project_type=ProjectType.MOD,
+                channel=ReleaseChannel.RELEASE,
+            ),
+        ]
+        mock_load.return_value = existing_projects
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            # Press 'd' to show confirmation
+            await pilot.press("d")
+            await pilot.pause()
+
+            # Verify ConfirmDialog is shown
+            assert isinstance(app.screen, ConfirmDialog)
+
+            # Press escape to cancel
+            await pilot.press("escape")
+            await pilot.pause()
+
+            # Neither load_projects nor save_projects should have been called
+            mock_load.assert_not_called()
+            mock_save.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_detail_screen_delete_removes_project(
     app_config, make_update_check_result
 ) -> None:
@@ -135,8 +205,15 @@ async def test_detail_screen_delete_removes_project(
 
         app = TestApp()
         async with app.run_test() as pilot:
-            # Press 'd' to delete
+            # Press 'd' to show confirmation
             await pilot.press("d")
+            await pilot.pause()
+
+            # Verify ConfirmDialog is shown
+            assert isinstance(app.screen, ConfirmDialog)
+
+            # Press enter to confirm
+            await pilot.press("enter")
             await pilot.pause()
 
             # Verify that save_projects was called with the correct list
@@ -167,11 +244,18 @@ async def test_detail_screen_delete_handles_exception(
             # Verify detail screen is active
             assert isinstance(app.screen, ProjectDetailScreen)
 
-            # Press 'd' to delete
+            # Press 'd' to show confirmation
             await pilot.press("d")
             await pilot.pause()
 
-            # Screen should still be ProjectDetailScreen (not dismissed)
+            # ConfirmDialog should be shown
+            assert isinstance(app.screen, ConfirmDialog)
+
+            # Press enter to confirm
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # Screen should still be ProjectDetailScreen (not dismissed due to error)
             assert isinstance(app.screen, ProjectDetailScreen)
 
 
@@ -236,6 +320,13 @@ async def test_detail_screen_delete_button_click(
             # Click delete button
             delete_button = app.screen.query_one("#delete-button")
             await pilot.click(delete_button)
+            await pilot.pause()
+
+            # ConfirmDialog should be shown
+            assert isinstance(app.screen, ConfirmDialog)
+
+            # Press enter to confirm
+            await pilot.press("enter")
             await pilot.pause()
 
             # Verify save_projects was called
