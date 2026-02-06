@@ -1591,7 +1591,7 @@ class TestListCommand:
                     slug="lithium",
                     project_type=ProjectType.MOD,
                     status=InstallStatus.OUTDATED,
-                    current_version="0.10.0",
+                    current_version="0.10.1",
                     current_file=None,
                     latest_version="0.11.0",
                     latest_version_id="v0.11.0",

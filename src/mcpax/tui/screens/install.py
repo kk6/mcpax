@@ -1,7 +1,7 @@
 """Install/Update screen for managing project installations."""
 
 import logging
-from enum import Enum
+from enum import StrEnum
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -18,7 +18,7 @@ from mcpax.tui.widgets.progress_panel import ProgressPanel
 logger = logging.getLogger(__name__)
 
 
-class InstallPhase(str, Enum):
+class InstallPhase(StrEnum):
     """Installation phase."""
 
     INSTALLING = "installing"

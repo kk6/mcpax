@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# act実行時に.venvが破壊されないよう、コンテナ内のvenv場所を変更
+env:
+  UV_PROJECT_ENVIRONMENT: /tmp/.venv
+
 jobs:
   lint:
     runs-on: ubuntu-latest

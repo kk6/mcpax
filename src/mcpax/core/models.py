@@ -1,13 +1,13 @@
 """Data models for mcpax."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 
-class Loader(str, Enum):
+class Loader(StrEnum):
     """Mod and shader loader types."""
 
     FABRIC = "fabric"
@@ -18,7 +18,7 @@ class Loader(str, Enum):
     OPTIFINE = "optifine"
 
 
-class ProjectType(str, Enum):
+class ProjectType(StrEnum):
     """Project types on Modrinth."""
 
     MOD = "mod"
@@ -27,7 +27,7 @@ class ProjectType(str, Enum):
     RESOURCEPACK = "resourcepack"
 
 
-class ReleaseChannel(str, Enum):
+class ReleaseChannel(StrEnum):
     """Release channel types."""
 
     RELEASE = "release"
@@ -35,7 +35,7 @@ class ReleaseChannel(str, Enum):
     ALPHA = "alpha"
 
 
-class DependencyType(str, Enum):
+class DependencyType(StrEnum):
     """Dependency types for Modrinth versions."""
 
     REQUIRED = "required"
@@ -44,7 +44,7 @@ class DependencyType(str, Enum):
     EMBEDDED = "embedded"
 
 
-class InstallStatus(str, Enum):
+class InstallStatus(StrEnum):
     """Installation status of a project."""
 
     NOT_INSTALLED = "not_installed"
