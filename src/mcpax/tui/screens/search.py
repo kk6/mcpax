@@ -163,14 +163,6 @@ class SearchScreen(Screen[bool]):
             hit: Selected search hit to add
             version: Optional version to pin
         """
-        # Defensive check: ensure project type is supported
-        if hit.project_type not in INSTALLABLE_PROJECT_TYPES:
-            self.notify(
-                f"'{hit.project_type.value}' type is not supported for installation",
-                severity="error",
-            )
-            return
-
         try:
             projects = load_projects()
         except FileNotFoundError:
