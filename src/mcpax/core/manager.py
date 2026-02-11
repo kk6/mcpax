@@ -13,7 +13,12 @@ import httpx
 
 from mcpax.core.api import ModrinthClient
 from mcpax.core.downloader import Downloader, DownloaderConfig
-from mcpax.core.exceptions import APIError, FileOperationError, StateFileError
+from mcpax.core.exceptions import (
+    APIError,
+    FileOperationError,
+    StateFileError,
+    UnsupportedProjectTypeError,
+)
 from mcpax.core.models import (
     AppConfig,
     DownloadTask,
@@ -197,6 +202,10 @@ class ProjectManager:
 
         Returns:
             Path to target directory
+
+        Raises:
+            UnsupportedProjectTypeError: If project_type is not supported
+                for installation
         """
         type_to_dir = {
             ProjectType.MOD: (
@@ -210,7 +219,10 @@ class ProjectManager:
                 or self._config.minecraft_dir / "resourcepacks"
             ),
         }
-        return type_to_dir[project_type]
+        try:
+            return type_to_dir[project_type]
+        except KeyError:
+            raise UnsupportedProjectTypeError(project_type.value) from None
 
     async def place_file(self, src: Path, dest_dir: Path) -> Path:
         """Move downloaded file to target directory.

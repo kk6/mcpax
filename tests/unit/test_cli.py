@@ -446,6 +446,37 @@ class TestAddCommand:
         assert "already" in result.stdout.lower()
         assert "sodium" in result.stdout
 
+    def test_add_modpack_type_is_rejected(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that add command rejects modpack project type."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AAAAAAAA",
+            slug="test-modpack",
+            title="Test Modpack",
+            description="A test modpack",
+            project_type=ProjectType.MODPACK,
+            downloads=1000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+
+            # Act
+            result = runner.invoke(app, ["add", "test-modpack"])
+
+        # Assert
+        assert result.exit_code == 1
+        assert "modpack" in result.stdout.lower()
+        assert "not supported" in result.stdout.lower()
+
     def test_add_project_no_config(
         self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
     ) -> None:

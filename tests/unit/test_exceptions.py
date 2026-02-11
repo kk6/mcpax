@@ -11,6 +11,7 @@ from mcpax.core.exceptions import (
     ProjectNotFoundError,
     RateLimitError,
     StateFileError,
+    UnsupportedProjectTypeError,
 )
 
 
@@ -115,3 +116,25 @@ class TestFileOperationError:
 
         assert str(error) == "File operation failed"
         assert error.path == path
+
+
+class TestUnsupportedProjectTypeError:
+    """Tests for UnsupportedProjectTypeError."""
+
+    def test_stores_project_type(self) -> None:
+        """UnsupportedProjectTypeError stores project_type."""
+        error = UnsupportedProjectTypeError("modpack")
+
+        assert error.project_type == "modpack"
+
+    def test_default_message(self) -> None:
+        """UnsupportedProjectTypeError has default message."""
+        error = UnsupportedProjectTypeError("modpack")
+
+        assert str(error) == "Project type 'modpack' is not supported for installation"
+
+    def test_inherits_from_mcpax_error(self) -> None:
+        """UnsupportedProjectTypeError inherits from MCPAXError."""
+        error = UnsupportedProjectTypeError("modpack")
+
+        assert isinstance(error, MCPAXError)

@@ -120,3 +120,18 @@ class FileOperationError(MCPAXError):
         """
         super().__init__(message)
         self.path = path
+
+
+class UnsupportedProjectTypeError(MCPAXError):
+    """Project type is not supported for installation."""
+
+    def __init__(self, project_type: str) -> None:
+        """Initialize UnsupportedProjectTypeError.
+
+        Args:
+            project_type: Project type that is not supported
+        """
+        super().__init__(
+            f"Project type '{project_type}' is not supported for installation"
+        )
+        self.project_type = project_type

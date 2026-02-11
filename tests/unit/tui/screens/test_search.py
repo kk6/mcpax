@@ -372,3 +372,63 @@ async def test_search_screen_cancel_version_select(make_search_hit) -> None:
 
                 # Verify save_projects was NOT called (user cancelled)
                 mock_save.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_search_screen_rejects_modpack_project(make_search_hit) -> None:
+    """Test that modpack projects cannot be added."""
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            self.push_screen(SearchScreen(query="modpack", project_type=None))
+
+    mock_search_result = SearchResult(
+        hits=[
+            make_search_hit("test-modpack", "Test Modpack", ProjectType.MODPACK, 1000),
+        ],
+        total_hits=1,
+        offset=0,
+        limit=MODRINTH_SEARCH_LIMIT,
+    )
+
+    from pathlib import Path
+
+    from mcpax.core.models import AppConfig, Loader
+
+    mock_config = AppConfig(
+        minecraft_version="1.21.4",
+        mod_loader=Loader.FABRIC,
+        minecraft_dir=Path("~/.minecraft"),
+    )
+
+    with (
+        patch("mcpax.tui.screens.search.ModrinthClient") as mock_client_class,
+        patch("mcpax.tui.screens.search.load_projects") as mock_load,
+        patch("mcpax.tui.screens.search.save_projects") as mock_save,
+        patch("mcpax.tui.screens.search.load_config") as mock_load_config,
+    ):
+        mock_client = AsyncMock()
+        mock_client.search = AsyncMock(return_value=mock_search_result)
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+        mock_load.return_value = []
+        mock_load_config.return_value = mock_config
+
+        from mcpax.tui.screens.version_select import VERSION_SELECT_LATEST
+
+        app = TestApp()
+
+        # Mock push_screen_wait to return VERSION_SELECT_LATEST
+        with patch.object(
+            app, "push_screen_wait", new=AsyncMock(return_value=VERSION_SELECT_LATEST)
+        ):
+            async with app.run_test() as pilot:
+                # Wait for worker to complete
+                await app.workers.wait_for_complete()
+
+                # Press 'a' to add selected project
+                await pilot.press("a")
+                await app.workers.wait_for_complete()
+
+                # Verify save_projects was NOT called (modpack not supported)
+                # Because the guard should reject it before reaching save
+                mock_save.assert_not_called()
