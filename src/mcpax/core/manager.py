@@ -729,109 +729,125 @@ class ProjectManager:
         dest_dir = self._get_temp_download_dir()
         dest_dir.mkdir(parents=True, exist_ok=True)
 
-        for update in to_update:
-            if update.latest_file is None:
-                result.failed.append(
-                    FailedUpdate(slug=update.slug, error="No compatible version found")
-                )
-                continue
-
-            task = DownloadTask(
-                url=update.latest_file.url,
-                dest=dest_dir / update.latest_file.filename,
-                expected_hash=update.latest_file.hashes.get("sha512"),
-                slug=update.slug,
-                version_number=update.latest_version or "unknown",
-            )
-            tasks.append(task)
-            update_info[update.slug] = update
-
-        # Download all files
-        if tasks:
-            download_results = await self._downloader.download_all(tasks)
-
-            for download_result in download_results:
-                slug = download_result.task.slug
-                if not download_result.success:
+        try:
+            for update in to_update:
+                if update.latest_file is None:
                     result.failed.append(
                         FailedUpdate(
-                            slug=slug, error=download_result.error or "Download failed"
+                            slug=update.slug, error="No compatible version found"
                         )
                     )
                     continue
 
-                update = update_info[slug]
-                final_path: Path | None = None
+                task = DownloadTask(
+                    url=update.latest_file.url,
+                    dest=dest_dir / update.latest_file.filename,
+                    expected_hash=update.latest_file.hashes.get("sha512"),
+                    slug=update.slug,
+                    version_number=update.latest_version or "unknown",
+                )
+                tasks.append(task)
+                update_info[update.slug] = update
 
-                try:
-                    if update.latest_version_id is None:
+            # Download all files
+            if tasks:
+                download_results = await self._downloader.download_all(tasks)
+
+                for download_result in download_results:
+                    slug = download_result.task.slug
+                    if not download_result.success:
                         result.failed.append(
-                            FailedUpdate(slug=slug, error="Latest version id is None")
-                        )
-                        continue
-
-                    # Place new file
-                    target_dir = self.get_target_directory(update.project_type)
-                    if download_result.file_path is None:
-                        result.failed.append(
-                            FailedUpdate(slug=slug, error="Download path is None")
-                        )
-                        continue
-
-                    final_path = await self.place_file(
-                        download_result.file_path, target_dir
-                    )
-
-                    # Backup and delete old file after new placement succeeds
-                    if (
-                        update.current_file
-                        and update.current_file.file_path.exists()
-                        and update.current_file.file_path != final_path
-                    ):
-                        if backup:
-                            backup_path = await self.backup_file(
-                                update.current_file.file_path
+                            FailedUpdate(
+                                slug=slug,
+                                error=download_result.error or "Download failed",
                             )
-                            result.backed_up.append(backup_path)
-                        await self.delete_file(update.current_file.file_path)
-
-                    # Update state
-                    if update.latest_file is None:
-                        result.failed.append(
-                            FailedUpdate(slug=slug, error="Latest file is None")
                         )
                         continue
 
-                    installed_file = InstalledFile(
-                        slug=slug,
-                        project_type=update.project_type,
-                        filename=final_path.name,
-                        version_id=update.latest_version_id,
-                        version_number=update.latest_version or "unknown",
-                        sha512=update.latest_file.hashes.get("sha512", ""),
-                        installed_at=datetime.now(UTC),
-                        file_path=final_path,
-                    )
-                    # Update state in memory
-                    state.files[slug] = installed_file
-                    state_modified = True
-                    result.successful.append(slug)
+                    update = update_info[slug]
+                    final_path: Path | None = None
 
-                except Exception as e:
-                    if final_path and final_path.exists():
-                        try:
-                            await self.delete_file(final_path)
-                        except Exception as rollback_error:
-                            logger.error(
-                                "Failed to rollback new file %s: %s",
-                                final_path,
-                                rollback_error,
+                    try:
+                        if update.latest_version_id is None:
+                            result.failed.append(
+                                FailedUpdate(
+                                    slug=slug, error="Latest version id is None"
+                                )
                             )
-                    result.failed.append(FailedUpdate(slug=slug, error=str(e)))
+                            continue
 
-        # Save state once at the end if modified
-        if state_modified:
-            await self._save_state(state)
+                        # Place new file
+                        target_dir = self.get_target_directory(update.project_type)
+                        if download_result.file_path is None:
+                            result.failed.append(
+                                FailedUpdate(slug=slug, error="Download path is None")
+                            )
+                            continue
+
+                        final_path = await self.place_file(
+                            download_result.file_path, target_dir
+                        )
+
+                        # Backup and delete old file after new placement succeeds
+                        if (
+                            update.current_file
+                            and update.current_file.file_path.exists()
+                            and update.current_file.file_path != final_path
+                        ):
+                            if backup:
+                                backup_path = await self.backup_file(
+                                    update.current_file.file_path
+                                )
+                                result.backed_up.append(backup_path)
+                            await self.delete_file(update.current_file.file_path)
+
+                        # Update state
+                        if update.latest_file is None:
+                            result.failed.append(
+                                FailedUpdate(slug=slug, error="Latest file is None")
+                            )
+                            continue
+
+                        installed_file = InstalledFile(
+                            slug=slug,
+                            project_type=update.project_type,
+                            filename=final_path.name,
+                            version_id=update.latest_version_id,
+                            version_number=update.latest_version or "unknown",
+                            sha512=update.latest_file.hashes.get("sha512", ""),
+                            installed_at=datetime.now(UTC),
+                            file_path=final_path,
+                        )
+                        # Update state in memory
+                        state.files[slug] = installed_file
+                        state_modified = True
+                        result.successful.append(slug)
+
+                    except (
+                        FileOperationError,
+                        UnsupportedProjectTypeError,
+                        OSError,
+                    ) as e:
+                        if final_path and final_path.exists():
+                            try:
+                                await self.delete_file(final_path)
+                            except (FileOperationError, OSError) as rollback_error:
+                                logger.error(
+                                    "Failed to rollback new file %s: %s",
+                                    final_path,
+                                    rollback_error,
+                                )
+                        result.failed.append(FailedUpdate(slug=slug, error=str(e)))
+
+            # Save state once at the end if modified
+            if state_modified:
+                await self._save_state(state)
+        finally:
+            try:
+                if dest_dir.exists():
+                    shutil.rmtree(dest_dir)
+            except OSError:
+                logger.warning("Failed to clean up temporary directory: %s", dest_dir)
 
         return result
 

@@ -1,5 +1,6 @@
 """Configuration file handling."""
 
+import errno
 import os
 import re
 import tomllib
@@ -174,7 +175,7 @@ def generate_config(
     config_path = path or get_default_config_path()
 
     if config_path.exists() and not force:
-        raise FileExistsError(f"Config file already exists: {config_path}")
+        raise FileExistsError(errno.EEXIST, "File already exists", str(config_path))
 
     # Create parent directory if it doesn't exist
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -260,7 +261,7 @@ def generate_projects(path: Path | None = None, force: bool = False) -> Path:
     projects_path = path or get_default_projects_path()
 
     if projects_path.exists() and not force:
-        raise FileExistsError(f"Projects file already exists: {projects_path}")
+        raise FileExistsError(errno.EEXIST, "File already exists", str(projects_path))
 
     # Create parent directory if it doesn't exist
     projects_path.parent.mkdir(parents=True, exist_ok=True)

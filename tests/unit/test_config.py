@@ -539,6 +539,27 @@ class TestGenerateConfig:
         assert loaded.mod_loader == Loader.FABRIC
         assert loaded.minecraft_dir == minecraft_dir.resolve()
 
+    def test_generate_config_file_exists_error_has_filename_attribute(
+        self, tmp_path: Path
+    ) -> None:
+        """generate_config FileExistsError has filename attribute."""
+        # Arrange
+        config_path = tmp_path / "config.toml"
+        config_path.write_text("existing content")
+
+        # Act & Assert
+        with pytest.raises(FileExistsError) as exc_info:
+            generate_config(
+                minecraft_version="1.21.4",
+                mod_loader=Loader.FABRIC,
+                minecraft_dir=Path("~/.minecraft"),
+                path=config_path,
+            )
+
+        # Verify filename attribute is set
+        assert exc_info.value.filename is not None
+        assert exc_info.value.filename == str(config_path)
+
 
 class TestLoadProjects:
     """Tests for load_projects function."""
@@ -780,6 +801,22 @@ class TestGenerateProjects:
         # Assert
         content = projects_path.read_text()
         assert "existing content" not in content
+
+    def test_generate_projects_file_exists_error_has_filename_attribute(
+        self, tmp_path: Path
+    ) -> None:
+        """generate_projects FileExistsError has filename attribute."""
+        # Arrange
+        projects_path = tmp_path / "projects.toml"
+        projects_path.write_text("existing content")
+
+        # Act & Assert
+        with pytest.raises(FileExistsError) as exc_info:
+            generate_projects(path=projects_path)
+
+        # Verify filename attribute is set
+        assert exc_info.value.filename is not None
+        assert exc_info.value.filename == str(projects_path)
 
 
 class TestSaveProjects:

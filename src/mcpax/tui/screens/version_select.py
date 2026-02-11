@@ -8,7 +8,7 @@ from textual.widgets import DataTable, Footer, Label, Static
 from textual.worker import Worker, WorkerState
 
 from mcpax.core.api import ModrinthClient
-from mcpax.core.models import ProjectType, ProjectVersion
+from mcpax.core.models import Loader, ProjectType, ProjectVersion, ReleaseChannel
 
 # Version selection result constants
 VERSION_SELECT_CANCELLED: None = None
@@ -30,6 +30,7 @@ class VersionSelectScreen(Screen[str | None]):
         project_type: ProjectType,
         minecraft_version: str,
         mod_loader: str,
+        shader_loader: str | None = None,
     ) -> None:
         """Initialize VersionSelectScreen.
 
@@ -38,12 +39,14 @@ class VersionSelectScreen(Screen[str | None]):
             project_type: Project type
             minecraft_version: Minecraft version for filtering
             mod_loader: Mod loader for filtering
+            shader_loader: Shader loader for filtering (optional)
         """
         super().__init__()
         self._slug = slug
         self._project_type = project_type
         self._minecraft_version = minecraft_version
         self._mod_loader = mod_loader
+        self._shader_loader = shader_loader
         self._versions: dict[str, ProjectVersion] = {}
 
     def compose(self) -> ComposeResult:
@@ -117,22 +120,22 @@ class VersionSelectScreen(Screen[str | None]):
         # Store versions mapping for later retrieval
         self._versions = {version.id: version for version in versions}
 
-        # Filter compatible versions first for better UX
-        compatible = []
-        incompatible = []
-
-        for version in versions:
-            # Check if compatible with current Minecraft version
-            is_compatible = self._minecraft_version in version.game_versions
-
-            # For mods, also check loader compatibility
-            if self._project_type == ProjectType.MOD:
-                is_compatible = is_compatible and self._mod_loader in version.loaders
-
-            if is_compatible:
-                compatible.append(version)
-            else:
-                incompatible.append(version)
+        client = ModrinthClient()
+        loader = Loader(self._mod_loader)
+        shader_loader_enum = (
+            Loader(self._shader_loader) if self._shader_loader else None
+        )
+        compatible_versions = client.filter_compatible_versions(
+            versions=versions,
+            minecraft_version=self._minecraft_version,
+            loader=loader,
+            channel=ReleaseChannel.ALPHA,  # TUI shows all channels
+            project_type=self._project_type,
+            shader_loader=shader_loader_enum,
+        )
+        compatible_ids = {v.id for v in compatible_versions}
+        compatible = [v for v in versions if v.id in compatible_ids]
+        incompatible = [v for v in versions if v.id not in compatible_ids]
 
         # Add compatible versions first (highlighted)
         for version in compatible:

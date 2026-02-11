@@ -153,12 +153,7 @@ class SettingsScreen(Screen[bool]):
 
             # Format value
             value = self._values.get(key)
-            if value is None:
-                display_value = "(not set)"
-            elif isinstance(value, bool):
-                display_value = str(value)
-            else:
-                display_value = str(value)
+            display_value = "(not set)" if value is None else str(value)
 
             # Add row
             table.add_row(display_section, label, display_value)
@@ -194,12 +189,7 @@ class SettingsScreen(Screen[bool]):
 
         # Get current value
         value = self._values.get(key)
-        if value is None:
-            current_value = ""
-        elif isinstance(value, bool):
-            current_value = str(value)
-        else:
-            current_value = str(value)
+        current_value = "" if value is None else str(value)
 
         # Push the edit modal
         self.app.push_screen(

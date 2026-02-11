@@ -2135,6 +2135,189 @@ class TestApplyUpdatesRollback:
         assert not expected_new_path.exists()
         assert any(f.slug == "sodium" for f in result.failed)
 
+    async def test_unexpected_exception_propagates_not_caught_broadly(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Unexpected exceptions propagate instead of being caught broadly."""
+        # Arrange
+        config = _make_config(tmp_path)
+
+        latest_file = ProjectFile(
+            url="https://cdn.modrinth.com/sodium.jar",
+            filename="sodium.jar",
+            size=1024,
+            hashes={"sha512": "newhash" * 20},
+            primary=True,
+        )
+        update = UpdateCheckResult(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            status=InstallStatus.NOT_INSTALLED,
+            current_version=None,
+            current_file=None,
+            latest_version="1.0.0",
+            latest_version_id="ABC123",
+            latest_file=latest_file,
+        )
+
+        download_file = tmp_path / "downloads" / latest_file.filename
+        download_file.parent.mkdir(parents=True)
+        download_file.write_text("new")
+        task = DownloadTask(
+            url=latest_file.url,
+            dest=download_file,
+            expected_hash=latest_file.hashes["sha512"],
+            slug="sodium",
+            version_number="1.0.0",
+        )
+        download_result = DownloadResult(
+            task=task,
+            success=True,
+            file_path=download_file,
+            error=None,
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result]),
+        )
+
+        # Mock get_target_directory to raise an unexpected exception
+        def get_target_directory_fail(project_type: ProjectType) -> Path:
+            raise RuntimeError("Unexpected internal error")
+
+        monkeypatch.setattr(manager, "get_target_directory", get_target_directory_fail)
+
+        # Act & Assert
+        with pytest.raises(RuntimeError, match="Unexpected internal error"):
+            await manager.apply_updates([update], backup=False)
+
+    async def test_cleans_up_temp_download_dir_on_success(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Temporary download directory is removed after successful update."""
+        # Arrange
+        config = _make_config(tmp_path)
+
+        latest_file = ProjectFile(
+            url="https://cdn.modrinth.com/sodium.jar",
+            filename="sodium.jar",
+            size=1024,
+            hashes={"sha512": "newhash" * 20},
+            primary=True,
+        )
+        update = UpdateCheckResult(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            status=InstallStatus.NOT_INSTALLED,
+            current_version=None,
+            current_file=None,
+            latest_version="1.0.0",
+            latest_version_id="ABC123",
+            latest_file=latest_file,
+        )
+
+        temp_dir = tmp_path / ".mcpax-downloads"
+        temp_dir.mkdir(parents=True)
+        download_file = temp_dir / latest_file.filename
+        download_file.write_text("new")
+
+        task = DownloadTask(
+            url=latest_file.url,
+            dest=download_file,
+            expected_hash=latest_file.hashes["sha512"],
+            slug="sodium",
+            version_number="1.0.0",
+        )
+        download_result = DownloadResult(
+            task=task,
+            success=True,
+            file_path=download_file,
+            error=None,
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result]),
+        )
+
+        # Act
+        result = await manager.apply_updates([update], backup=False)
+
+        # Assert
+        assert result.successful == ["sodium"]
+        assert not temp_dir.exists()
+
+    async def test_cleans_up_temp_download_dir_on_failure(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Temporary download directory is removed even on failure."""
+        # Arrange
+        config = _make_config(tmp_path)
+
+        latest_file = ProjectFile(
+            url="https://cdn.modrinth.com/sodium.jar",
+            filename="sodium.jar",
+            size=1024,
+            hashes={"sha512": "newhash" * 20},
+            primary=True,
+        )
+        update = UpdateCheckResult(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            status=InstallStatus.NOT_INSTALLED,
+            current_version=None,
+            current_file=None,
+            latest_version="1.0.0",
+            latest_version_id="ABC123",
+            latest_file=latest_file,
+        )
+
+        temp_dir = tmp_path / ".mcpax-downloads"
+        temp_dir.mkdir(parents=True)
+        download_file = temp_dir / latest_file.filename
+        download_file.write_text("new")
+
+        task = DownloadTask(
+            url=latest_file.url,
+            dest=download_file,
+            expected_hash=latest_file.hashes["sha512"],
+            slug="sodium",
+            version_number="1.0.0",
+        )
+        download_result = DownloadResult(
+            task=task,
+            success=True,
+            file_path=download_file,
+            error=None,
+        )
+
+        manager = ProjectManager(
+            config,
+            api_client=DummyApiClient(ProjectType.MOD),
+            downloader=DummyDownloader([download_result]),
+        )
+
+        # Mock place_file to fail
+        async def place_file_fail(src: Path, dest_dir: Path) -> Path:
+            raise FileOperationError("placement failed", path=src)
+
+        monkeypatch.setattr(manager, "place_file", place_file_fail)
+
+        # Act
+        result = await manager.apply_updates([update], backup=False)
+
+        # Assert
+        assert any(f.slug == "sodium" for f in result.failed)
+        assert not temp_dir.exists()
+
     def test_returns_false_when_latest_is_none(self, tmp_path: Path) -> None:
         """Returns False when latest is None."""
         # Arrange

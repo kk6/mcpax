@@ -115,3 +115,26 @@ class TestVersionSelectScreen:
         assert len(screen._versions) == 2
         assert "version-fabric" in screen._versions
         assert "version-forge" in screen._versions
+
+    def test_shader_loader_parameter_is_stored(self) -> None:
+        """Screen stores shader_loader parameter correctly."""
+        screen = VersionSelectScreen(
+            slug="complementary-shaders",
+            project_type=ProjectType.SHADER,
+            minecraft_version="1.21.4",
+            mod_loader="fabric",
+            shader_loader="iris",
+        )
+
+        assert screen._shader_loader == "iris"
+
+    def test_shader_loader_parameter_defaults_to_none(self) -> None:
+        """Screen defaults shader_loader to None when not provided."""
+        screen = VersionSelectScreen(
+            slug="sodium",
+            project_type=ProjectType.MOD,
+            minecraft_version="1.21.4",
+            mod_loader="fabric",
+        )
+
+        assert screen._shader_loader is None
