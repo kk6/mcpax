@@ -168,7 +168,7 @@ def init(
         console.print("Run 'mcpax add <slug>' to add projects.")
 
     except FileExistsError as e:
-        filename = Path(str(e).split(":", 1)[1].strip()).name
+        filename = Path(e.filename).name if e.filename else str(e)
         console.print(
             f"[red]Error:[/red] {filename} already exists. Use --force to overwrite."
         )

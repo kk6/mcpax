@@ -142,6 +142,7 @@ class SearchScreen(Screen[bool]):
             project_type=hit.project_type,
             minecraft_version=config.minecraft_version,
             mod_loader=config.mod_loader.value,
+            shader_loader=config.shader_loader.value if config.shader_loader else None,
         )
 
         selected_version = await self.app.push_screen_wait(version_select_screen)
