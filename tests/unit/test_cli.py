@@ -1866,43 +1866,11 @@ class TestListCommand:
         # Mock ProjectManager for listing
         with patch("mcpax.cli.app.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
-            from mcpax.core.models import InstallStatus, UpdateCheckResult
 
-            mock_check_results = [
-                UpdateCheckResult(
-                    slug="sodium",
-                    project_type=ProjectType.MOD,
-                    status=InstallStatus.INSTALLED,
-                    current_version="0.5.0",
-                    current_file=None,
-                    latest_version="0.5.0",
-                    latest_version_id="v0.5.0",
-                    latest_file=None,
-                ),
-                UpdateCheckResult(
-                    slug="lithium",
-                    project_type=ProjectType.MOD,
-                    status=InstallStatus.INSTALLED,
-                    current_version="0.11.0",
-                    current_file=None,
-                    latest_version="0.11.0",
-                    latest_version_id="v0.11.0",
-                    latest_file=None,
-                ),
-                UpdateCheckResult(
-                    slug="complementary-unbound",
-                    project_type=ProjectType.SHADER,
-                    status=InstallStatus.INSTALLED,
-                    current_version="r5.2",
-                    current_file=None,
-                    latest_version="r5.2",
-                    latest_version_id="v5.2",
-                    latest_file=None,
-                ),
-            ]
-            mock_manager_instance.check_updates = AsyncMock(
-                return_value=mock_check_results
-            )
+            # Note: After Issue #101 optimization, list command no longer makes
+            # additional get_project() calls when check_updates() is used.
+            # Instead, titles are fetched within check_updates().
+            # Use --no-update mode to test max_concurrency for get_project() calls.
 
             current = 0
             max_seen = 0
@@ -1916,12 +1884,17 @@ class TestListCommand:
                 current -= 1
                 return project_map[slug]
 
+            # Mock get_installed_file to return None (not installed)
+            mock_manager_instance.get_installed_file = AsyncMock(return_value=None)
+
             with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(side_effect=tracked_get_project)
 
-                # Act
-                result = runner.invoke(app, ["list", "--max-concurrency", "1"])
+                # Act - use --no-update to trigger get_project() calls
+                result = runner.invoke(
+                    app, ["list", "--no-update", "--max-concurrency", "1"]
+                )
 
         # Assert
         assert result.exit_code == 0

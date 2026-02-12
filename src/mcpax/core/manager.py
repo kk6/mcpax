@@ -16,6 +16,7 @@ from mcpax.core.downloader import Downloader, DownloaderConfig
 from mcpax.core.exceptions import (
     APIError,
     FileOperationError,
+    ProjectNotFoundError,
     StateFileError,
     UnsupportedProjectTypeError,
 )
@@ -237,11 +238,15 @@ class ProjectManager:
         Raises:
             FileOperationError: If move fails
         """
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / src.name
-        try:
+
+        def _sync_place() -> Path:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest = dest_dir / src.name
             shutil.move(str(src), str(dest))
             return dest
+
+        try:
+            return await asyncio.to_thread(_sync_place)
         except OSError as e:
             raise FileOperationError(f"Failed to move file: {e}", path=src) from e
 
@@ -263,15 +268,17 @@ class ProjectManager:
             FileOperationError: If backup fails
         """
         backup_dir = backup_dir or self._config.minecraft_dir / self.BACKUP_DIR_NAME
-        backup_dir.mkdir(parents=True, exist_ok=True)
 
-        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-        backup_name = f"{file_path.stem}_{timestamp}{file_path.suffix}"
-        backup_path = backup_dir / backup_name
-
-        try:
+        def _sync_backup() -> Path:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+            backup_name = f"{file_path.stem}_{timestamp}{file_path.suffix}"
+            backup_path = backup_dir / backup_name
             shutil.copy2(str(file_path), str(backup_path))
             return backup_path
+
+        try:
+            return await asyncio.to_thread(_sync_backup)
         except OSError as e:
             raise FileOperationError(
                 f"Failed to backup file: {e}", path=file_path
@@ -289,11 +296,15 @@ class ProjectManager:
         Raises:
             FileOperationError: If deletion fails
         """
-        try:
+
+        def _sync_delete() -> bool:
             if file_path.exists():
                 file_path.unlink()
                 return True
             return False
+
+        try:
+            return await asyncio.to_thread(_sync_delete)
         except OSError as e:
             raise FileOperationError(
                 f"Failed to delete file: {e}", path=file_path
@@ -505,13 +516,24 @@ class ProjectManager:
         installed = await self.get_installed_file(project.slug)
         project_type = project.project_type
 
+        # Get project info to retrieve title (cached, so minimal cost)
+        title: str | None = None
+        try:
+            project_info = await self._api_client.get_project(project.slug)
+            title = project_info.title
+        except (APIError, ProjectNotFoundError) as e:
+            # If project fetch fails, continue without title
+            logger.warning(
+                "Failed to fetch title for project '%s': %s", project.slug, e
+            )
+
         # Get all versions
         versions = await self._api_client.get_versions(project.slug)
 
         # If version is pinned, use pinned logic
         if project.version is not None:
             return await self._resolve_pinned_version(
-                project, versions, installed, project_type
+                project, versions, installed, project_type, title
             )
 
         # Non-pinned: use existing logic
@@ -537,6 +559,7 @@ class ProjectManager:
                 latest_version=None,
                 latest_version_id=None,
                 latest_file=None,
+                title=title,
             )
 
         primary_file = next(
@@ -560,6 +583,7 @@ class ProjectManager:
             latest_version=latest.version_number,
             latest_version_id=latest.id,
             latest_file=primary_file,
+            title=title,
         )
 
     def _get_pinned_compatible_version(
@@ -620,6 +644,7 @@ class ProjectManager:
         versions: list[ProjectVersion],
         installed: InstalledFile | None,
         project_type: ProjectType,
+        title: str | None = None,
     ) -> UpdateCheckResult:
         """Resolve pinned version.
 
@@ -628,6 +653,7 @@ class ProjectManager:
             versions: All available versions
             installed: Currently installed file
             project_type: Project type
+            title: Project title (optional)
 
         Returns:
             UpdateCheckResult with pinned=True
@@ -660,6 +686,7 @@ class ProjectManager:
                 latest_file=None,
                 error=error,
                 pinned=True,
+                title=title,
             )
 
         # Compatible pinned version found
@@ -685,6 +712,7 @@ class ProjectManager:
             latest_version_id=pinned_version.id,
             latest_file=primary_file,
             pinned=True,
+            title=title,
         )
 
     async def apply_updates(
