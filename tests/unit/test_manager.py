@@ -1212,6 +1212,10 @@ class TestCheckUpdates:
         await manager_temp._save_state(state)
 
         httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium", "mod"),
+        )
+        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1233,6 +1237,7 @@ class TestCheckUpdates:
         assert results[0].status == InstallStatus.OUTDATED
         assert results[0].latest_version == "1.1.0"
         assert results[0].latest_version_id == "new-version-id"
+        assert results[0].title == "Sodium"
 
     async def test_returns_installed_for_up_to_date(
         self,
@@ -1257,6 +1262,10 @@ class TestCheckUpdates:
         await manager_temp._save_state(state)
 
         httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium", "mod"),
+        )
+        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1276,6 +1285,7 @@ class TestCheckUpdates:
 
         # Assert
         assert results[0].status == InstallStatus.INSTALLED
+        assert results[0].title == "Sodium"
 
     async def test_handles_multiple_projects(
         self,
@@ -1299,6 +1309,10 @@ class TestCheckUpdates:
         await manager_temp._save_state(state)
 
         httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium", "mod"),
+        )
+        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1308,6 +1322,10 @@ class TestCheckUpdates:
                     sha512="matchhash" * 20,
                 )
             ],
+        )
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/lithium",
+            json=_make_project_payload("lithium", "mod"),
         )
         httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/lithium/version",
@@ -1335,7 +1353,9 @@ class TestCheckUpdates:
         assert len(results) == 2
         results_by_slug = {result.slug: result for result in results}
         assert results_by_slug["sodium"].status == InstallStatus.INSTALLED
+        assert results_by_slug["sodium"].title == "Sodium"
         assert results_by_slug["lithium"].status == InstallStatus.NOT_INSTALLED
+        assert results_by_slug["lithium"].title == "Lithium"
 
     async def test_handles_api_error_gracefully(
         self,
@@ -1346,6 +1366,12 @@ class TestCheckUpdates:
         """Returns CHECK_FAILED when API errors occur."""
         # Arrange
         config = _make_config(tmp_path)
+        # Mock get_project to fail
+        for _ in range(ModrinthClient.DEFAULT_MAX_RETRIES + 1):
+            httpx_mock.add_response(
+                url="https://api.modrinth.com/v2/project/sodium",
+                status_code=500,
+            )
         for _ in range(ModrinthClient.DEFAULT_MAX_RETRIES + 1):
             httpx_mock.add_response(
                 url="https://api.modrinth.com/v2/project/sodium/version",
@@ -1393,6 +1419,10 @@ class TestCheckUpdatesPinning:
         # Arrange
         config = _make_config(tmp_path)
         httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium", "mod"),
+        )
+        httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
                 _make_version_payload(
@@ -1421,6 +1451,7 @@ class TestCheckUpdatesPinning:
         assert results[0].pinned is True
         assert results[0].latest_version == "1.5.0"
         assert results[0].latest_version_id == "pinned-id"
+        assert results[0].title == "Sodium"
 
     async def test_pinned_same_version_installed(
         self,
@@ -1445,6 +1476,10 @@ class TestCheckUpdatesPinning:
         state = StateFile(version=1, files={"sodium": installed})
         await manager_temp._save_state(state)
 
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium", "mod"),
+        )
         httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
@@ -1473,6 +1508,7 @@ class TestCheckUpdatesPinning:
         assert results[0].status == InstallStatus.INSTALLED
         assert results[0].pinned is True
         assert results[0].latest_version == "1.5.0"
+        assert results[0].title == "Sodium"
 
     async def test_pinned_different_version_installed(
         self,
@@ -1496,6 +1532,10 @@ class TestCheckUpdatesPinning:
         state = StateFile(version=1, files={"sodium": installed})
         await manager_temp._save_state(state)
 
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium", "mod"),
+        )
         httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
@@ -1525,6 +1565,7 @@ class TestCheckUpdatesPinning:
         assert results[0].pinned is True
         assert results[0].current_version == "1.4.0"
         assert results[0].latest_version == "1.5.0"
+        assert results[0].title == "Sodium"
 
     async def test_pinned_version_not_found(
         self,
@@ -1534,6 +1575,10 @@ class TestCheckUpdatesPinning:
         """Pinned version not found -> NOT_COMPATIBLE, pinned=True, error set."""
         # Arrange
         config = _make_config(tmp_path)
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium", "mod"),
+        )
         httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
@@ -1563,6 +1608,7 @@ class TestCheckUpdatesPinning:
         assert results[0].pinned is True
         assert results[0].error is not None
         assert "1.5.0" in results[0].error
+        assert results[0].title == "Sodium"
 
     async def test_pinned_version_not_compatible(
         self,
@@ -1572,6 +1618,10 @@ class TestCheckUpdatesPinning:
         """Pinned version exists but not compatible -> NOT_COMPATIBLE, pinned=True."""
         # Arrange
         config = _make_config(tmp_path)
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium", "mod"),
+        )
         httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[
@@ -1613,6 +1663,7 @@ class TestCheckUpdatesPinning:
         assert results[0].status == InstallStatus.NOT_COMPATIBLE
         assert results[0].pinned is True
         assert results[0].error is not None
+        assert results[0].title == "Sodium"
 
     async def test_not_pinned_uses_existing_logic(
         self,
@@ -1622,6 +1673,10 @@ class TestCheckUpdatesPinning:
         """Non-pinned project uses existing logic (regression test)."""
         # Arrange
         config = _make_config(tmp_path)
+        httpx_mock.add_response(
+            url="https://api.modrinth.com/v2/project/sodium",
+            json=_make_project_payload("sodium", "mod"),
+        )
         httpx_mock.add_response(
             url="https://api.modrinth.com/v2/project/sodium/version",
             json=[

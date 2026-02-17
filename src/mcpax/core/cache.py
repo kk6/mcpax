@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from pathlib import Path
-from typing import cast
+from typing import Self, cast
+
+logger = logging.getLogger(__name__)
 
 
 class ApiCache:
@@ -18,6 +21,7 @@ class ApiCache:
             "project": {},
             "versions": {},
         }
+        self._dirty = False
         self._load()
 
     def _load(self) -> None:
@@ -35,11 +39,18 @@ class ApiCache:
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             self._path.write_text(json.dumps(self._data))
-        except OSError:
+        except OSError as e:
+            logger.warning("Failed to save cache to %s: %s", self._path, e)
             return
 
     def _is_fresh(self, ts: float) -> bool:
         return (time.time() - ts) <= self._ttl_seconds
+
+    def flush(self) -> None:
+        """Write cache to disk if dirty."""
+        if self._dirty:
+            self._save()
+            self._dirty = False
 
     def get_project(self, slug: str) -> dict | None:
         entry = self._data["project"].get(slug)
@@ -57,7 +68,7 @@ class ApiCache:
 
     def set_project(self, slug: str, data: dict) -> None:
         self._data["project"][slug] = {"ts": time.time(), "data": data}
-        self._save()
+        self._dirty = True
 
     def get_versions(self, slug: str) -> list[dict] | None:
         entry = self._data["versions"].get(slug)
@@ -75,4 +86,12 @@ class ApiCache:
 
     def set_versions(self, slug: str, data: list[dict]) -> None:
         self._data["versions"][slug] = {"ts": time.time(), "data": data}
-        self._save()
+        self._dirty = True
+
+    def __enter__(self) -> Self:
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit - flush cache to disk."""
+        self.flush()

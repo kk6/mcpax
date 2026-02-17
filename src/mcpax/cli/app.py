@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Annotated
@@ -40,6 +41,8 @@ from mcpax.core.models import (
     UpdateCheckResult,
     UpdateResult,
 )
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(
     name="mcpax",
@@ -609,11 +612,26 @@ def list_projects(
             async with ProjectManager(config, api_client=client) as manager:
                 # Get installation status
                 if no_update:
+                    # In no-update mode, we still need to fetch project info for titles
+                    semaphore = asyncio.Semaphore(max_concurrency)
 
                     async def _local_update(
                         project: ProjectConfig,
                     ) -> UpdateCheckResult:
                         installed = await manager.get_installed_file(project.slug)
+                        # Fetch project info to get title
+                        title: str | None = None
+                        async with semaphore:
+                            try:
+                                project_info = await client.get_project(project.slug)
+                                title = project_info.title
+                            except (ProjectNotFoundError, APIError) as e:
+                                logger.warning(
+                                    "Failed to fetch title for project '%s': %s",
+                                    project.slug,
+                                    e,
+                                )
+
                         if installed is None or not installed.file_path.exists():
                             return UpdateCheckResult(
                                 slug=project.slug,
@@ -624,6 +642,7 @@ def list_projects(
                                 latest_version=None,
                                 latest_version_id=None,
                                 latest_file=None,
+                                title=title,
                             )
                         return UpdateCheckResult(
                             slug=project.slug,
@@ -634,6 +653,7 @@ def list_projects(
                             latest_version=None,
                             latest_version_id=None,
                             latest_file=None,
+                            title=title,
                         )
 
                     updates = await asyncio.gather(
@@ -645,29 +665,19 @@ def list_projects(
                         max_concurrency=max_concurrency,
                     )
 
-            # Fetch project types from API (bounded concurrency to avoid rate limits).
-            semaphore = asyncio.Semaphore(max_concurrency)
-
-            async def fetch_project(update: UpdateCheckResult) -> dict | None:
-                async with semaphore:
-                    try:
-                        project = await client.get_project(update.slug)
-                        return {
-                            "slug": update.slug,
-                            "title": project.title,
-                            "type": project.project_type,
-                            "status": update.status,
-                            "current_version": update.current_version,
-                            "latest_version": update.latest_version,
-                        }
-                    except (ProjectNotFoundError, APIError):
-                        # If project cannot be fetched, skip it
-                        return None
-
-            results = await asyncio.gather(
-                *(fetch_project(update) for update in updates)
-            )
-            project_info_list = [result for result in results if result is not None]
+            # Convert UpdateCheckResult to dict, using title from the result
+            project_info_list = [
+                {
+                    "slug": update.slug,
+                    # Fallback to slug if title is None
+                    "title": update.title or update.slug,
+                    "type": update.project_type,
+                    "status": update.status,
+                    "current_version": update.current_version,
+                    "latest_version": update.latest_version,
+                }
+                for update in updates
+            ]
 
         return project_info_list
 
@@ -876,92 +886,98 @@ def update(
         console.print("No projects to check.")
         return
 
-    # Check for updates
+    # Check for updates and apply if needed - single async context
     console.print("Checking for updates...")
 
-    async def _check_updates() -> list[UpdateCheckResult]:
+    async def _update_flow() -> tuple[list[UpdateCheckResult], UpdateResult | None]:
         async with ProjectManager(config) as manager:
-            return await manager.check_updates(projects)
+            # Check for updates
+            results = await manager.check_updates(projects)
 
-    results = asyncio.run(_check_updates())
+            # Group results by status
+            grouped: dict[InstallStatus, list[UpdateCheckResult]] = defaultdict(list)
+            for result in results:
+                grouped[result.status].append(result)
 
-    # Group results by status
-    grouped: dict[InstallStatus, list[UpdateCheckResult]] = defaultdict(list)
-    for result in results:
-        grouped[result.status].append(result)
+            updates_available = (
+                grouped[InstallStatus.OUTDATED] + grouped[InstallStatus.NOT_INSTALLED]
+            )
 
-    updates_available = (
-        grouped[InstallStatus.OUTDATED] + grouped[InstallStatus.NOT_INSTALLED]
-    )
+            display_groups = [
+                ("Updates available", updates_available, "updates"),
+                (
+                    "Not compatible",
+                    grouped[InstallStatus.NOT_COMPATIBLE],
+                    "not_compatible",
+                ),
+                ("Check failed", grouped[InstallStatus.CHECK_FAILED], "check_failed"),
+                ("Up to date", grouped[InstallStatus.INSTALLED], "up_to_date"),
+            ]
 
-    display_groups = [
-        ("Updates available", updates_available, "updates"),
-        ("Not compatible", grouped[InstallStatus.NOT_COMPATIBLE], "not_compatible"),
-        ("Check failed", grouped[InstallStatus.CHECK_FAILED], "check_failed"),
-        ("Up to date", grouped[InstallStatus.INSTALLED], "up_to_date"),
-    ]
+            # Display results (console.print is fast, non-blocking I/O acceptable)
+            for title, items, kind in display_groups:
+                if not items:
+                    continue
+                console.print(f"\n{title} ({len(items)}):")
+                if kind == "updates":
+                    for result in items:
+                        current = result.current_version or "not installed"
+                        latest = result.latest_version or "unknown"
+                        arrow = f"{current} → {latest}"
+                        pinned_marker = " [pinned]" if result.pinned else ""
+                        console.print(f"  {result.slug:<20} {arrow}{pinned_marker}")
+                    continue
+                if kind == "up_to_date":
+                    slugs = ", ".join(r.slug for r in items)
+                    console.print(f"  {slugs}")
+                    continue
+                note = (
+                    "no compatible version"
+                    if kind == "not_compatible"
+                    else "check failed"
+                )
+                for result in items:
+                    console.print(f"  {result.slug:<20} ({note})")
 
-    # Display results
-    for title, items, kind in display_groups:
-        if not items:
-            continue
-        console.print(f"\n{title} ({len(items)}):")
-        if kind == "updates":
-            for result in items:
-                current = result.current_version or "not installed"
-                latest = result.latest_version or "unknown"
-                arrow = f"{current} → {latest}"
-                pinned_marker = " [pinned]" if result.pinned else ""
-                console.print(f"  {result.slug:<20} {arrow}{pinned_marker}")
-            continue
-        if kind == "up_to_date":
-            slugs = ", ".join(r.slug for r in items)
-            console.print(f"  {slugs}")
-            continue
-        note = "no compatible version" if kind == "not_compatible" else "check failed"
-        for result in items:
-            console.print(f"  {result.slug:<20} ({note})")
+            # If check-only mode, exit here
+            if check:
+                if updates_available:
+                    console.print("\nRun 'mcpax update' to apply updates.")
+                return results, None
 
-    # If check-only mode, exit here
-    if check:
-        if updates_available:
-            console.print("\nRun 'mcpax update' to apply updates.")
-        return
+            # If no updates available, exit
+            if not updates_available:
+                console.print("\nAll projects are up to date.")
+                return results, None
 
-    # If no updates available, exit
-    if not updates_available:
-        console.print("\nAll projects are up to date.")
-        return
+            # Ask for confirmation unless --yes is specified
+            if not yes:
+                # Use asyncio.to_thread for blocking I/O (user input)
+                confirmed = await asyncio.to_thread(typer.confirm, "\nApply updates?")
+                if not confirmed:
+                    console.print("Update cancelled.")
+                    return results, None
 
-    # Ask for confirmation unless --yes is specified
-    if not yes:
-        confirmed = typer.confirm("\nApply updates?")
-        if not confirmed:
-            console.print("Update cancelled.")
-            return
+            # Apply updates
+            console.print("\nApplying updates...")
+            return results, await manager.apply_updates(results)
 
-    # Apply updates
-    console.print("\nApplying updates...")
+    results, update_result = asyncio.run(_update_flow())
 
-    async def _apply_updates() -> UpdateResult:
-        async with ProjectManager(config) as manager:
-            return await manager.apply_updates(results)
-
-    update_result = asyncio.run(_apply_updates())
-
-    # Display results
-    if update_result.failed:
-        console.print(
-            f"\n[yellow]Updates completed with {len(update_result.failed)} "
-            f"errors.[/yellow]"
-        )
-        for failed in update_result.failed:
-            console.print(f"  [red]✗[/red] {failed.slug}: {failed.error}")
-    else:
-        updated_count = len(update_result.successful)
-        console.print(
-            f"\n[green]✓[/green] {updated_count} project(s) updated successfully."
-        )
+    # Display results if updates were applied
+    if update_result is not None:
+        if update_result.failed:
+            console.print(
+                f"\n[yellow]Updates completed with {len(update_result.failed)} "
+                f"errors.[/yellow]"
+            )
+            for failed in update_result.failed:
+                console.print(f"  [red]✗[/red] {failed.slug}: {failed.error}")
+        else:
+            updated_count = len(update_result.successful)
+            console.print(
+                f"\n[green]✓[/green] {updated_count} project(s) updated successfully."
+            )
 
 
 @config_app.command()

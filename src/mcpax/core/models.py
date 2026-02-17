@@ -188,6 +188,7 @@ class UpdateCheckResult(BaseModel):
     latest_file: ProjectFile | None
     error: str | None = None
     pinned: bool = False
+    title: str | None = None
 
 
 class DownloadTask(BaseModel):
