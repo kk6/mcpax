@@ -341,6 +341,50 @@ git push -u origin feat/123-description
 
 ### よく使うコマンド
 
+#### Justfile を使用する場合
+
+[just](https://github.com/casey/just) を使用すると、よく使うコマンドを簡潔に実行できます：
+
+```bash
+# レシピ一覧を表示
+just
+
+# 環境セットアップ（初回のみ）
+just setup
+
+# コードフォーマット
+just fmt
+
+# リント（auto-fix）
+just lint
+
+# 型チェック
+just typecheck
+
+# テスト実行
+just test
+
+# 品質チェック一式（fmt → lint → typecheck → test）
+just check
+
+# カバレッジレポート生成
+just cov
+
+# CI ミラー（GitHub Actions と同じチェックを実行）
+just ci
+
+# CLI 実行
+just run --help
+
+# TUI 実行
+just tui
+
+# ローカル CI（act）
+just act -j lint
+```
+
+#### uv コマンドを直接使用する場合
+
 ```bash
 # 品質チェック一式
 uv run ruff format src tests && uv run ruff check src tests --fix && uv run ty check src && uv run pytest
