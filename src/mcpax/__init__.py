@@ -1,3 +1,5 @@
 """mcpax - Minecraft MOD/Shader/Resource Pack manager via Modrinth API."""
 
-__version__ = "0.11.3"
+import importlib.metadata
+
+__version__ = importlib.metadata.version(__name__)
