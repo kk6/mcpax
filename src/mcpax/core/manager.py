@@ -38,10 +38,6 @@ from mcpax.core.models import (
 
 logger = logging.getLogger(__name__)
 
-# Type alias for update info mapping
-UpdateInfo = UpdateCheckResult
-
-
 class ProjectManager:
     """Orchestrates project installation, updates, and state management."""
 
@@ -751,7 +747,7 @@ class ProjectManager:
 
         # Create download tasks
         tasks: list[DownloadTask] = []
-        update_info: dict[str, UpdateInfo] = {}
+        update_info: dict[str, UpdateCheckResult] = {}
 
         # Process project results and create download tasks
         dest_dir = self._get_temp_download_dir()
