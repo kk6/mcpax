@@ -541,14 +541,6 @@ def list_projects(
         mcpax list --no-cache
         mcpax list --max-concurrency 5
     """
-    # Check if config.toml exists
-    config_path = get_default_config_path()
-    if not config_path.exists():
-        console.print(
-            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
-        )
-        raise typer.Exit(code=1)
-
     # Load config
     try:
         config = load_config()
