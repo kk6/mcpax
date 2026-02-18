@@ -393,6 +393,56 @@ class TestProjectVersion:
         assert version.dependencies == [dependency]
         assert version.date_published == date_published
 
+    def _make_version(self, files: list[ProjectFile]) -> ProjectVersion:
+        return ProjectVersion(
+            id="ABC123",
+            project_id="AANobbMI",
+            version_number="0.6.0",
+            version_type=ReleaseChannel.RELEASE,
+            game_versions=["1.21.4"],
+            loaders=["fabric"],
+            files=files,
+            dependencies=[],
+            date_published=datetime(2024, 1, 15, 10, 0, 0, tzinfo=UTC),
+        )
+
+    def _make_file(self, filename: str, primary: bool) -> ProjectFile:
+        return ProjectFile(
+            url=f"https://cdn.modrinth.com/data/{filename}",
+            filename=filename,
+            size=1000,
+            hashes={"sha512": "abc123"},
+            primary=primary,
+        )
+
+    def test_get_primary_file_returns_primary_file(self) -> None:
+        """get_primary_file returns the file marked as primary."""
+        primary = self._make_file("primary.jar", primary=True)
+        secondary = self._make_file("secondary.jar", primary=False)
+        version = self._make_version([secondary, primary])
+
+        result = version.get_primary_file()
+
+        assert result is primary
+
+    def test_get_primary_file_returns_first_when_no_primary(self) -> None:
+        """get_primary_file returns first file when none is marked primary."""
+        first = self._make_file("first.jar", primary=False)
+        second = self._make_file("second.jar", primary=False)
+        version = self._make_version([first, second])
+
+        result = version.get_primary_file()
+
+        assert result is first
+
+    def test_get_primary_file_returns_none_when_no_files(self) -> None:
+        """get_primary_file returns None when files list is empty."""
+        version = self._make_version([])
+
+        result = version.get_primary_file()
+
+        assert result is None
+
 
 class TestSearchHit:
     """Tests for SearchHit model."""
