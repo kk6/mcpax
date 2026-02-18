@@ -15,17 +15,17 @@ from .models import AppConfig, Loader, ProjectConfig, ProjectType, ReleaseChanne
 APP_NAME = "mcpax"
 MINECRAFT_VERSION_PATTERN = re.compile(r"^\d+\.\d+(\.\d+)?(-\w+)?$")
 
-# Key mapping for config command
-CONFIG_KEY_MAP: dict[str, tuple[str, str]] = {
-    "minecraft.version": ("minecraft", "version"),
-    "minecraft.mod_loader": ("minecraft", "mod_loader"),
-    "minecraft.shader_loader": ("minecraft", "shader_loader"),
-    "paths.minecraft_dir": ("paths", "minecraft_dir"),
-    "paths.mods_dir": ("paths", "mods_dir"),
-    "paths.shaders_dir": ("paths", "shaders_dir"),
-    "paths.resourcepacks_dir": ("paths", "resourcepacks_dir"),
-    "download.max_concurrent": ("download", "max_concurrent"),
-    "download.verify_hash": ("download", "verify_hash"),
+# Key mapping for config command: key -> (section, field, type)
+CONFIG_KEY_MAP: dict[str, tuple[str, str, type]] = {
+    "minecraft.version": ("minecraft", "version", str),
+    "minecraft.mod_loader": ("minecraft", "mod_loader", str),
+    "minecraft.shader_loader": ("minecraft", "shader_loader", str),
+    "paths.minecraft_dir": ("paths", "minecraft_dir", str),
+    "paths.mods_dir": ("paths", "mods_dir", str),
+    "paths.shaders_dir": ("paths", "shaders_dir", str),
+    "paths.resourcepacks_dir": ("paths", "resourcepacks_dir", str),
+    "download.max_concurrent": ("download", "max_concurrent", int),
+    "download.verify_hash": ("download", "verify_hash", bool),
 }
 
 
@@ -369,7 +369,7 @@ def get_config_value(key: str, path: Path | None = None) -> str | int | bool | N
     if key not in CONFIG_KEY_MAP:
         return None
 
-    section, field = CONFIG_KEY_MAP[key]
+    section, field, _field_type = CONFIG_KEY_MAP[key]
 
     # Load config with tomlkit to preserve structure
     with open(config_path, encoding="utf-8") as f:
@@ -415,7 +415,7 @@ def set_config_value(key: str, value: str, path: Path | None = None) -> None:
     if key not in CONFIG_KEY_MAP:
         raise ValueError(f"Unknown config key: {key}")
 
-    section, field = CONFIG_KEY_MAP[key]
+    section, field, field_type = CONFIG_KEY_MAP[key]
 
     # Load config with tomlkit to preserve structure
     with open(config_path, encoding="utf-8") as f:
@@ -425,13 +425,11 @@ def set_config_value(key: str, value: str, path: Path | None = None) -> None:
     if section not in doc:
         doc[section] = tomlkit.table()
 
-    # Convert value to appropriate type based on field
+    # Convert value to appropriate type based on field_type
     converted_value: str | int | bool
-    if field == "max_concurrent":
-        # Integer field
+    if field_type is int:
         converted_value = int(value)
-    elif field == "verify_hash":
-        # Boolean field
+    elif field_type is bool:
         value_lower = value.lower()
         if value_lower in ("true", "1", "yes"):
             converted_value = True
@@ -440,7 +438,6 @@ def set_config_value(key: str, value: str, path: Path | None = None) -> None:
         else:
             raise ValueError(f"Invalid boolean value: {value}")
     else:
-        # String field
         converted_value = value
 
     # Set the value
@@ -474,7 +471,7 @@ def get_all_config_values(
         doc = tomlkit.load(f)
 
     result: dict[str, str | int | bool | None] = {}
-    for key, (section, field) in CONFIG_KEY_MAP.items():
+    for key, (section, field, _field_type) in CONFIG_KEY_MAP.items():
         value = None
         section_data = doc.get(section)
         if isinstance(section_data, dict):

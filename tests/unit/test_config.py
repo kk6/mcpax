@@ -1163,16 +1163,17 @@ class TestConfigKeyMap:
         assert set(CONFIG_KEY_MAP.keys()) == expected_keys
 
     def test_config_key_map_values_are_tuples(self) -> None:
-        """CONFIG_KEY_MAP values are tuples of (section, field)."""
+        """CONFIG_KEY_MAP values are tuples of (section, field, type)."""
         # Arrange
         from mcpax.core.config import CONFIG_KEY_MAP
 
         # Act & Assert
         for key, value in CONFIG_KEY_MAP.items():
             assert isinstance(value, tuple), f"Value for {key} is not a tuple"
-            assert len(value) == 2, f"Value for {key} does not have 2 elements"
+            assert len(value) == 3, f"Value for {key} does not have 3 elements"
             assert isinstance(value[0], str), f"Section for {key} is not a string"
             assert isinstance(value[1], str), f"Field for {key} is not a string"
+            assert isinstance(value[2], type), f"Type for {key} is not a type"
 
     def test_config_key_map_minecraft_version(self) -> None:
         """CONFIG_KEY_MAP maps minecraft.version correctly."""
@@ -1180,7 +1181,7 @@ class TestConfigKeyMap:
         from mcpax.core.config import CONFIG_KEY_MAP
 
         # Act & Assert
-        assert CONFIG_KEY_MAP["minecraft.version"] == ("minecraft", "version")
+        assert CONFIG_KEY_MAP["minecraft.version"] == ("minecraft", "version", str)
 
     def test_config_key_map_download_verify_hash(self) -> None:
         """CONFIG_KEY_MAP maps download.verify_hash correctly."""
@@ -1188,7 +1189,11 @@ class TestConfigKeyMap:
         from mcpax.core.config import CONFIG_KEY_MAP
 
         # Act & Assert
-        assert CONFIG_KEY_MAP["download.verify_hash"] == ("download", "verify_hash")
+        assert CONFIG_KEY_MAP["download.verify_hash"] == (
+            "download",
+            "verify_hash",
+            bool,
+        )
 
 
 class TestGetConfigValue:
