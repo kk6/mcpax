@@ -2039,6 +2039,114 @@ class TestListCommand:
         assert "→" in result.stdout or "0.5.0" in result.stdout
 
 
+class TestValidateListOptions:
+    """Tests for _validate_list_options helper function."""
+
+    def test_valid_options_returns_none(self) -> None:
+        """_validate_list_options returns None when all options are valid."""
+        from mcpax.cli.app import _validate_list_options
+
+        result = _validate_list_options(
+            type_filter="mod",
+            status_filter="installed",
+            no_update=False,
+            max_concurrency=5,
+        )
+
+        assert result is None
+
+    def test_invalid_type_filter_returns_error(self) -> None:
+        """_validate_list_options returns error message for invalid type."""
+        from mcpax.cli.app import _validate_list_options
+
+        result = _validate_list_options(
+            type_filter="invalid",
+            status_filter=None,
+            no_update=False,
+            max_concurrency=5,
+        )
+
+        assert result is not None
+        assert "invalid" in result.lower() or "type" in result.lower()
+
+    def test_invalid_status_filter_returns_error(self) -> None:
+        """_validate_list_options returns error message for invalid status."""
+        from mcpax.cli.app import _validate_list_options
+
+        result = _validate_list_options(
+            type_filter=None,
+            status_filter="invalid",
+            no_update=False,
+            max_concurrency=5,
+        )
+
+        assert result is not None
+        assert "invalid" in result.lower() or "status" in result.lower()
+
+    def test_no_update_with_outdated_status_returns_error(self) -> None:
+        """_validate_list_options returns error for --no-update with outdated status."""
+        from mcpax.cli.app import _validate_list_options
+
+        result = _validate_list_options(
+            type_filter=None,
+            status_filter="outdated",
+            no_update=True,
+            max_concurrency=5,
+        )
+
+        assert result is not None
+
+    def test_invalid_max_concurrency_returns_error(self) -> None:
+        """_validate_list_options returns error when max_concurrency < 1."""
+        from mcpax.cli.app import _validate_list_options
+
+        result = _validate_list_options(
+            type_filter=None,
+            status_filter=None,
+            no_update=False,
+            max_concurrency=0,
+        )
+
+        assert result is not None
+
+
+class TestFormatListJson:
+    """Tests for _format_list_json helper function."""
+
+    def test_format_list_json_returns_json_string(self) -> None:
+        """_format_list_json returns valid JSON string."""
+        from mcpax.cli.app import _format_list_json
+        from mcpax.core.models import InstallStatus
+
+        results = [
+            {
+                "slug": "sodium",
+                "title": "Sodium",
+                "type": ProjectType.MOD,
+                "status": InstallStatus.INSTALLED,
+                "current_version": "0.5.0",
+                "latest_version": "0.5.0",
+            }
+        ]
+
+        output = _format_list_json(results)
+        parsed = json.loads(output)
+
+        assert len(parsed) == 1
+        assert parsed[0]["slug"] == "sodium"
+        assert parsed[0]["type"] == "mod"
+        assert parsed[0]["status"] == "installed"
+
+    def test_format_list_json_empty_results(self) -> None:
+        """_format_list_json handles empty results."""
+        from mcpax.cli.app import _format_list_json
+
+        output = _format_list_json([])
+        parsed = json.loads(output)
+
+        assert parsed == []
+
+
 class TestSearchCommand:
     """Tests for search command."""
 

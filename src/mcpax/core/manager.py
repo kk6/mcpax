@@ -38,6 +38,7 @@ from mcpax.core.models import (
 
 logger = logging.getLogger(__name__)
 
+
 class ProjectManager:
     """Orchestrates project installation, updates, and state management."""
 
