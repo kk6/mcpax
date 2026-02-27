@@ -7,10 +7,6 @@ class MCPAXError(Exception):
     """Base exception for all mcpax errors."""
 
 
-# Backward compatibility alias (deprecated)
-McpaxError = MCPAXError
-
-
 class APIError(MCPAXError):
     """General API error."""
 

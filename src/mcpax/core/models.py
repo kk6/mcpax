@@ -151,6 +151,13 @@ class ProjectVersion(BaseModel):
     dependencies: list[Dependency]
     date_published: datetime
 
+    def get_primary_file(self) -> ProjectFile | None:
+        """Return the primary file, or the first file if none is marked primary."""
+        return next(
+            (f for f in self.files if f.primary),
+            self.files[0] if self.files else None,
+        )
+
 
 class SearchHit(BaseModel):
     """A single search result from Modrinth API."""

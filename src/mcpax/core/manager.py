@@ -38,9 +38,6 @@ from mcpax.core.models import (
 
 logger = logging.getLogger(__name__)
 
-# Type alias for update info mapping
-UpdateInfo = UpdateCheckResult
-
 
 class ProjectManager:
     """Orchestrates project installation, updates, and state management."""
@@ -422,10 +419,7 @@ class ProjectManager:
                 return InstallStatus.NOT_COMPATIBLE
 
             # Find primary file hash
-            primary_file = next(
-                (f for f in latest.files if f.primary),
-                latest.files[0] if latest.files else None,
-            )
+            primary_file = latest.get_primary_file()
             if (
                 primary_file
                 and installed.sha512.lower()
@@ -562,10 +556,7 @@ class ProjectManager:
                 title=title,
             )
 
-        primary_file = next(
-            (f for f in latest.files if f.primary),
-            latest.files[0] if latest.files else None,
-        )
+        primary_file = latest.get_primary_file()
 
         if installed is None:
             status = InstallStatus.NOT_INSTALLED
@@ -690,10 +681,7 @@ class ProjectManager:
             )
 
         # Compatible pinned version found
-        primary_file = next(
-            (f for f in pinned_version.files if f.primary),
-            pinned_version.files[0] if pinned_version.files else None,
-        )
+        primary_file = pinned_version.get_primary_file()
 
         if installed is None:
             status = InstallStatus.NOT_INSTALLED
@@ -751,7 +739,7 @@ class ProjectManager:
 
         # Create download tasks
         tasks: list[DownloadTask] = []
-        update_info: dict[str, UpdateInfo] = {}
+        update_info: dict[str, UpdateCheckResult] = {}
 
         # Process project results and create download tasks
         dest_dir = self._get_temp_download_dir()

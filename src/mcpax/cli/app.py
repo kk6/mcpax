@@ -58,7 +58,53 @@ app.add_typer(config_app, name="config")
 DEFAULT_MINECRAFT_VERSION = "1.21.4"
 DEFAULT_MINECRAFT_DIR = Path("~/.minecraft")
 VALID_PROJECT_TYPES = {"mod", "modpack", "shader", "resourcepack"}
+VALID_STATUS_FILTERS = {"installed", "not-installed", "outdated"}
 console = Console()
+
+
+def _validate_list_options(
+    type_filter: str | None,
+    status_filter: str | None,
+    no_update: bool,
+    max_concurrency: int,
+) -> str | None:
+    """Validate list command options. Returns error message or None if valid."""
+    if type_filter is not None and type_filter.lower() not in VALID_PROJECT_TYPES:
+        return (
+            f"Invalid type '{type_filter}'. "
+            f"Must be one of: {', '.join(VALID_PROJECT_TYPES)}."
+        )
+
+    if status_filter is not None:
+        status_filter_lower = status_filter.lower()
+        if status_filter_lower not in VALID_STATUS_FILTERS:
+            return (
+                f"Invalid status '{status_filter}'. "
+                f"Must be one of: {', '.join(VALID_STATUS_FILTERS)}."
+            )
+        if no_update and status_filter_lower == "outdated":
+            return "--status outdated is not supported with --no-update."
+
+    if max_concurrency < 1:
+        return "--max-concurrency must be a positive integer."
+
+    return None
+
+
+def _format_list_json(results: list[dict]) -> str:
+    """Format list results as a JSON string."""
+    json_data = [
+        {
+            "slug": p["slug"],
+            "title": p["title"],
+            "type": p["type"].value,
+            "status": p["status"].value,
+            "current_version": p["current_version"],
+            "latest_version": p["latest_version"],
+        }
+        for p in results
+    ]
+    return json.dumps(json_data, indent=2, ensure_ascii=False)
 
 
 def version_callback(value: bool) -> None:
@@ -541,14 +587,6 @@ def list_projects(
         mcpax list --no-cache
         mcpax list --max-concurrency 5
     """
-    # Check if config.toml exists
-    config_path = get_default_config_path()
-    if not config_path.exists():
-        console.print(
-            "[red]Error:[/red] config.toml not found. Run 'mcpax init' first."
-        )
-        raise typer.Exit(code=1)
-
     # Load config
     try:
         config = load_config()
@@ -558,31 +596,12 @@ def list_projects(
         )
         raise typer.Exit(code=1) from None
 
-    # Validate type filter
-    if type_filter is not None and type_filter.lower() not in VALID_PROJECT_TYPES:
-        console.print(
-            f"[red]Error:[/red] Invalid type '{type_filter}'. "
-            f"Must be one of: {', '.join(VALID_PROJECT_TYPES)}."
-        )
-        raise typer.Exit(code=1)
-
-    # Validate status filter
-    valid_statuses = {"installed", "not-installed", "outdated"}
-    if status_filter is not None and status_filter.lower() not in valid_statuses:
-        console.print(
-            f"[red]Error:[/red] Invalid status '{status_filter}'. "
-            f"Must be one of: {', '.join(valid_statuses)}."
-        )
-        raise typer.Exit(code=1)
-
-    if no_update and status_filter is not None and status_filter.lower() == "outdated":
-        console.print(
-            "[red]Error:[/red] --status outdated is not supported with --no-update."
-        )
-        raise typer.Exit(code=1)
-
-    if max_concurrency < 1:
-        console.print("[red]Error:[/red] --max-concurrency must be a positive integer.")
+    # Validate options
+    validation_error = _validate_list_options(
+        type_filter, status_filter, no_update, max_concurrency
+    )
+    if validation_error is not None:
+        console.print(f"[red]Error:[/red] {validation_error}")
         raise typer.Exit(code=1)
 
     # Load existing projects
@@ -702,18 +721,7 @@ def list_projects(
 
     # Output in JSON format
     if json_output:
-        json_data = [
-            {
-                "slug": p["slug"],
-                "title": p["title"],
-                "type": p["type"].value,
-                "status": p["status"].value,
-                "current_version": p["current_version"],
-                "latest_version": p["latest_version"],
-            }
-            for p in project_info_list
-        ]
-        console.print(json.dumps(json_data, indent=2, ensure_ascii=False))
+        console.print(_format_list_json(project_info_list))
         raise typer.Exit(code=0)
 
     # Group by project type
