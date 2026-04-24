@@ -282,7 +282,7 @@ class TestAddCommand:
             versions=["v1", "v2"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
 
@@ -313,7 +313,7 @@ class TestAddCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
 
@@ -345,7 +345,7 @@ class TestAddCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
 
@@ -377,7 +377,7 @@ class TestAddCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
 
@@ -398,7 +398,7 @@ class TestAddCommand:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         runner.invoke(app, ["init", "-y"])
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(
                 side_effect=ProjectNotFoundError("nonexistent")
@@ -431,7 +431,7 @@ class TestAddCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
 
@@ -465,7 +465,7 @@ class TestAddCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
 
@@ -529,7 +529,7 @@ class TestRemoveCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
@@ -562,7 +562,7 @@ class TestRemoveCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
@@ -596,7 +596,7 @@ class TestRemoveCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
@@ -632,14 +632,14 @@ class TestRemoveCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
         # Mock the file deletion helper
         with patch(
-            "mcpax.cli.app._remove_installed_file_with_manager"
+            "mcpax.cli.commands.remove._remove_installed_file_with_manager"
         ) as mock_remove_file:
             mock_remove_file.return_value = (True, "sodium-0.5.0.jar")
 
@@ -670,14 +670,14 @@ class TestRemoveCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
         # Mock the file deletion helper - returns False (not installed)
         with patch(
-            "mcpax.cli.app._remove_installed_file_with_manager"
+            "mcpax.cli.commands.remove._remove_installed_file_with_manager"
         ) as mock_remove_file:
             mock_remove_file.return_value = (False, None)
 
@@ -725,14 +725,14 @@ class TestRemoveCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
         # Mock the file deletion helper
         with patch(
-            "mcpax.cli.app._remove_installed_file_with_manager"
+            "mcpax.cli.commands.remove._remove_installed_file_with_manager"
         ) as mock_remove_file:
             mock_remove_file.return_value = (True, "sodium-0.5.0.jar")
 
@@ -770,13 +770,13 @@ class TestInstallCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
         # Mock ProjectManager for install
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.install.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -840,7 +840,7 @@ class TestInstallCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(
                 side_effect=[mock_project_sodium, mock_project_lithium]
@@ -849,7 +849,7 @@ class TestInstallCommand:
             runner.invoke(app, ["add", "lithium"])
 
         # Mock ProjectManager for install
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.install.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -957,13 +957,13 @@ class TestInstallCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
         # Mock ProjectManager to return NOT_COMPATIBLE
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.install.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1007,13 +1007,13 @@ class TestInstallCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
         # Mock ProjectManager to return INSTALLED
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.install.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1114,13 +1114,13 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1138,7 +1138,7 @@ class TestListCommand:
                 return_value=[mock_check_result]
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(return_value=mock_project)
 
@@ -1179,14 +1179,14 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(side_effect=[mock_mod, mock_shader])
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "complementary-unbound"])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1216,7 +1216,7 @@ class TestListCommand:
                 return_value=mock_check_results
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(
                     side_effect=[mock_mod, mock_shader]
@@ -1260,14 +1260,14 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(side_effect=[mock_mod, mock_shader])
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "complementary-unbound"])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1297,7 +1297,7 @@ class TestListCommand:
                 return_value=mock_check_results
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(
                     side_effect=[mock_mod, mock_shader]
@@ -1343,14 +1343,14 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(side_effect=[mock_mod, mock_shader])
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "complementary-unbound"])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1380,7 +1380,7 @@ class TestListCommand:
                 return_value=mock_check_results
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(
                     side_effect=[mock_mod, mock_shader]
@@ -1426,7 +1426,7 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(
                 side_effect=[mock_sodium, mock_lithium]
@@ -1435,7 +1435,7 @@ class TestListCommand:
             runner.invoke(app, ["add", "lithium"])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1465,7 +1465,7 @@ class TestListCommand:
                 return_value=mock_check_results
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(
                     side_effect=[mock_sodium, mock_lithium]
@@ -1511,7 +1511,7 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(
                 side_effect=[mock_sodium, mock_lithium]
@@ -1520,7 +1520,7 @@ class TestListCommand:
             runner.invoke(app, ["add", "lithium"])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1550,7 +1550,7 @@ class TestListCommand:
                 return_value=mock_check_results
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(
                     side_effect=[mock_sodium, mock_lithium]
@@ -1594,7 +1594,7 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(
                 side_effect=[mock_sodium, mock_lithium]
@@ -1603,7 +1603,7 @@ class TestListCommand:
             runner.invoke(app, ["add", "lithium"])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1633,7 +1633,7 @@ class TestListCommand:
                 return_value=mock_check_results
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(
                     side_effect=[mock_sodium, mock_lithium]
@@ -1666,13 +1666,13 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1690,7 +1690,7 @@ class TestListCommand:
                 return_value=[mock_check_result]
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(return_value=mock_project)
 
@@ -1776,7 +1776,7 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
@@ -1798,12 +1798,12 @@ class TestListCommand:
         )
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             mock_manager_instance.get_installed_file = AsyncMock(return_value=installed)
             mock_manager_instance.check_updates = AsyncMock()
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(return_value=mock_project)
 
@@ -1857,14 +1857,14 @@ class TestListCommand:
         ]
         project_map = {project.slug: project for project in mock_projects}
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(side_effect=mock_projects)
             for project in mock_projects:
                 runner.invoke(app, ["add", project.slug])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
 
             # Note: After Issue #101 optimization, list command no longer makes
@@ -1887,7 +1887,7 @@ class TestListCommand:
             # Mock get_installed_file to return None (not installed)
             mock_manager_instance.get_installed_file = AsyncMock(return_value=None)
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(side_effect=tracked_get_project)
 
@@ -1930,7 +1930,7 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(
                 side_effect=[mock_sodium, mock_lithium]
@@ -1939,7 +1939,7 @@ class TestListCommand:
             runner.invoke(app, ["add", "lithium"])
 
         # Mock ProjectManager for listing
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -1969,7 +1969,7 @@ class TestListCommand:
                 return_value=mock_check_results
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(
                     side_effect=[mock_sodium, mock_lithium]
@@ -2002,13 +2002,13 @@ class TestListCommand:
             versions=["v1"],
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
         # Mock ProjectManager for listing with outdated status
-        with patch("mcpax.cli.app.ProjectManager") as MockManager:
+        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
             mock_manager_instance = MockManager.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
@@ -2026,7 +2026,7 @@ class TestListCommand:
                 return_value=[mock_check_result]
             )
 
-            with patch("mcpax.cli.app.ModrinthClient") as MockClient2:
+            with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
                 mock_instance2.get_project = AsyncMock(return_value=mock_project)
 
@@ -2044,7 +2044,7 @@ class TestValidateListOptions:
 
     def test_valid_options_returns_none(self) -> None:
         """_validate_list_options returns None when all options are valid."""
-        from mcpax.cli.app import _validate_list_options
+        from mcpax.cli.formatters import _validate_list_options
 
         result = _validate_list_options(
             type_filter="mod",
@@ -2057,7 +2057,7 @@ class TestValidateListOptions:
 
     def test_invalid_type_filter_returns_error(self) -> None:
         """_validate_list_options returns error message for invalid type."""
-        from mcpax.cli.app import _validate_list_options
+        from mcpax.cli.formatters import _validate_list_options
 
         result = _validate_list_options(
             type_filter="invalid",
@@ -2071,7 +2071,7 @@ class TestValidateListOptions:
 
     def test_invalid_status_filter_returns_error(self) -> None:
         """_validate_list_options returns error message for invalid status."""
-        from mcpax.cli.app import _validate_list_options
+        from mcpax.cli.formatters import _validate_list_options
 
         result = _validate_list_options(
             type_filter=None,
@@ -2085,7 +2085,7 @@ class TestValidateListOptions:
 
     def test_no_update_with_outdated_status_returns_error(self) -> None:
         """_validate_list_options returns error for --no-update with outdated status."""
-        from mcpax.cli.app import _validate_list_options
+        from mcpax.cli.formatters import _validate_list_options
 
         result = _validate_list_options(
             type_filter=None,
@@ -2098,7 +2098,7 @@ class TestValidateListOptions:
 
     def test_invalid_max_concurrency_returns_error(self) -> None:
         """_validate_list_options returns error when max_concurrency < 1."""
-        from mcpax.cli.app import _validate_list_options
+        from mcpax.cli.formatters import _validate_list_options
 
         result = _validate_list_options(
             type_filter=None,
@@ -2115,7 +2115,7 @@ class TestFormatListJson:
 
     def test_format_list_json_returns_json_string(self) -> None:
         """_format_list_json returns valid JSON string."""
-        from mcpax.cli.app import _format_list_json
+        from mcpax.cli.formatters import _format_list_json
         from mcpax.core.models import InstallStatus
 
         results = [
@@ -2139,7 +2139,7 @@ class TestFormatListJson:
 
     def test_format_list_json_empty_results(self) -> None:
         """_format_list_json handles empty results."""
-        from mcpax.cli.app import _format_list_json
+        from mcpax.cli.formatters import _format_list_json
 
         output = _format_list_json([])
         parsed = json.loads(output)
@@ -2169,7 +2169,7 @@ class TestSearchCommand:
             limit=10,
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.search.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.search = AsyncMock(return_value=mock_result)
 
@@ -2207,7 +2207,7 @@ class TestSearchCommand:
             limit=10,
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.search.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.search = AsyncMock(return_value=mock_result)
 
@@ -2238,7 +2238,7 @@ class TestSearchCommand:
             limit=10,
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.search.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.search = AsyncMock(return_value=mock_result)
 
@@ -2269,7 +2269,7 @@ class TestSearchCommand:
             limit=10,
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.search.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.search = AsyncMock(return_value=mock_result)
 
@@ -2301,7 +2301,7 @@ class TestSearchCommand:
             limit=5,
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.search.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.search = AsyncMock(return_value=mock_result)
 
@@ -2331,7 +2331,7 @@ class TestSearchCommand:
             limit=10,
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.search.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.search = AsyncMock(return_value=mock_result)
 
@@ -2363,7 +2363,7 @@ class TestSearchCommand:
             limit=10,
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.search.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.search = AsyncMock(return_value=mock_result)
 
@@ -2393,7 +2393,7 @@ class TestSearchCommand:
             limit=10,
         )
 
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.search.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.search = AsyncMock(return_value=mock_result)
 
@@ -2407,7 +2407,7 @@ class TestSearchCommand:
     def test_search_api_error(self) -> None:
         """Test that search command handles API errors gracefully."""
         # Arrange
-        with patch("mcpax.cli.app.ModrinthClient") as MockClient:
+        with patch("mcpax.cli.commands.search.ModrinthClient") as MockClient:
             mock_instance = MockClient.return_value.__aenter__.return_value
             mock_instance.search = AsyncMock(side_effect=APIError("API error"))
 
@@ -2434,7 +2434,7 @@ class TestUpdateCommand:
     def test_update_no_config(self) -> None:
         """Test that update command fails when config.toml does not exist."""
         # Arrange
-        with patch("mcpax.cli.app.load_config") as mock_load:
+        with patch("mcpax.cli.commands.update.load_config") as mock_load:
             mock_load.side_effect = FileNotFoundError()
 
             # Act
@@ -2500,11 +2500,14 @@ class TestUpdateCommand:
 
         with (
             patch(
-                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+                "mcpax.cli.commands.update.get_default_config_path",
+                return_value=mock_config_path,
             ),
-            patch("mcpax.cli.app.load_config", return_value=mock_config),
-            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
-            patch("mcpax.cli.app.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.load_config", return_value=mock_config),
+            patch(
+                "mcpax.cli.commands.update.load_projects", return_value=mock_projects
+            ),
+            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
         ):
             mock_instance = MockManager.return_value.__aenter__.return_value
             mock_instance.check_updates = AsyncMock(return_value=mock_results)
@@ -2550,11 +2553,14 @@ class TestUpdateCommand:
 
         with (
             patch(
-                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+                "mcpax.cli.commands.update.get_default_config_path",
+                return_value=mock_config_path,
             ),
-            patch("mcpax.cli.app.load_config", return_value=mock_config),
-            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
-            patch("mcpax.cli.app.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.load_config", return_value=mock_config),
+            patch(
+                "mcpax.cli.commands.update.load_projects", return_value=mock_projects
+            ),
+            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
         ):
             mock_instance = MockManager.return_value.__aenter__.return_value
             mock_instance.check_updates = AsyncMock(return_value=mock_results)
@@ -2613,11 +2619,14 @@ class TestUpdateCommand:
 
         with (
             patch(
-                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+                "mcpax.cli.commands.update.get_default_config_path",
+                return_value=mock_config_path,
             ),
-            patch("mcpax.cli.app.load_config", return_value=mock_config),
-            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
-            patch("mcpax.cli.app.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.load_config", return_value=mock_config),
+            patch(
+                "mcpax.cli.commands.update.load_projects", return_value=mock_projects
+            ),
+            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
         ):
             mock_instance = MockManager.return_value.__aenter__.return_value
             mock_instance.check_updates = AsyncMock(return_value=mock_results)
@@ -2714,11 +2723,14 @@ class TestUpdateCommand:
 
         with (
             patch(
-                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+                "mcpax.cli.commands.update.get_default_config_path",
+                return_value=mock_config_path,
             ),
-            patch("mcpax.cli.app.load_config", return_value=mock_config),
-            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
-            patch("mcpax.cli.app.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.load_config", return_value=mock_config),
+            patch(
+                "mcpax.cli.commands.update.load_projects", return_value=mock_projects
+            ),
+            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
         ):
             mock_instance = MockManager.return_value.__aenter__.return_value
             mock_instance.check_updates = AsyncMock(return_value=mock_results)
@@ -2791,12 +2803,15 @@ class TestUpdateCommand:
 
         with (
             patch(
-                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+                "mcpax.cli.commands.update.get_default_config_path",
+                return_value=mock_config_path,
             ),
-            patch("mcpax.cli.app.load_config", return_value=mock_config),
-            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
-            patch("mcpax.cli.app.ProjectManager") as MockManager,
-            patch("mcpax.cli.app.typer.confirm", return_value=True),
+            patch("mcpax.cli.commands.update.load_config", return_value=mock_config),
+            patch(
+                "mcpax.cli.commands.update.load_projects", return_value=mock_projects
+            ),
+            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.typer.confirm", return_value=True),
         ):
             mock_instance = MockManager.return_value.__aenter__.return_value
             mock_instance.check_updates = AsyncMock(return_value=mock_results)
@@ -2863,12 +2878,15 @@ class TestUpdateCommand:
 
         with (
             patch(
-                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+                "mcpax.cli.commands.update.get_default_config_path",
+                return_value=mock_config_path,
             ),
-            patch("mcpax.cli.app.load_config", return_value=mock_config),
-            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
-            patch("mcpax.cli.app.ProjectManager") as MockManager,
-            patch("mcpax.cli.app.typer.confirm", return_value=False),
+            patch("mcpax.cli.commands.update.load_config", return_value=mock_config),
+            patch(
+                "mcpax.cli.commands.update.load_projects", return_value=mock_projects
+            ),
+            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.typer.confirm", return_value=False),
         ):
             mock_instance = MockManager.return_value.__aenter__.return_value
             mock_instance.check_updates = AsyncMock(return_value=mock_results)
@@ -2939,12 +2957,15 @@ class TestUpdateCommand:
 
         with (
             patch(
-                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+                "mcpax.cli.commands.update.get_default_config_path",
+                return_value=mock_config_path,
             ),
-            patch("mcpax.cli.app.load_config", return_value=mock_config),
-            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
-            patch("mcpax.cli.app.ProjectManager") as MockManager,
-            patch("mcpax.cli.app.typer.confirm") as mock_confirm,
+            patch("mcpax.cli.commands.update.load_config", return_value=mock_config),
+            patch(
+                "mcpax.cli.commands.update.load_projects", return_value=mock_projects
+            ),
+            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.typer.confirm") as mock_confirm,
         ):
             mock_instance = MockManager.return_value.__aenter__.return_value
             mock_instance.check_updates = AsyncMock(return_value=mock_results)
@@ -3004,11 +3025,14 @@ class TestUpdateCommand:
 
         with (
             patch(
-                "mcpax.cli.app.get_default_config_path", return_value=mock_config_path
+                "mcpax.cli.commands.update.get_default_config_path",
+                return_value=mock_config_path,
             ),
-            patch("mcpax.cli.app.load_config", return_value=mock_config),
-            patch("mcpax.cli.app.load_projects", return_value=mock_projects),
-            patch("mcpax.cli.app.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.load_config", return_value=mock_config),
+            patch(
+                "mcpax.cli.commands.update.load_projects", return_value=mock_projects
+            ),
+            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
         ):
             mock_instance = MockManager.return_value.__aenter__.return_value
             mock_instance.check_updates = AsyncMock(return_value=mock_results)
