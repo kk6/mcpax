@@ -6,6 +6,7 @@ import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import tomlkit
 
@@ -383,8 +384,7 @@ def get_config_value(key: str, path: Path | None = None) -> str | int | bool | N
     if not isinstance(section_data, dict):
         return None
 
-    # Type assertion for dict access
-    section_dict: dict[str, object] = section_data  # type: ignore[assignment]
+    section_dict = cast("dict[str, Any]", section_data)
     if field not in section_dict:
         return None
 
@@ -440,8 +440,8 @@ def set_config_value(key: str, value: str, path: Path | None = None) -> None:
     else:
         converted_value = value
 
-    # Set the value
-    doc[section][field] = converted_value  # type: ignore[index]
+    section_data = cast("dict[str, Any]", doc[section])
+    section_data[field] = converted_value
 
     # Write back to file
     with open(config_path, "w", encoding="utf-8") as f:

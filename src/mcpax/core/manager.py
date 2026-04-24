@@ -1,40 +1,29 @@
 """Project management orchestration."""
 
-import asyncio
-import json
 import logging
-import shutil
-from datetime import UTC, datetime
 from pathlib import Path
 from types import TracebackType
 from typing import Self
 
-import httpx
-
 from mcpax.core.api import ModrinthClient
 from mcpax.core.downloader import Downloader, DownloaderConfig
-from mcpax.core.exceptions import (
-    APIError,
-    FileOperationError,
-    ProjectNotFoundError,
-    StateFileError,
-    UnsupportedProjectTypeError,
-)
+from mcpax.core.file_service import FileService
+from mcpax.core.install_planner import InstallPlanner
 from mcpax.core.models import (
     AppConfig,
-    DownloadTask,
-    FailedUpdate,
     InstalledFile,
     InstallStatus,
     ProjectConfig,
     ProjectFile,
     ProjectType,
-    ProjectVersion,
-    ReleaseChannel,
     StateFile,
     UpdateCheckResult,
     UpdateResult,
 )
+from mcpax.core.state_store import StateStore
+from mcpax.core.update_applier import UpdateApplier
+from mcpax.core.update_checker import UpdateChecker
+from mcpax.core.version_resolver import VersionResolver
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +32,6 @@ class ProjectManager:
     """Orchestrates project installation, updates, and state management."""
 
     STATE_FILE_NAME = ".mcpax-state.json"
-    BACKUP_DIR_NAME = ".mcpax-backup"
     STATE_VERSION = 1
 
     def __init__(
@@ -64,6 +52,12 @@ class ProjectManager:
         self._downloader = downloader
         self._owns_api_client = api_client is None
         self._owns_downloader = downloader is None
+        self._version_resolver = VersionResolver()
+        self._install_planner = InstallPlanner()
+        self._file_service = FileService(config)
+        self._state_store = StateStore(config)
+        self._update_checker: UpdateChecker | None = None
+        self._update_applier: UpdateApplier | None = None
 
     async def __aenter__(self) -> Self:
         """Async context manager entry."""
@@ -104,7 +98,7 @@ class ProjectManager:
     @property
     def _state_file_path(self) -> Path:
         """Path to state file."""
-        return self._config.minecraft_dir / self.STATE_FILE_NAME
+        return self._state_store.path
 
     async def _load_state(self) -> StateFile:
         """Load state from file.
@@ -115,30 +109,7 @@ class ProjectManager:
         Raises:
             StateFileError: If file exists but cannot be parsed
         """
-        if not self._state_file_path.exists():
-            return StateFile()
-
-        def _sync_load() -> dict:
-            with open(self._state_file_path, encoding="utf-8") as f:
-                return json.load(f)
-
-        try:
-            data = await asyncio.to_thread(_sync_load)
-
-            # Convert file entries to InstalledFile
-            files = {}
-            for slug, file_data in data.get("files", {}).items():
-                file_data["file_path"] = Path(file_data["file_path"])
-                file_data["project_type"] = ProjectType(file_data["project_type"])
-                files[slug] = InstalledFile.model_validate(file_data)
-
-            return StateFile(version=data.get("version", 1), files=files)
-
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
-            raise StateFileError(
-                f"Failed to parse state file: {e}",
-                path=self._state_file_path,
-            ) from e
+        return await self._state_store.load()
 
     async def _save_state(self, state: StateFile) -> None:
         """Save state to file.
@@ -149,25 +120,7 @@ class ProjectManager:
         Raises:
             StateFileError: If save fails
         """
-        data = {
-            "version": state.version,
-            "files": {
-                slug: file.model_dump(mode="json") for slug, file in state.files.items()
-            },
-        }
-
-        def _sync_save() -> None:
-            self._state_file_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._state_file_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-
-        try:
-            await asyncio.to_thread(_sync_save)
-        except OSError as e:
-            raise StateFileError(
-                f"Failed to save state file: {e}",
-                path=self._state_file_path,
-            ) from e
+        await self._state_store.save(state)
 
     async def _save_installed_file(self, installed: InstalledFile) -> None:
         """Add or update installed file in state.
@@ -175,9 +128,7 @@ class ProjectManager:
         Args:
             installed: InstalledFile to save
         """
-        state = await self._load_state()
-        state.files[installed.slug] = installed
-        await self._save_state(state)
+        await self._state_store.save_installed_file(installed)
 
     async def _remove_installed_file(self, slug: str) -> None:
         """Remove installed file from state.
@@ -185,10 +136,7 @@ class ProjectManager:
         Args:
             slug: Project slug to remove
         """
-        state = await self._load_state()
-        if slug in state.files:
-            del state.files[slug]
-            await self._save_state(state)
+        await self._state_store.remove_installed_file(slug)
 
     # File Management Functions (F-401 to F-404)
 
@@ -205,22 +153,7 @@ class ProjectManager:
             UnsupportedProjectTypeError: If project_type is not supported
                 for installation
         """
-        type_to_dir = {
-            ProjectType.MOD: (
-                self._config.mods_dir or self._config.minecraft_dir / "mods"
-            ),
-            ProjectType.SHADER: (
-                self._config.shaders_dir or self._config.minecraft_dir / "shaderpacks"
-            ),
-            ProjectType.RESOURCEPACK: (
-                self._config.resourcepacks_dir
-                or self._config.minecraft_dir / "resourcepacks"
-            ),
-        }
-        try:
-            return type_to_dir[project_type]
-        except KeyError:
-            raise UnsupportedProjectTypeError(project_type.value) from None
+        return self._file_service.get_target_directory(project_type)
 
     async def place_file(self, src: Path, dest_dir: Path) -> Path:
         """Move downloaded file to target directory.
@@ -236,16 +169,7 @@ class ProjectManager:
             FileOperationError: If move fails
         """
 
-        def _sync_place() -> Path:
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            dest = dest_dir / src.name
-            shutil.move(str(src), str(dest))
-            return dest
-
-        try:
-            return await asyncio.to_thread(_sync_place)
-        except OSError as e:
-            raise FileOperationError(f"Failed to move file: {e}", path=src) from e
+        return await self._file_service.place_file(src, dest_dir)
 
     async def backup_file(
         self,
@@ -264,22 +188,7 @@ class ProjectManager:
         Raises:
             FileOperationError: If backup fails
         """
-        backup_dir = backup_dir or self._config.minecraft_dir / self.BACKUP_DIR_NAME
-
-        def _sync_backup() -> Path:
-            backup_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-            backup_name = f"{file_path.stem}_{timestamp}{file_path.suffix}"
-            backup_path = backup_dir / backup_name
-            shutil.copy2(str(file_path), str(backup_path))
-            return backup_path
-
-        try:
-            return await asyncio.to_thread(_sync_backup)
-        except OSError as e:
-            raise FileOperationError(
-                f"Failed to backup file: {e}", path=file_path
-            ) from e
+        return await self._file_service.backup_file(file_path, backup_dir)
 
     async def delete_file(self, file_path: Path) -> bool:
         """Delete specified file.
@@ -294,18 +203,7 @@ class ProjectManager:
             FileOperationError: If deletion fails
         """
 
-        def _sync_delete() -> bool:
-            if file_path.exists():
-                file_path.unlink()
-                return True
-            return False
-
-        try:
-            return await asyncio.to_thread(_sync_delete)
-        except OSError as e:
-            raise FileOperationError(
-                f"Failed to delete file: {e}", path=file_path
-            ) from e
+        return await self._file_service.delete_file(file_path)
 
     async def uninstall_project(self, slug: str) -> tuple[bool, str | None]:
         """Uninstall a project by removing its file and state.
@@ -343,8 +241,7 @@ class ProjectManager:
         Returns:
             InstalledFile if installed, None otherwise
         """
-        state = await self._load_state()
-        return state.files.get(slug)
+        return await self._state_store.get_installed_file(slug)
 
     async def get_install_status(
         self,
@@ -365,75 +262,10 @@ class ProjectManager:
             - NOT_COMPATIBLE: No compatible version exists for current config
             - CHECK_FAILED: Could not check status due to API/network error
         """
-        installed = await self.get_installed_file(slug)
-        if installed is None:
-            return InstallStatus.NOT_INSTALLED
-
-        # Check if file still exists
-        if not installed.file_path.exists():
-            return InstallStatus.NOT_INSTALLED
-
-        # Get latest version to compare
-        if self._api_client is None:
-            msg = "API client not initialized. Use async context manager."
-            raise RuntimeError(msg)
-
-        try:
-            versions = await self._api_client.get_versions(slug)
-            channel = (
-                project_config.channel
-                if project_config is not None
-                else ReleaseChannel.RELEASE
-            )
-            shader_loader = (
-                self._config.shader_loader
-                if installed.project_type == ProjectType.SHADER
-                else None
-            )
-
-            # If version is pinned, use pinned logic
-            if project_config is not None and project_config.version is not None:
-                pinned_version, _error = self._get_pinned_compatible_version(
-                    versions,
-                    project_config.version,
-                    installed.project_type,
-                    channel,
-                )
-
-                if pinned_version is None:
-                    return InstallStatus.NOT_COMPATIBLE
-
-                latest = pinned_version
-            else:
-                # Non-pinned: use existing logic
-                latest = self._api_client.get_latest_compatible_version(
-                    versions,
-                    self._config.minecraft_version,
-                    self._config.mod_loader,
-                    channel=channel,
-                    project_type=installed.project_type,
-                    shader_loader=shader_loader,
-                )
-
-            if latest is None:
-                return InstallStatus.NOT_COMPATIBLE
-
-            # Find primary file hash
-            primary_file = latest.get_primary_file()
-            if (
-                primary_file
-                and installed.sha512.lower()
-                != primary_file.hashes.get("sha512", "").lower()
-            ):
-                return InstallStatus.OUTDATED
-
-            return InstallStatus.INSTALLED
-        except (APIError, httpx.HTTPError):
-            logger.exception(
-                "Failed to check latest version for slug '%s'; status check failed",
-                slug,
-            )
-            return InstallStatus.CHECK_FAILED
+        return await self._get_update_checker().get_install_status(
+            slug,
+            project_config,
+        )
 
     # Update Management Functions (F-501 to F-503)
 
@@ -471,237 +303,29 @@ class ProjectManager:
         Returns:
             List of UpdateCheckResult for each project
         """
+        return await self._get_update_checker().check_updates(
+            projects,
+            max_concurrency,
+        )
+
+    async def _check_single_update(self, project: ProjectConfig) -> UpdateCheckResult:
+        """Check update for a single project."""
+        return await self._get_update_checker().check_single_update(project)
+
+    def _get_update_checker(self) -> UpdateChecker:
+        """Return an update checker backed by the initialized API client."""
         if self._api_client is None:
             msg = "API client not initialized. Use async context manager."
             raise RuntimeError(msg)
 
-        if max_concurrency < 1:
-            msg = "max_concurrency must be a positive integer."
-            raise ValueError(msg)
-
-        semaphore = asyncio.Semaphore(max_concurrency)
-
-        async def _check_project(project: ProjectConfig) -> UpdateCheckResult:
-            async with semaphore:
-                try:
-                    return await self._check_single_update(project)
-                except Exception as e:
-                    logger.warning("Failed to check update for %s: %s", project.slug, e)
-                    return UpdateCheckResult(
-                        slug=project.slug,
-                        project_type=project.project_type,
-                        status=InstallStatus.CHECK_FAILED,
-                        current_version=None,
-                        current_file=None,
-                        latest_version=None,
-                        latest_version_id=None,
-                        latest_file=None,
-                        error=str(e),
-                    )
-
-        return await asyncio.gather(*(_check_project(project) for project in projects))
-
-    async def _check_single_update(self, project: ProjectConfig) -> UpdateCheckResult:
-        """Check update for a single project."""
-        if self._api_client is None:
-            msg = "API client not initialized"
-            raise RuntimeError(msg)
-
-        installed = await self.get_installed_file(project.slug)
-        project_type = project.project_type
-
-        # Get project info to retrieve title (cached, so minimal cost)
-        title: str | None = None
-        try:
-            project_info = await self._api_client.get_project(project.slug)
-            title = project_info.title
-        except (APIError, ProjectNotFoundError) as e:
-            # If project fetch fails, continue without title
-            logger.warning(
-                "Failed to fetch title for project '%s': %s", project.slug, e
+        if self._update_checker is None:
+            self._update_checker = UpdateChecker(
+                config=self._config,
+                api_client=self._api_client,
+                state_store=self._state_store,
+                version_resolver=self._version_resolver,
             )
-
-        # Get all versions
-        versions = await self._api_client.get_versions(project.slug)
-
-        # If version is pinned, use pinned logic
-        if project.version is not None:
-            return await self._resolve_pinned_version(
-                project, versions, installed, project_type, title
-            )
-
-        # Non-pinned: use existing logic
-        shader_loader = (
-            self._config.shader_loader if project_type == ProjectType.SHADER else None
-        )
-        latest = self._api_client.get_latest_compatible_version(
-            versions,
-            self._config.minecraft_version,
-            self._config.mod_loader,
-            project.channel,
-            project_type=project_type,
-            shader_loader=shader_loader,
-        )
-
-        if latest is None:
-            return UpdateCheckResult(
-                slug=project.slug,
-                project_type=project_type,
-                status=InstallStatus.NOT_COMPATIBLE,
-                current_version=installed.version_number if installed else None,
-                current_file=installed,
-                latest_version=None,
-                latest_version_id=None,
-                latest_file=None,
-                title=title,
-            )
-
-        primary_file = latest.get_primary_file()
-
-        if installed is None:
-            status = InstallStatus.NOT_INSTALLED
-        elif self.needs_update(installed, primary_file):
-            status = InstallStatus.OUTDATED
-        else:
-            status = InstallStatus.INSTALLED
-
-        return UpdateCheckResult(
-            slug=project.slug,
-            project_type=project_type,
-            status=status,
-            current_version=installed.version_number if installed else None,
-            current_file=installed,
-            latest_version=latest.version_number,
-            latest_version_id=latest.id,
-            latest_file=primary_file,
-            title=title,
-        )
-
-    def _get_pinned_compatible_version(
-        self,
-        versions: list[ProjectVersion],
-        version_number: str,
-        project_type: ProjectType,
-        channel: ReleaseChannel | None = None,
-    ) -> tuple[ProjectVersion | None, str | None]:
-        """Get pinned version and check compatibility.
-
-        Args:
-            versions: All available versions
-            version_number: Pinned version number
-            project_type: Project type
-            channel: Release channel filter
-
-        Returns:
-            Tuple of (pinned_version, error_message).
-            If successful, returns (version, None).
-            If failed, returns (None, error_message).
-        """
-        if self._api_client is None:
-            msg = "API client not initialized"
-            raise RuntimeError(msg)
-
-        # Find the pinned version
-        pinned_version = self._api_client.find_version_by_number(
-            versions, version_number
-        )
-
-        if pinned_version is None:
-            return None, f"Pinned version {version_number} not found"
-
-        # Check if the pinned version is compatible
-        shader_loader = (
-            self._config.shader_loader if project_type == ProjectType.SHADER else None
-        )
-        # Use default channel if not specified
-        release_channel = channel if channel is not None else ReleaseChannel.RELEASE
-        compatible_versions = self._api_client.filter_compatible_versions(
-            [pinned_version],
-            self._config.minecraft_version,
-            self._config.mod_loader,
-            release_channel,
-            project_type=project_type,
-            shader_loader=shader_loader,
-        )
-
-        if not compatible_versions:
-            return None, f"Pinned version {version_number} is not compatible"
-
-        return pinned_version, None
-
-    async def _resolve_pinned_version(
-        self,
-        project: ProjectConfig,
-        versions: list[ProjectVersion],
-        installed: InstalledFile | None,
-        project_type: ProjectType,
-        title: str | None = None,
-    ) -> UpdateCheckResult:
-        """Resolve pinned version.
-
-        Args:
-            project: Project configuration with pinned version
-            versions: All available versions
-            installed: Currently installed file
-            project_type: Project type
-            title: Project title (optional)
-
-        Returns:
-            UpdateCheckResult with pinned=True
-        """
-        if self._api_client is None:
-            msg = "API client not initialized"
-            raise RuntimeError(msg)
-
-        # Ensure version is not None (should be guaranteed by caller)
-        version_number = project.version
-        if version_number is None:
-            msg = "_resolve_pinned_version called without pinned version"
-            raise RuntimeError(msg)
-
-        # Use helper method to get pinned compatible version
-        pinned_version, error = self._get_pinned_compatible_version(
-            versions, version_number, project_type, project.channel
-        )
-
-        if pinned_version is None:
-            # Version not found or not compatible
-            return UpdateCheckResult(
-                slug=project.slug,
-                project_type=project_type,
-                status=InstallStatus.NOT_COMPATIBLE,
-                current_version=installed.version_number if installed else None,
-                current_file=installed,
-                latest_version=None,
-                latest_version_id=None,
-                latest_file=None,
-                error=error,
-                pinned=True,
-                title=title,
-            )
-
-        # Compatible pinned version found
-        primary_file = pinned_version.get_primary_file()
-
-        if installed is None:
-            status = InstallStatus.NOT_INSTALLED
-        elif self.needs_update(installed, primary_file):
-            status = InstallStatus.OUTDATED
-        else:
-            status = InstallStatus.INSTALLED
-
-        return UpdateCheckResult(
-            slug=project.slug,
-            project_type=project_type,
-            status=status,
-            current_version=installed.version_number if installed else None,
-            current_file=installed,
-            latest_version=pinned_version.version_number,
-            latest_version_id=pinned_version.id,
-            latest_file=primary_file,
-            pinned=True,
-            title=title,
-        )
+        return self._update_checker
 
     async def apply_updates(
         self,
@@ -721,152 +345,47 @@ class ProjectManager:
             msg = "API client or downloader not initialized. Use async context manager."
             raise RuntimeError(msg)
 
-        # Filter to only updates that need action
-        to_update = [
-            u
-            for u in updates
-            if u.status in (InstallStatus.NOT_INSTALLED, InstallStatus.OUTDATED)
-        ]
-
-        if not to_update:
-            return UpdateResult(successful=[], failed=[], backed_up=[])
-
-        result = UpdateResult(successful=[], failed=[], backed_up=[])
-
-        # Load state once at the beginning
-        state = await self._load_state()
-        state_modified = False
-
-        # Create download tasks
-        tasks: list[DownloadTask] = []
-        update_info: dict[str, UpdateCheckResult] = {}
-
-        # Process project results and create download tasks
-        dest_dir = self._get_temp_download_dir()
-        dest_dir.mkdir(parents=True, exist_ok=True)
-
-        try:
-            for update in to_update:
-                if update.latest_file is None:
-                    result.failed.append(
-                        FailedUpdate(
-                            slug=update.slug, error="No compatible version found"
-                        )
-                    )
-                    continue
-
-                task = DownloadTask(
-                    url=update.latest_file.url,
-                    dest=dest_dir / update.latest_file.filename,
-                    expected_hash=update.latest_file.hashes.get("sha512"),
-                    slug=update.slug,
-                    version_number=update.latest_version or "unknown",
-                )
-                tasks.append(task)
-                update_info[update.slug] = update
-
-            # Download all files
-            if tasks:
-                download_results = await self._downloader.download_all(tasks)
-
-                for download_result in download_results:
-                    slug = download_result.task.slug
-                    if not download_result.success:
-                        result.failed.append(
-                            FailedUpdate(
-                                slug=slug,
-                                error=download_result.error or "Download failed",
-                            )
-                        )
-                        continue
-
-                    update = update_info[slug]
-                    final_path: Path | None = None
-
-                    try:
-                        if update.latest_version_id is None:
-                            result.failed.append(
-                                FailedUpdate(
-                                    slug=slug, error="Latest version id is None"
-                                )
-                            )
-                            continue
-
-                        # Place new file
-                        target_dir = self.get_target_directory(update.project_type)
-                        if download_result.file_path is None:
-                            result.failed.append(
-                                FailedUpdate(slug=slug, error="Download path is None")
-                            )
-                            continue
-
-                        final_path = await self.place_file(
-                            download_result.file_path, target_dir
-                        )
-
-                        # Backup and delete old file after new placement succeeds
-                        if (
-                            update.current_file
-                            and update.current_file.file_path.exists()
-                            and update.current_file.file_path != final_path
-                        ):
-                            if backup:
-                                backup_path = await self.backup_file(
-                                    update.current_file.file_path
-                                )
-                                result.backed_up.append(backup_path)
-                            await self.delete_file(update.current_file.file_path)
-
-                        # Update state
-                        if update.latest_file is None:
-                            result.failed.append(
-                                FailedUpdate(slug=slug, error="Latest file is None")
-                            )
-                            continue
-
-                        installed_file = InstalledFile(
-                            slug=slug,
-                            project_type=update.project_type,
-                            filename=final_path.name,
-                            version_id=update.latest_version_id,
-                            version_number=update.latest_version or "unknown",
-                            sha512=update.latest_file.hashes.get("sha512", ""),
-                            installed_at=datetime.now(UTC),
-                            file_path=final_path,
-                        )
-                        # Update state in memory
-                        state.files[slug] = installed_file
-                        state_modified = True
-                        result.successful.append(slug)
-
-                    except (
-                        FileOperationError,
-                        UnsupportedProjectTypeError,
-                        OSError,
-                    ) as e:
-                        if final_path and final_path.exists():
-                            try:
-                                await self.delete_file(final_path)
-                            except (FileOperationError, OSError) as rollback_error:
-                                logger.error(
-                                    "Failed to rollback new file %s: %s",
-                                    final_path,
-                                    rollback_error,
-                                )
-                        result.failed.append(FailedUpdate(slug=slug, error=str(e)))
-
-            # Save state once at the end if modified
-            if state_modified:
-                await self._save_state(state)
-        finally:
-            try:
-                if dest_dir.exists():
-                    shutil.rmtree(dest_dir)
-            except OSError:
-                logger.warning("Failed to clean up temporary directory: %s", dest_dir)
-
-        return result
+        return await self._get_update_applier().apply_updates(updates, backup)
 
     def _get_temp_download_dir(self) -> Path:
         """Get temporary download directory."""
-        return self._config.minecraft_dir / ".mcpax-downloads"
+        return self._get_update_applier().get_temp_download_dir()
+
+    def _get_update_applier(self) -> UpdateApplier:
+        """Return an update applier backed by the initialized downloader."""
+        if self._downloader is None:
+            msg = "Downloader not initialized. Use async context manager."
+            raise RuntimeError(msg)
+
+        if self._update_applier is None:
+            self._update_applier = UpdateApplier(
+                minecraft_dir=self._config.minecraft_dir,
+                downloader=self._downloader,
+                install_planner=self._install_planner,
+                file_service=_ProjectManagerFileServiceAdapter(self),
+                state_store=self._state_store,
+            )
+        return self._update_applier
+
+
+class _ProjectManagerFileServiceAdapter:
+    """Route file operations through ProjectManager compatibility methods."""
+
+    def __init__(self, manager: ProjectManager) -> None:
+        self._manager = manager
+
+    def get_target_directory(self, project_type: ProjectType) -> Path:
+        return self._manager.get_target_directory(project_type)
+
+    async def place_file(self, src: Path, dest_dir: Path) -> Path:
+        return await self._manager.place_file(src, dest_dir)
+
+    async def backup_file(
+        self,
+        file_path: Path,
+        backup_dir: Path | None = None,
+    ) -> Path:
+        return await self._manager.backup_file(file_path, backup_dir)
+
+    async def delete_file(self, file_path: Path) -> bool:
+        return await self._manager.delete_file(file_path)
