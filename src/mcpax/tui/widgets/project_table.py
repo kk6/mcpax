@@ -8,7 +8,7 @@ from textual.widgets import DataTable
 from mcpax.core.models import InstallStatus, UpdateCheckResult
 
 
-class ProjectTable(DataTable[str]):
+class ProjectTable(DataTable[str | Text]):
     """DataTable widget for displaying project information."""
 
     COLUMNS = [
@@ -82,7 +82,7 @@ class ProjectTable(DataTable[str]):
             self.add_row(
                 project.slug,
                 project.project_type.value,
-                self._render_status_cell(project.status),  # type: ignore[arg-type]
+                self._render_status_cell(project.status),
                 project.current_version or "-",
                 project.latest_version or "-",
                 key=project.slug,

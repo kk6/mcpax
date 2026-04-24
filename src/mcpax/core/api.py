@@ -19,6 +19,7 @@ from mcpax.core.models import (
     ReleaseChannel,
     SearchResult,
 )
+from mcpax.core.version_resolver import VersionCriteria, VersionResolver
 
 
 @dataclass
@@ -316,48 +317,16 @@ class ModrinthClient:
         Returns:
             Filtered list of compatible versions (newest first)
         """
-        # Channel hierarchy: RELEASE < BETA < ALPHA
-        channel_order = {
-            ReleaseChannel.RELEASE: 0,
-            ReleaseChannel.BETA: 1,
-            ReleaseChannel.ALPHA: 2,
-        }
-        min_channel_value = channel_order[channel]
-
-        compatible = []
-        for version in versions:
-            # Check Minecraft version
-            if minecraft_version not in version.game_versions:
-                continue
-
-            # Check loader
-            loader_to_check: Loader | None = None
-            if project_type == ProjectType.SHADER:
-                loader_to_check = shader_loader
-            elif project_type != ProjectType.RESOURCEPACK:
-                loader_to_check = loader
-
-            if loader_to_check is not None:
-                loader_str = loader_to_check.value.lower()
-                loaders_lower = [name.lower() for name in version.loaders]
-                if (
-                    version.loaders
-                    and "minecraft" not in loaders_lower
-                    and loader_str not in loaders_lower
-                ):
-                    continue
-
-            # Check release channel
-            version_channel_value = channel_order[version.version_type]
-            if version_channel_value > min_channel_value:
-                continue
-
-            compatible.append(version)
-
-        # Sort by date (newest first)
-        compatible.sort(key=lambda v: v.date_published, reverse=True)
-
-        return compatible
+        return VersionResolver().filter_compatible_versions(
+            versions,
+            VersionCriteria(
+                minecraft_version=minecraft_version,
+                mod_loader=loader,
+                channel=channel,
+                project_type=project_type,
+                shader_loader=shader_loader,
+            ),
+        )
 
     def get_latest_compatible_version(
         self,
@@ -382,10 +351,16 @@ class ModrinthClient:
         Returns:
             Latest compatible ProjectVersion or None
         """
-        compatible = self.filter_compatible_versions(
-            versions, minecraft_version, loader, channel, project_type, shader_loader
+        return VersionResolver().latest_compatible_version(
+            versions,
+            VersionCriteria(
+                minecraft_version=minecraft_version,
+                mod_loader=loader,
+                channel=channel,
+                project_type=project_type,
+                shader_loader=shader_loader,
+            ),
         )
-        return compatible[0] if compatible else None
 
     def find_version_by_number(
         self,
@@ -401,7 +376,4 @@ class ModrinthClient:
         Returns:
             ProjectVersion with matching version_number or None
         """
-        for version in versions:
-            if version.version_number == version_number:
-                return version
-        return None
+        return VersionResolver().find_version_by_number(versions, version_number)
