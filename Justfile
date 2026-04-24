@@ -122,7 +122,9 @@ release new_version:
     uv build
     echo "Artifacts in dist/"
     git add pyproject.toml
-    git commit -m "chore: bump version to {{ new_version }}"
+    if ! git diff --cached --quiet; then
+        git commit -m "chore: bump version to {{ new_version }}"
+    fi
     git tag -a "v{{ new_version }}" -m "Release v{{ new_version }}"
     echo "Done — push with: git push origin main --tags"
 
