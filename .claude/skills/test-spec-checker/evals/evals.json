@@ -1,0 +1,29 @@
+{
+  "skill_name": "test-spec-checker",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "modelsモジュールのテスト仕様カバレッジをチェックして",
+      "expected_output": "models.pyの公開API一覧とtest_models.pyのテスト一覧を比較し、ギャップ・矛盾・古いテストを特定したレポート",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "CLIの仕様カバレッジをチェックして",
+      "expected_output": "cli/app.pyの全コマンド・オプションとtest_cli.pyのテストを比較し、カバレッジレポートを出力",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "coreのテストと実装に矛盾がないか確認して",
+      "expected_output": "core/以下の全モジュールとそれぞれのテストを比較し、矛盾に焦点を当てたレポート",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "リポジトリ全体のテスト仕様カバレッジを監査して",
+      "expected_output": "src/mcpax/以下の全モジュール(core, cli, tui)とtests/以下の全テストを包括的に比較した監査レポート",
+      "files": []
+    }
+  ]
+}

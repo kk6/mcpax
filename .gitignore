@@ -97,3 +97,4 @@ uv.lock
 config.toml
 projects.toml
 .claude/tmp/
+.claude/skills/*-workspace/
