@@ -81,6 +81,51 @@ ci: ci-japanese ci-fmt ci-lint typecheck test
 act *args:
     act {{ args }}
 
+# ─── Release ──────────────────────────────────────────────────────────────────
+
+# Show current version
+[group('release')]
+version:
+    @grep '^version' pyproject.toml | cut -d'"' -f2
+
+# Set version in pyproject.toml (e.g.: just bump 0.12.0)
+[group('release')]
+bump new_version:
+    sed -i '' 's/^version = ".*"/version = "{{ new_version }}"/' pyproject.toml
+    @echo "Version → {{ new_version }}"
+
+# Build wheel and sdist into dist/
+[group('release')]
+build:
+    uv build
+    @echo "Artifacts in dist/"
+
+# Create annotated git tag for the current version (run after committing the bump)
+[group('release')]
+tag:
+    #!/usr/bin/env bash
+    ver=$(grep '^version' pyproject.toml | cut -d'"' -f2)
+    git tag -a "v${ver}" -m "Release v${ver}"
+    echo "Tagged v${ver} — push with: git push origin v${ver}"
+
+# Bump version, build, commit, and tag in one step (e.g.: just release 0.12.0)
+[group('release')]
+release new_version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! git diff --quiet; then
+        echo "Error: unstaged changes detected — commit or stash them first."
+        exit 1
+    fi
+    sed -i '' 's/^version = ".*"/version = "{{ new_version }}"/' pyproject.toml
+    echo "Version → {{ new_version }}"
+    uv build
+    echo "Artifacts in dist/"
+    git add pyproject.toml
+    git commit -m "chore: bump version to {{ new_version }}"
+    git tag -a "v{{ new_version }}" -m "Release v{{ new_version }}"
+    echo "Done — push with: git push origin main --tags"
+
 # ─── Application ──────────────────────────────────────────────────────────────
 
 # Run mcpax CLI (pass args: just run --help)
