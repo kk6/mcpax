@@ -5,8 +5,6 @@ from pathlib import Path
 import pytest
 
 from mcpax.core.config import (
-    ConfigValidationError,
-    ValidationError,
     generate_config,
     generate_projects,
     get_config_dir,
@@ -18,6 +16,7 @@ from mcpax.core.config import (
     save_projects,
     validate_config,
 )
+from mcpax.core.exceptions import ConfigValidationError, ValidationError
 from mcpax.core.models import (
     AppConfig,
     Loader,

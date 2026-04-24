@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from mcpax.core.config import ConfigValidationError
+from mcpax.core.exceptions import ConfigValidationError
 from mcpax.core.models import AppConfig, Loader
 from mcpax.tui.app import McpaxApp
 from mcpax.tui.screens import MainScreen

@@ -288,7 +288,7 @@ async def test_search_screen_add_project_with_invalid_config(make_search_hit) ->
         limit=MODRINTH_SEARCH_LIMIT,
     )
 
-    from mcpax.core.config import ConfigValidationError
+    from mcpax.core.exceptions import ConfigValidationError
 
     with (
         patch("mcpax.tui.screens.search.ModrinthClient") as mock_client_class,

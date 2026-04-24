@@ -1,10 +1,42 @@
 """Exceptions for mcpax."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
 
 class MCPAXError(Exception):
     """Base exception for all mcpax errors."""
+
+
+class ConfigError(MCPAXError):
+    """General configuration error."""
+
+
+@dataclass
+class ValidationError:
+    """Individual validation error detail."""
+
+    field: str
+    message: str
+    value: str | None = None
+
+
+class ConfigValidationError(ConfigError):
+    """Raised when config validation finds one or more issues."""
+
+    def __init__(
+        self,
+        message: str,
+        errors: list[ValidationError] | None = None,
+    ) -> None:
+        """Initialize ConfigValidationError.
+
+        Args:
+            message: Error message
+            errors: Individual validation errors
+        """
+        super().__init__(message)
+        self.errors = errors or []
 
 
 class APIError(MCPAXError):

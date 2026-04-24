@@ -4,7 +4,8 @@ from pathlib import Path
 
 from textual.app import App
 
-from mcpax.core.config import ConfigValidationError, load_config
+from mcpax.core.config import load_config
+from mcpax.core.exceptions import ConfigValidationError
 from mcpax.core.models import AppConfig
 from mcpax.tui.screens import MainScreen
 

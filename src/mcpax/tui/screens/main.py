@@ -8,7 +8,8 @@ from textual.screen import Screen
 from textual.widgets import DataTable, Footer
 from textual.worker import Worker, WorkerState
 
-from mcpax.core.config import ConfigValidationError, load_config, load_projects
+from mcpax.core.config import load_config, load_projects
+from mcpax.core.exceptions import ConfigValidationError
 from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
     AppConfig,

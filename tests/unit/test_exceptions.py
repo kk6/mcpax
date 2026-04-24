@@ -4,6 +4,8 @@ from pathlib import Path
 
 from mcpax.core.exceptions import (
     APIError,
+    ConfigError,
+    ConfigValidationError,
     DownloadError,
     FileOperationError,
     HashMismatchError,
@@ -12,6 +14,7 @@ from mcpax.core.exceptions import (
     RateLimitError,
     StateFileError,
     UnsupportedProjectTypeError,
+    ValidationError,
 )
 
 
@@ -21,6 +24,48 @@ class TestMCPAXError:
     def test_inherits_from_exception(self) -> None:
         """MCPAXError inherits from Exception."""
         assert issubclass(MCPAXError, Exception)
+
+
+class TestConfigError:
+    """Tests for ConfigError."""
+
+    def test_inherits_from_mcpax_error(self) -> None:
+        """ConfigError inherits from MCPAXError."""
+        assert issubclass(ConfigError, MCPAXError)
+
+
+class TestValidationError:
+    """Tests for ValidationError."""
+
+    def test_stores_field_message_and_value(self) -> None:
+        """ValidationError stores validation details."""
+        error = ValidationError(
+            field="minecraft.version",
+            message="Invalid version",
+            value="latest",
+        )
+
+        assert error.field == "minecraft.version"
+        assert error.message == "Invalid version"
+        assert error.value == "latest"
+
+
+class TestConfigValidationError:
+    """Tests for ConfigValidationError."""
+
+    def test_inherits_from_config_error(self) -> None:
+        """ConfigValidationError inherits from ConfigError."""
+        error = ConfigValidationError("Invalid config")
+
+        assert isinstance(error, ConfigError)
+
+    def test_stores_errors_list(self) -> None:
+        """ConfigValidationError stores validation errors."""
+        errors = [ValidationError(field="minecraft.version", message="Invalid")]
+        error = ConfigValidationError("Invalid config", errors=errors)
+
+        assert str(error) == "Invalid config"
+        assert error.errors == errors
 
 
 class TestAPIError:

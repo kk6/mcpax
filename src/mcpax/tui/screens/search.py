@@ -9,12 +9,8 @@ from textual.widgets import Footer, Static
 from textual.worker import Worker, WorkerState
 
 from mcpax.core.api import ModrinthClient
-from mcpax.core.config import (
-    ConfigValidationError,
-    load_config,
-    load_projects,
-    save_projects,
-)
+from mcpax.core.config import load_config, load_projects, save_projects
+from mcpax.core.exceptions import ConfigValidationError
 from mcpax.core.models import (
     INSTALLABLE_PROJECT_TYPES,
     ProjectConfig,

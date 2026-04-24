@@ -4,12 +4,12 @@ import errno
 import os
 import re
 import tomllib
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 import tomlkit
 
+from .exceptions import ConfigValidationError, ValidationError
 from .models import AppConfig, Loader, ProjectConfig, ProjectType, ReleaseChannel
 
 # Constants
@@ -28,22 +28,6 @@ CONFIG_KEY_MAP: dict[str, tuple[str, str, type]] = {
     "download.max_concurrent": ("download", "max_concurrent", int),
     "download.verify_hash": ("download", "verify_hash", bool),
 }
-
-
-@dataclass
-class ValidationError:
-    """A single validation error."""
-
-    field: str
-    message: str
-
-
-class ConfigValidationError(Exception):
-    """Configuration validation failed."""
-
-    def __init__(self, message: str, errors: list[ValidationError] | None = None):
-        super().__init__(message)
-        self.errors = errors or []
 
 
 def get_config_dir() -> Path:
@@ -476,7 +460,7 @@ def get_all_config_values(
         section_data = doc.get(section)
         if isinstance(section_data, dict):
             raw_value = section_data.get(field)
-            if isinstance(raw_value, (str, int, bool)):
+            if isinstance(raw_value, str | int | bool):
                 value = raw_value
         result[key] = value
 
