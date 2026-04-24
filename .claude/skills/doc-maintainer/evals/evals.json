@@ -1,0 +1,23 @@
+{
+  "skill_name": "doc-maintainer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "READMEが古くなってないかチェックして",
+      "expected_output": "README.mdの各セクションを実装・テストと照合し、古くなっている箇所と最新の箇所を報告するレポート",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "CLIのドキュメントを最新の実装に合わせて更新して",
+      "expected_output": "test_cli.pyとcli/app.pyから仕様を抽出し、README.mdのCLI関連セクションを実際に更新する",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "TUIの使い方ガイドを書いて",
+      "expected_output": "TUIテストと実装からスクリーン一覧、キーバインド、操作フローを抽出し、新規ドキュメントを生成する",
+      "files": []
+    }
+  ]
+}
