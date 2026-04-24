@@ -29,6 +29,8 @@ CONFIG_KEY_MAP: dict[str, tuple[str, str, type]] = {
     "download.verify_hash": ("download", "verify_hash", bool),
 }
 
+ConfigValue = str | int | bool
+
 
 def get_config_dir() -> Path:
     """Get XDG Base Directory compliant config directory.
@@ -332,7 +334,99 @@ def validate_config(config: AppConfig) -> list[ValidationError]:
     return errors
 
 
-def get_config_value(key: str, path: Path | None = None) -> str | int | bool | None:
+class ConfigAccessor:
+    """Read and update config.toml through dot-notation keys."""
+
+    def __init__(self, config_path: Path | None = None) -> None:
+        self.config_path = config_path or get_default_config_path()
+
+    def _ensure_exists(self) -> None:
+        if not self.config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {self.config_path}")
+
+    def _load_doc(self) -> tomlkit.TOMLDocument:
+        self._ensure_exists()
+        with open(self.config_path, encoding="utf-8") as f:
+            return tomlkit.load(f)
+
+    def _write_doc(self, doc: tomlkit.TOMLDocument) -> None:
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            f.write(tomlkit.dumps(doc))
+
+    def get(self, key: str) -> ConfigValue | None:
+        """Get a config value by dot notation key."""
+        if key not in CONFIG_KEY_MAP:
+            return None
+
+        section, field, _field_type = CONFIG_KEY_MAP[key]
+        doc = self._load_doc()
+        section_data = doc.get(section)
+        if not isinstance(section_data, dict):
+            return None
+
+        raw_value = section_data.get(field)
+        if isinstance(raw_value, str | int | bool):
+            return raw_value
+        return None
+
+    def values(self) -> dict[str, ConfigValue | None]:
+        """Get all supported config values keyed by dot notation."""
+        doc = self._load_doc()
+        result: dict[str, ConfigValue | None] = {}
+        for key, (section, field, _field_type) in CONFIG_KEY_MAP.items():
+            value = None
+            section_data = doc.get(section)
+            if isinstance(section_data, dict):
+                raw_value = section_data.get(field)
+                if isinstance(raw_value, str | int | bool):
+                    value = raw_value
+            result[key] = value
+        return result
+
+    def set(self, key: str, value: str) -> None:
+        """Set a config value by dot notation key."""
+        if key not in CONFIG_KEY_MAP:
+            raise ValueError(f"Unknown config key: {key}")
+
+        section, field, field_type = CONFIG_KEY_MAP[key]
+        doc = self._load_doc()
+
+        if section not in doc:
+            doc[section] = tomlkit.table()
+
+        converted_value: ConfigValue
+        if field_type is int:
+            converted_value = int(value)
+        elif field_type is bool:
+            value_lower = value.lower()
+            if value_lower in ("true", "1", "yes"):
+                converted_value = True
+            elif value_lower in ("false", "0", "no"):
+                converted_value = False
+            else:
+                raise ValueError(f"Invalid boolean value: {value}")
+        else:
+            converted_value = value
+
+        section_data = cast("dict[str, Any]", doc[section])
+        section_data[field] = converted_value
+        self._write_doc(doc)
+
+    def validate(self) -> list[ValidationError]:
+        """Validate the config file as an AppConfig."""
+        return validate_config(self.app_config)
+
+    def save(self) -> None:
+        """Persist the current TOML document without changing values."""
+        self._write_doc(self._load_doc())
+
+    @property
+    def app_config(self) -> AppConfig:
+        """Return a typed AppConfig view of this file."""
+        return load_config(self.config_path)
+
+
+def get_config_value(key: str, path: Path | None = None) -> ConfigValue | None:
     """Get a config value by dot notation key.
 
     Args:
@@ -345,37 +439,7 @@ def get_config_value(key: str, path: Path | None = None) -> str | int | bool | N
     Raises:
         FileNotFoundError: If config file doesn't exist
     """
-    config_path = path or get_default_config_path()
-
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-
-    # Check if key is valid
-    if key not in CONFIG_KEY_MAP:
-        return None
-
-    section, field, _field_type = CONFIG_KEY_MAP[key]
-
-    # Load config with tomlkit to preserve structure
-    with open(config_path, encoding="utf-8") as f:
-        doc = tomlkit.load(f)
-
-    # Navigate to section and field
-    if section not in doc:
-        return None
-
-    section_data = doc[section]
-    if not isinstance(section_data, dict):
-        return None
-
-    section_dict = cast("dict[str, Any]", section_data)
-    if field not in section_dict:
-        return None
-
-    value = section_dict[field]
-    if isinstance(value, str | int | bool):
-        return value
-    return None
+    return ConfigAccessor(path).get(key)
 
 
 def set_config_value(key: str, value: str, path: Path | None = None) -> None:
@@ -390,51 +454,12 @@ def set_config_value(key: str, value: str, path: Path | None = None) -> None:
         ValueError: If key is invalid
         FileNotFoundError: If config file doesn't exist
     """
-    config_path = path or get_default_config_path()
-
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-
-    # Check if key is valid
-    if key not in CONFIG_KEY_MAP:
-        raise ValueError(f"Unknown config key: {key}")
-
-    section, field, field_type = CONFIG_KEY_MAP[key]
-
-    # Load config with tomlkit to preserve structure
-    with open(config_path, encoding="utf-8") as f:
-        doc = tomlkit.load(f)
-
-    # Create section if it doesn't exist
-    if section not in doc:
-        doc[section] = tomlkit.table()
-
-    # Convert value to appropriate type based on field_type
-    converted_value: str | int | bool
-    if field_type is int:
-        converted_value = int(value)
-    elif field_type is bool:
-        value_lower = value.lower()
-        if value_lower in ("true", "1", "yes"):
-            converted_value = True
-        elif value_lower in ("false", "0", "no"):
-            converted_value = False
-        else:
-            raise ValueError(f"Invalid boolean value: {value}")
-    else:
-        converted_value = value
-
-    section_data = cast("dict[str, Any]", doc[section])
-    section_data[field] = converted_value
-
-    # Write back to file
-    with open(config_path, "w", encoding="utf-8") as f:
-        f.write(tomlkit.dumps(doc))
+    ConfigAccessor(path).set(key, value)
 
 
 def get_all_config_values(
     path: Path | None = None,
-) -> dict[str, str | int | bool | None]:
+) -> dict[str, ConfigValue | None]:
     """Get all config values as flat dict with dot notation keys.
 
     Args:
@@ -446,22 +471,4 @@ def get_all_config_values(
     Raises:
         FileNotFoundError: If config file doesn't exist
     """
-    config_path = path or get_default_config_path()
-
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-
-    with open(config_path, encoding="utf-8") as f:
-        doc = tomlkit.load(f)
-
-    result: dict[str, str | int | bool | None] = {}
-    for key, (section, field, _field_type) in CONFIG_KEY_MAP.items():
-        value = None
-        section_data = doc.get(section)
-        if isinstance(section_data, dict):
-            raw_value = section_data.get(field)
-            if isinstance(raw_value, str | int | bool):
-                value = raw_value
-        result[key] = value
-
-    return result
+    return ConfigAccessor(path).values()

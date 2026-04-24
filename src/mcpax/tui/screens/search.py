@@ -1,6 +1,7 @@
 """Search screen for displaying Modrinth search results."""
 
 import json
+from collections.abc import Callable
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -13,6 +14,7 @@ from mcpax.core.config import load_config, load_projects, save_projects
 from mcpax.core.exceptions import ConfigValidationError
 from mcpax.core.models import (
     INSTALLABLE_PROJECT_TYPES,
+    AppConfig,
     ProjectConfig,
     ProjectType,
     SearchHit,
@@ -31,7 +33,15 @@ class SearchScreen(Screen[bool]):
         Binding("a", "add_project", "Add"),
     ]
 
-    def __init__(self, query: str, project_type: ProjectType | None) -> None:
+    def __init__(
+        self,
+        query: str,
+        project_type: ProjectType | None,
+        config: AppConfig | None = None,
+        load_projects_func: Callable[[], list[ProjectConfig]] | None = None,
+        save_projects_func: Callable[[list[ProjectConfig]], object] | None = None,
+        load_config_func: Callable[[], AppConfig] | None = None,
+    ) -> None:
         """Initialize SearchScreen.
 
         Args:
@@ -41,6 +51,10 @@ class SearchScreen(Screen[bool]):
         super().__init__()
         self._query = query
         self._project_type = project_type
+        self._config = config
+        self._load_projects = load_projects_func or load_projects
+        self._save_projects = save_projects_func or save_projects
+        self._load_config = load_config_func or load_config
         self._added = False
 
     def compose(self) -> ComposeResult:
@@ -125,12 +139,13 @@ class SearchScreen(Screen[bool]):
             VersionSelectScreen,
         )
 
-        try:
-            # Load config to get minecraft version and mod loader
-            config = load_config()
-        except (FileNotFoundError, ConfigValidationError) as e:
-            self.notify(f"Failed to load config: {e}", severity="error")
-            return
+        config = self._config
+        if config is None:
+            try:
+                config = self._load_config()
+            except (FileNotFoundError, ConfigValidationError) as e:
+                self.notify(f"Failed to load config: {e}", severity="error")
+                return
 
         # Push version selection screen
         version_select_screen = VersionSelectScreen(
@@ -138,7 +153,9 @@ class SearchScreen(Screen[bool]):
             project_type=hit.project_type,
             minecraft_version=config.minecraft_version,
             mod_loader=config.mod_loader.value,
-            shader_loader=config.shader_loader.value if config.shader_loader else None,
+            shader_loader=(
+                config.shader_loader.value if config.shader_loader else None
+            ),
         )
 
         selected_version = await self.app.push_screen_wait(version_select_screen)
@@ -161,7 +178,7 @@ class SearchScreen(Screen[bool]):
             version: Optional version to pin
         """
         try:
-            projects = load_projects()
+            projects = self._load_projects()
         except FileNotFoundError:
             projects = []
         except ConfigValidationError as e:
@@ -177,7 +194,7 @@ class SearchScreen(Screen[bool]):
         projects.append(
             ProjectConfig(slug=hit.slug, project_type=hit.project_type, version=version)
         )
-        save_projects(projects)
+        self._save_projects(projects)
         self._added = True
 
         if version:

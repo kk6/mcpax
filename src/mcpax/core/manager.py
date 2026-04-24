@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Self, cast
 
 from mcpax.core.api import ModrinthClient
 from mcpax.core.downloader import Downloader, DownloaderConfig
@@ -20,6 +20,7 @@ from mcpax.core.models import (
     UpdateCheckResult,
     UpdateResult,
 )
+from mcpax.core.protocols import ModrinthClientProtocol
 from mcpax.core.state_store import StateStore
 from mcpax.core.update_applier import UpdateApplier
 from mcpax.core.update_checker import UpdateChecker
@@ -78,7 +79,7 @@ class _FileFacade(_StateFacade):
 
 
 class _ServiceFactory(_FileFacade):
-    _api_client: ModrinthClient | None
+    _api_client: ModrinthClientProtocol | None
     _config: AppConfig
     _downloader: Downloader | None
     _install_planner: InstallPlanner
@@ -123,7 +124,7 @@ class ProjectManager(_ServiceFactory):
     def __init__(
         self,
         config: AppConfig,
-        api_client: ModrinthClient | None = None,
+        api_client: ModrinthClientProtocol | None = None,
         downloader: Downloader | None = None,
     ) -> None:
         self._config = config
@@ -160,7 +161,9 @@ class ProjectManager(_ServiceFactory):
     ) -> None:
         if self._owns_api_client and self._api_client:
             try:
-                await self._api_client.__aexit__(exc_type, exc_val, exc_tb)
+                await cast(ModrinthClient, self._api_client).__aexit__(
+                    exc_type, exc_val, exc_tb
+                )
             except Exception as e:
                 logger.error("Failed to cleanup API client: %s", e)
         if self._owns_downloader and self._downloader:

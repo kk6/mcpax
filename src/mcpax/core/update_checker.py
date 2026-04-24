@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from typing import Protocol
 
 import httpx
 
@@ -11,7 +10,6 @@ from mcpax.core.models import (
     AppConfig,
     InstalledFile,
     InstallStatus,
-    ModrinthProject,
     ProjectConfig,
     ProjectFile,
     ProjectType,
@@ -19,18 +17,11 @@ from mcpax.core.models import (
     ReleaseChannel,
     UpdateCheckResult,
 )
+from mcpax.core.protocols import ModrinthClientProtocol
 from mcpax.core.state_store import StateStore
 from mcpax.core.version_resolver import VersionCriteria, VersionResolver
 
 logger = logging.getLogger(__name__)
-
-
-class ProjectVersionClient(Protocol):
-    """API operations needed for update checking."""
-
-    async def get_project(self, slug: str) -> ModrinthProject: ...
-
-    async def get_versions(self, slug: str) -> list[ProjectVersion]: ...
 
 
 class UpdateChecker:
@@ -39,7 +30,7 @@ class UpdateChecker:
     def __init__(
         self,
         config: AppConfig,
-        api_client: ProjectVersionClient,
+        api_client: ModrinthClientProtocol,
         state_store: StateStore,
         version_resolver: VersionResolver | None = None,
     ) -> None:

@@ -13,6 +13,7 @@ from mcpax.core.exceptions import (
 from mcpax.core.file_service import FileService
 from mcpax.core.install_planner import InstallPlan, InstallPlanner
 from mcpax.core.manager import ProjectManager
+from mcpax.core.protocols import ModrinthClientProtocol
 from mcpax.core.state_store import StateStore
 from mcpax.core.update_applier import UpdateApplier
 from mcpax.core.update_checker import UpdateChecker
@@ -27,6 +28,7 @@ __all__ = [
     "InstallPlanner",
     "MCPAXError",
     "ModrinthClient",
+    "ModrinthClientProtocol",
     "ProjectManager",
     "ProjectNotFoundError",
     "RateLimitError",

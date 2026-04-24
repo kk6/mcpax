@@ -1736,3 +1736,70 @@ verify_hash = true
         # Assert
         assert "minecraft.version" in result
         assert result["minecraft.version"] == "1.21.4"
+
+
+class TestConfigAccessor:
+    """Tests for ConfigAccessor class."""
+
+    def test_get_returns_config_value(self, sample_config: Path) -> None:
+        """ConfigAccessor.get retrieves a dot-notation value."""
+        from mcpax.core.config import ConfigAccessor
+
+        accessor = ConfigAccessor(sample_config)
+
+        assert accessor.get("minecraft.version") == "1.21.4"
+
+    def test_set_preserves_comments(self, tmp_path: Path) -> None:
+        """ConfigAccessor.set updates values while preserving TOML formatting."""
+        from mcpax.core.config import ConfigAccessor
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+# Minecraft settings
+[minecraft]
+version = "1.21.4"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "/tmp/.minecraft"
+""",
+            encoding="utf-8",
+        )
+
+        ConfigAccessor(config_file).set("minecraft.version", "1.21.5")
+
+        content = config_file.read_text(encoding="utf-8")
+        assert "# Minecraft settings" in content
+        assert 'version = "1.21.5"' in content
+
+    def test_validate_returns_validation_errors(self, tmp_path: Path) -> None:
+        """ConfigAccessor.validate delegates to AppConfig validation."""
+        from mcpax.core.config import ConfigAccessor
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[minecraft]
+version = "invalid"
+mod_loader = "fabric"
+
+[paths]
+minecraft_dir = "/tmp/does-not-exist"
+""",
+            encoding="utf-8",
+        )
+
+        errors = ConfigAccessor(config_file).validate()
+
+        assert {error.field for error in errors} == {
+            "minecraft_version",
+            "minecraft_dir",
+        }
+
+    def test_app_config_returns_typed_model(self, sample_config: Path) -> None:
+        """ConfigAccessor.app_config returns an AppConfig model."""
+        from mcpax.core.config import ConfigAccessor
+        from mcpax.core.models import AppConfig
+
+        assert isinstance(ConfigAccessor(sample_config).app_config, AppConfig)

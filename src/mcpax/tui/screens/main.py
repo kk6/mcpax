@@ -1,6 +1,7 @@
 """Main screen for displaying project list."""
 
 import logging
+from collections.abc import Callable
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -8,7 +9,7 @@ from textual.screen import Screen
 from textual.widgets import DataTable, Footer
 from textual.worker import Worker, WorkerState
 
-from mcpax.core.config import load_config, load_projects
+from mcpax.core.config import load_config, load_projects, save_projects
 from mcpax.core.exceptions import ConfigValidationError
 from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
@@ -37,7 +38,13 @@ class MainScreen(Screen[None]):
         Binding("enter", "view_detail", "View Detail"),
     ]
 
-    def __init__(self, config: AppConfig) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        load_projects_func: Callable[[], list[ProjectConfig]] | None = None,
+        save_projects_func: Callable[[list[ProjectConfig]], object] | None = None,
+        reload_config_func: Callable[[], AppConfig] | None = None,
+    ) -> None:
         """Initialize MainScreen.
 
         Args:
@@ -45,6 +52,9 @@ class MainScreen(Screen[None]):
         """
         super().__init__()
         self._config = config
+        self._load_projects = load_projects_func or load_projects
+        self._save_projects = save_projects_func or save_projects
+        self._reload_config = reload_config_func or load_config
         self._projects: list[ProjectConfig] = []
         self._results: list[UpdateCheckResult] = []
 
@@ -66,7 +76,7 @@ class MainScreen(Screen[None]):
     def _load_and_check_updates(self) -> None:
         """Load projects and check for updates."""
         try:
-            self._projects = load_projects()
+            self._projects = self._load_projects()
             # Start background worker to check updates
             self.run_worker(self._check_updates_worker(), exclusive=True)
         except (FileNotFoundError, ConfigValidationError) as e:
@@ -152,7 +162,12 @@ class MainScreen(Screen[None]):
             return
 
         self.app.push_screen(
-            ProjectDetailScreen(project=project, config=self._config),
+            ProjectDetailScreen(
+                project=project,
+                config=self._config,
+                load_projects_func=self._load_projects,
+                save_projects_func=self._save_projects,
+            ),
             callback=self._on_detail_dismissed,
         )
 
@@ -190,7 +205,13 @@ class MainScreen(Screen[None]):
         # Only open SearchScreen if query is not empty
         if query:
             self.app.push_screen(
-                SearchScreen(query=query, project_type=project_type),
+                SearchScreen(
+                    query=query,
+                    project_type=project_type,
+                    config=self._config,
+                    load_projects_func=self._load_projects,
+                    save_projects_func=self._save_projects,
+                ),
                 callback=self._on_search_dismissed,
             )
 
@@ -219,7 +240,7 @@ class MainScreen(Screen[None]):
         if changed:
             # Reload config
             try:
-                self._config = load_config()
+                self._config = self._reload_config()
                 # Update StatusBar
                 status_bar = self.query_one(StatusBar)
                 status_bar.update_config(self._config)

@@ -136,11 +136,26 @@ async def test_check_single_update_detects_outdated_project(tmp_path: Path) -> N
     assert result.title == "Sodium"
 
 
-async def test_check_single_update_handles_pinned_version(tmp_path: Path) -> None:
+async def test_check_single_update_handles_pinned_version(
+    tmp_path: Path, fake_modrinth_client
+) -> None:
     """Returns pinned update result when project config pins a version."""
+    fake_modrinth_client.projects["sodium"] = ModrinthProject(
+        id="PROJECTID",
+        slug="sodium",
+        title="Sodium",
+        description="A project",
+        project_type=ProjectType.MOD,
+        downloads=1,
+        icon_url=None,
+        versions=["PINNED"],
+    )
+    fake_modrinth_client.versions["sodium"] = [
+        _make_version("1.5.0", version_id="PINNED")
+    ]
     checker = UpdateChecker(
         config=_make_config(tmp_path),
-        api_client=DummyApiClient([_make_version("1.5.0", version_id="PINNED")]),
+        api_client=fake_modrinth_client,
         state_store=StateStore(_make_config(tmp_path)),
     )
 

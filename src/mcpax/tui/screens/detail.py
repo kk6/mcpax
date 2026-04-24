@@ -1,5 +1,7 @@
 """Project detail modal screen."""
 
+from collections.abc import Callable
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Vertical
@@ -7,7 +9,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Label, Static
 
 from mcpax.core.config import load_projects, save_projects
-from mcpax.core.models import AppConfig, UpdateCheckResult
+from mcpax.core.models import AppConfig, ProjectConfig, UpdateCheckResult
 from mcpax.tui.screens.confirm import ConfirmDialog
 
 
@@ -19,7 +21,13 @@ class ProjectDetailScreen(ModalScreen[bool]):
         Binding("d", "delete", "Delete"),
     ]
 
-    def __init__(self, project: UpdateCheckResult, config: AppConfig) -> None:
+    def __init__(
+        self,
+        project: UpdateCheckResult,
+        config: AppConfig,
+        load_projects_func: Callable[[], list[ProjectConfig]] | None = None,
+        save_projects_func: Callable[[list[ProjectConfig]], object] | None = None,
+    ) -> None:
         """Initialize ProjectDetailScreen.
 
         Args:
@@ -29,6 +37,8 @@ class ProjectDetailScreen(ModalScreen[bool]):
         super().__init__()
         self._project = project
         self._config = config
+        self._load_projects = load_projects_func or load_projects
+        self._save_projects = save_projects_func or save_projects
 
     def compose(self) -> ComposeResult:
         """Create child widgets.
@@ -78,10 +88,10 @@ class ProjectDetailScreen(ModalScreen[bool]):
     def _delete_project(self) -> None:
         """Delete the project from projects.toml."""
         try:
-            projects = load_projects()
+            projects = self._load_projects()
             # Filter out the project to delete
             updated_projects = [p for p in projects if p.slug != self._project.slug]
-            save_projects(updated_projects)
+            self._save_projects(updated_projects)
             self.dismiss(True)
         except Exception as e:
             self.notify(f"Failed to delete project: {e}", severity="error")

@@ -11,10 +11,9 @@ from mcpax.cli.shared import (
 )
 from mcpax.core.config import (
     CONFIG_KEY_MAP,
+    ConfigAccessor,
     get_all_config_values,
-    get_config_value,
     get_default_config_path,
-    set_config_value,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,7 +41,7 @@ def get(key: Annotated[str, typer.Argument(help="Config key in dot notation")]) 
             console.print(f"[red]Error:[/red] Unknown config key: '{key}'")
             raise typer.Exit(code=1)
 
-        value = get_config_value(key)
+        value = ConfigAccessor().get(key)
         if value is not None:
             console.print(str(value))
         # If value is None for a valid key, it means it's not set.
@@ -110,7 +109,7 @@ def set(
         mcpax config set download.verify_hash true
     """
     try:
-        set_config_value(key, value)
+        ConfigAccessor().set(key, value)
         console.print(f"✓ Set {key} = {value}", style="green")
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
