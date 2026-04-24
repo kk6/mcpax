@@ -127,6 +127,19 @@ class TestStateStoreLoadSave:
 
         assert exc_info.value.path == state_path
 
+    async def test_raises_state_file_error_on_invalid_files_shape(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        state_path = tmp_path / ".mcpax-state.json"
+        state_path.write_text(json.dumps({"version": 1, "files": []}))
+        store = StateStore(_make_config(tmp_path))
+
+        with pytest.raises(StateFileError) as exc_info:
+            await store.load()
+
+        assert exc_info.value.path == state_path
+
 
 class TestStateStoreInstalledFiles:
     """Tests for installed file helpers."""

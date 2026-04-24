@@ -92,7 +92,7 @@ class UpdateChecker:
         try:
             project_info = await self._api_client.get_project(project.slug)
             title = project_info.title
-        except (APIError, ProjectNotFoundError) as e:
+        except (APIError, ProjectNotFoundError, httpx.HTTPError) as e:
             logger.warning(
                 "Failed to fetch title for project '%s': %s", project.slug, e
             )

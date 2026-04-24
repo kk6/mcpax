@@ -108,6 +108,13 @@ class VersionFailingApiClient(DummyApiClient):
         raise httpx.HTTPError("version fetch failed")
 
 
+class TitleFailingApiClient(DummyApiClient):
+    """API client stub that fails when fetching the project title."""
+
+    async def get_project(self, slug: str) -> ModrinthProject:
+        raise httpx.HTTPError("title fetch failed")
+
+
 async def test_check_single_update_detects_outdated_project(tmp_path: Path) -> None:
     """Returns OUTDATED when installed hash differs from latest hash."""
     state_store = StateStore(_make_config(tmp_path))
@@ -167,6 +174,25 @@ async def test_check_single_update_returns_check_failed_on_version_error(
     assert result.status == InstallStatus.CHECK_FAILED
     assert result.error == "version fetch failed"
     assert result.title == "Sodium"
+
+
+async def test_check_single_update_continues_on_title_fetch_error(
+    tmp_path: Path,
+) -> None:
+    """Title fetch errors do not prevent version resolution."""
+    checker = UpdateChecker(
+        config=_make_config(tmp_path),
+        api_client=TitleFailingApiClient([_make_version("1.1.0")]),
+        state_store=StateStore(_make_config(tmp_path)),
+    )
+
+    result = await checker.check_single_update(
+        ProjectConfig(slug="sodium", project_type=ProjectType.MOD)
+    )
+
+    assert result.status == InstallStatus.NOT_INSTALLED
+    assert result.latest_version == "1.1.0"
+    assert result.title is None
 
 
 def test_needs_update_is_case_insensitive(tmp_path: Path) -> None:

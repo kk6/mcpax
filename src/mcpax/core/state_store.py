@@ -42,7 +42,14 @@ class StateStore:
 
             return StateFile(version=data.get("version", 1), files=files)
 
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+        except (
+            AttributeError,
+            json.JSONDecodeError,
+            KeyError,
+            OSError,
+            TypeError,
+            ValueError,
+        ) as e:
             raise StateFileError(
                 f"Failed to parse state file: {e}",
                 path=self.path,
