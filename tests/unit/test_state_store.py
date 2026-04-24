@@ -99,6 +99,34 @@ class TestStateStoreLoadSave:
 
         assert exc_info.value.path == state_path
 
+    async def test_raises_state_file_error_on_invalid_file_path(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        state_data = {
+            "version": 1,
+            "files": {
+                "sodium": {
+                    "slug": "sodium",
+                    "project_type": "mod",
+                    "filename": "sodium.jar",
+                    "version_id": "ABC123",
+                    "version_number": "1.0.0",
+                    "sha512": "abc123" * 20,
+                    "installed_at": "2024-01-15T10:30:00Z",
+                    "file_path": None,
+                }
+            },
+        }
+        state_path = tmp_path / ".mcpax-state.json"
+        state_path.write_text(json.dumps(state_data))
+        store = StateStore(_make_config(tmp_path))
+
+        with pytest.raises(StateFileError) as exc_info:
+            await store.load()
+
+        assert exc_info.value.path == state_path
+
 
 class TestStateStoreInstalledFiles:
     """Tests for installed file helpers."""

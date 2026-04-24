@@ -66,7 +66,9 @@ class UpdateChecker:
                 try:
                     return await self.check_single_update(project)
                 except Exception as e:
-                    logger.warning("Failed to check update for %s: %s", project.slug, e)
+                    logger.exception(
+                        "Failed to check update for %s: %s", project.slug, e
+                    )
                     return UpdateCheckResult(
                         slug=project.slug,
                         project_type=project.project_type,
@@ -95,7 +97,24 @@ class UpdateChecker:
                 "Failed to fetch title for project '%s': %s", project.slug, e
             )
 
-        versions = await self._api_client.get_versions(project.slug)
+        try:
+            versions = await self._api_client.get_versions(project.slug)
+        except (APIError, httpx.HTTPError) as e:
+            logger.warning(
+                "Failed to fetch versions for project '%s': %s", project.slug, e
+            )
+            return UpdateCheckResult(
+                slug=project.slug,
+                project_type=project_type,
+                status=InstallStatus.CHECK_FAILED,
+                current_version=installed.version_number if installed else None,
+                current_file=installed,
+                latest_version=None,
+                latest_version_id=None,
+                latest_file=None,
+                title=title,
+                error=str(e),
+            )
 
         if project.version is not None:
             return self.resolve_pinned_version(

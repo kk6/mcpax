@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 import pytest
 
 from mcpax.core.models import (
@@ -100,6 +101,13 @@ class DummyApiClient:
         return self._versions
 
 
+class VersionFailingApiClient(DummyApiClient):
+    """API client stub that fails when fetching versions."""
+
+    async def get_versions(self, slug: str) -> list[ProjectVersion]:
+        raise httpx.HTTPError("version fetch failed")
+
+
 async def test_check_single_update_detects_outdated_project(tmp_path: Path) -> None:
     """Returns OUTDATED when installed hash differs from latest hash."""
     state_store = StateStore(_make_config(tmp_path))
@@ -140,6 +148,25 @@ async def test_check_single_update_handles_pinned_version(tmp_path: Path) -> Non
     assert result.status == InstallStatus.NOT_INSTALLED
     assert result.pinned is True
     assert result.latest_version_id == "PINNED"
+
+
+async def test_check_single_update_returns_check_failed_on_version_error(
+    tmp_path: Path,
+) -> None:
+    """Version fetch errors are converted to CHECK_FAILED results."""
+    checker = UpdateChecker(
+        config=_make_config(tmp_path),
+        api_client=VersionFailingApiClient([]),
+        state_store=StateStore(_make_config(tmp_path)),
+    )
+
+    result = await checker.check_single_update(
+        ProjectConfig(slug="sodium", project_type=ProjectType.MOD)
+    )
+
+    assert result.status == InstallStatus.CHECK_FAILED
+    assert result.error == "version fetch failed"
+    assert result.title == "Sodium"
 
 
 def test_needs_update_is_case_insensitive(tmp_path: Path) -> None:
