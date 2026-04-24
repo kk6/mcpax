@@ -11,6 +11,7 @@ from mcpax.core.models import (
     AppConfig,
     InstallStatus,
     Loader,
+    ProjectConfig,
     ProjectType,
 )
 from mcpax.tui.screens import MainScreen
@@ -82,6 +83,16 @@ async def test_main_screen_has_detail_binding(app_config) -> None:
     bindings = {binding.key: binding.action for binding in screen.BINDINGS}
     assert "enter" in bindings
     assert bindings["enter"] == "view_detail"
+
+
+@pytest.mark.asyncio
+async def test_main_screen_has_delete_bindings(app_config) -> None:
+    """Test MainScreen has project deletion keybindings."""
+    screen = MainScreen(config=app_config)
+
+    bindings = {binding.key: binding.action for binding in screen.BINDINGS}
+    assert bindings["d"] == "delete_selected"
+    assert bindings["D"] == "delete_not_compatible"
 
 
 @pytest.mark.asyncio
@@ -448,6 +459,196 @@ async def test_main_screen_install_action_no_updates(
 
             # Verify we're still on MainScreen (no InstallScreen pushed)
             assert isinstance(app.screen, MainScreen)
+
+
+@pytest.mark.asyncio
+async def test_main_screen_delete_selected_shows_confirmation(
+    app_config, make_update_check_result, patched_main_screen_dependencies
+) -> None:
+    """Test delete selected action opens a confirmation dialog."""
+    from unittest.mock import MagicMock
+
+    from mcpax.tui.screens.confirm import ConfirmDialog
+
+    mock_load, mock_manager_class, mock_manager = patched_main_screen_dependencies
+    test_results = [
+        make_update_check_result("fabric-api", ProjectType.MOD, InstallStatus.INSTALLED)
+    ]
+    mock_load.return_value = [
+        ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD)
+    ]
+    mock_manager.check_updates = AsyncMock(return_value=test_results)
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            self.push_screen(MainScreen(config=app_config))
+
+    app = TestApp()
+    async with app.run_test():
+        await app.workers.wait_for_complete()
+
+        screen = app.screen
+        assert isinstance(screen, MainScreen)
+        table = screen.query_one(ProjectTable)
+        table.move_cursor(row=0, column=0)
+
+        app.push_screen = MagicMock()  # type: ignore
+        screen.action_delete_selected()
+
+        app.push_screen.assert_called_once()
+        args, kwargs = app.push_screen.call_args
+        assert isinstance(args[0], ConfirmDialog)
+        assert "fabric-api" in args[0].message
+        assert kwargs["callback"] is not None
+
+
+@pytest.mark.asyncio
+async def test_main_screen_delete_selected_no_selection_notifies(
+    app_config, patched_main_screen_dependencies
+) -> None:
+    """Test delete selected action notifies when no project is selected."""
+    from unittest.mock import MagicMock
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            self.push_screen(MainScreen(config=app_config))
+
+    app = TestApp()
+    async with app.run_test():
+        await app.workers.wait_for_complete()
+
+        screen = app.screen
+        assert isinstance(screen, MainScreen)
+        screen.notify = MagicMock()
+
+        screen.action_delete_selected()
+
+        screen.notify.assert_called_once()
+        args, kwargs = screen.notify.call_args
+        assert "No project selected" in args[0]
+
+
+@pytest.mark.asyncio
+async def test_main_screen_delete_selected_confirmed_removes_project(
+    app_config,
+) -> None:
+    """Test selected project deletion removes it from projects.toml."""
+    from unittest.mock import MagicMock
+
+    saved_projects: list[ProjectConfig] = []
+    projects = [
+        ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD),
+        ProjectConfig(slug="sodium", project_type=ProjectType.MOD),
+    ]
+    screen = MainScreen(
+        config=app_config,
+        load_projects_func=lambda: projects,
+        save_projects_func=saved_projects.extend,
+    )
+    screen.notify = MagicMock()
+    screen._load_and_check_updates = MagicMock()
+
+    screen._on_delete_selected_confirmed(True, "fabric-api")
+
+    assert [project.slug for project in saved_projects] == ["sodium"]
+    screen._load_and_check_updates.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_main_screen_delete_not_compatible_shows_confirmation(
+    app_config, make_update_check_result, patched_main_screen_dependencies
+) -> None:
+    """Test batch incompatible deletion opens a confirmation dialog."""
+    from unittest.mock import MagicMock
+
+    from mcpax.tui.screens.confirm import ConfirmDialog
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            self.push_screen(MainScreen(config=app_config))
+
+    app = TestApp()
+    async with app.run_test():
+        await app.workers.wait_for_complete()
+
+        screen = app.screen
+        assert isinstance(screen, MainScreen)
+        screen._results = [
+            make_update_check_result(
+                "fabric-api",
+                ProjectType.MOD,
+                InstallStatus.NOT_COMPATIBLE,
+            ),
+            make_update_check_result(
+                "sodium", ProjectType.MOD, InstallStatus.INSTALLED
+            ),
+        ]
+        app.push_screen = MagicMock()  # type: ignore
+
+        screen.action_delete_not_compatible()
+
+        app.push_screen.assert_called_once()
+        args, kwargs = app.push_screen.call_args
+        assert isinstance(args[0], ConfirmDialog)
+        assert "fabric-api" in args[0].message
+        assert "sodium" not in args[0].message
+        assert kwargs["callback"] is not None
+
+
+@pytest.mark.asyncio
+async def test_main_screen_delete_not_compatible_confirmed_removes_projects(
+    app_config,
+) -> None:
+    """Test batch deletion removes all incompatible projects from projects.toml."""
+    from unittest.mock import MagicMock
+
+    saved_projects: list[ProjectConfig] = []
+    projects = [
+        ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD),
+        ProjectConfig(slug="old-shader", project_type=ProjectType.SHADER),
+        ProjectConfig(slug="sodium", project_type=ProjectType.MOD),
+    ]
+    screen = MainScreen(
+        config=app_config,
+        load_projects_func=lambda: projects,
+        save_projects_func=saved_projects.extend,
+    )
+    screen.notify = MagicMock()
+    screen._load_and_check_updates = MagicMock()
+
+    screen._on_delete_not_compatible_confirmed(True, {"fabric-api", "old-shader"})
+
+    assert [project.slug for project in saved_projects] == ["sodium"]
+    screen._load_and_check_updates.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_main_screen_delete_not_compatible_no_matches_notifies(
+    app_config, make_update_check_result, patched_main_screen_dependencies
+) -> None:
+    """Test batch incompatible deletion notifies when nothing matches."""
+    from unittest.mock import MagicMock
+
+    class TestApp(App[None]):
+        def on_mount(self):
+            self.push_screen(MainScreen(config=app_config))
+
+    app = TestApp()
+    async with app.run_test():
+        await app.workers.wait_for_complete()
+
+        screen = app.screen
+        assert isinstance(screen, MainScreen)
+        screen._results = [
+            make_update_check_result("sodium", ProjectType.MOD, InstallStatus.INSTALLED)
+        ]
+        screen.notify = MagicMock()
+
+        screen.action_delete_not_compatible()
+
+        screen.notify.assert_called_once()
+        args, kwargs = screen.notify.call_args
+        assert "No incompatible projects" in args[0]
 
 
 @pytest.mark.asyncio

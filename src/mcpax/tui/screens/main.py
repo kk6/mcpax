@@ -20,6 +20,7 @@ from mcpax.core.models import (
     UpdateCheckResult,
     UpdateResult,
 )
+from mcpax.tui.screens.confirm import ConfirmDialog
 from mcpax.tui.screens.detail import ProjectDetailScreen
 from mcpax.tui.screens.install import InstallScreen
 from mcpax.tui.screens.search import SearchScreen
@@ -35,6 +36,8 @@ class MainScreen(Screen[None]):
         Binding("r", "refresh", "Refresh"),
         Binding("i", "install", "Install All"),
         Binding("s", "settings", "Settings"),
+        Binding("d", "delete_selected", "Delete"),
+        Binding("D", "delete_not_compatible", "Delete Incompatible"),
         Binding("enter", "view_detail", "View Detail"),
     ]
 
@@ -145,6 +148,89 @@ class MainScreen(Screen[None]):
         """
         # Refresh to reflect new installation status
         self._load_and_check_updates()
+
+    def action_delete_selected(self) -> None:
+        """Delete the selected project after confirmation."""
+        table = self.query_one(ProjectTable)
+        selected = table.selected_project
+
+        if selected is None:
+            self.notify("No project selected", severity="warning")
+            return
+
+        message = f"Delete '{selected.slug}' from projects.toml?"
+        self.app.push_screen(
+            ConfirmDialog(
+                message=message,
+                confirm_label="Delete",
+                cancel_label="Cancel",
+            ),
+            callback=lambda confirmed: self._on_delete_selected_confirmed(
+                confirmed,
+                selected.slug,
+            ),
+        )
+
+    def _on_delete_selected_confirmed(
+        self,
+        confirmed: bool | None,
+        slug: str,
+    ) -> None:
+        """Delete the selected project when confirmation succeeds."""
+        if confirmed:
+            self._delete_projects_by_slug({slug}, "Project deleted")
+
+    def action_delete_not_compatible(self) -> None:
+        """Delete all projects with NOT_COMPATIBLE status after confirmation."""
+        incompatible_projects = [
+            result
+            for result in self._results
+            if result.status == InstallStatus.NOT_COMPATIBLE
+        ]
+
+        if not incompatible_projects:
+            self.notify("No incompatible projects to delete", severity="information")
+            return
+
+        slugs = [project.slug for project in incompatible_projects]
+        project_list = "\n".join(f"- {slug}" for slug in slugs)
+        message = (
+            f"Delete these incompatible projects from projects.toml?\n\n{project_list}"
+        )
+        self.app.push_screen(
+            ConfirmDialog(
+                message=message,
+                confirm_label="Delete All",
+                cancel_label="Cancel",
+            ),
+            callback=lambda confirmed: self._on_delete_not_compatible_confirmed(
+                confirmed,
+                set(slugs),
+            ),
+        )
+
+    def _on_delete_not_compatible_confirmed(
+        self,
+        confirmed: bool | None,
+        slugs: set[str],
+    ) -> None:
+        """Delete incompatible projects when confirmation succeeds."""
+        if confirmed:
+            self._delete_projects_by_slug(slugs, "Incompatible projects deleted")
+
+    def _delete_projects_by_slug(self, slugs: set[str], success_message: str) -> None:
+        """Delete projects from projects.toml and refresh the table."""
+        try:
+            projects = self._load_projects()
+            updated_projects = [
+                project for project in projects if project.slug not in slugs
+            ]
+            self._save_projects(updated_projects)
+            self.notify(success_message, severity="information")
+            self._load_and_check_updates()
+        except Exception as e:
+            logging.exception("Failed to delete projects")
+            self.notify(f"Failed to delete project: {e}", severity="error")
 
     def action_view_detail(self) -> None:
         """View detail of selected project."""
