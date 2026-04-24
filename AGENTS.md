@@ -48,14 +48,15 @@
 - Test install planning separately from file download and state mutation.
 - Test update application with download failure, partial success, backup, rollback, and state persistence cases.
 
-## Version Control (jj)
+## Version Control (git)
 
-This project's primary development uses **jj (Jujutsu)** for version control. While external contributors may use git, AI agents should use jj.
+This project uses **git** for version control. Development happens on `main`; feature work lives on short-lived branches merged via PR.
 
-- Use `jj bookmark create <name>` to create feature bookmarks
-- Use `jj describe -m "message"` to record commits
-- Use `jj git push` to push changes (run `jj bookmark track <name> --remote=origin` first for new bookmarks)
-- Use `jj git fetch` followed by `jj new main` after PR merge
+- Create branches with `git switch -c feat/issue-XX-<short-description>` (see `.claude/rules/git-workflow.md` for naming conventions)
+- Commit in small, reviewable units using Conventional Commits (`type: summary`)
+- Keep branches current with `git fetch origin && git rebase origin/main`
+- Users handle `git push` and PR creation; AI agents must not push directly
+- After merge: `git switch main && git pull --ff-only && git branch -d <branch>`
 
 ## Commit & Pull Request Guidelines
 - Commit history uses a `type: summary` pattern (example: `docs: add requirement definitions...`).
