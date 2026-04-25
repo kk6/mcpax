@@ -182,51 +182,12 @@ ty check src
 ruff check src
 ```
 
-## 開発状況
-
-### Phase 1: Core 実装 ✅
-
-| モジュール | 状態 | テスト |
-|-----------|------|--------|
-| models.py | ✅ 完了 | 37/37 パス |
-| config.py | ✅ 完了 | 55/55 パス |
-| api.py | ✅ 完了 | 39/39 パス |
-| downloader.py | ✅ 完了 | 20/20 パス |
-| manager.py | ✅ 完了 | 26/26 パス |
-
-**完了した機能**:
-- F-101～F-107（設定管理機能 7件）
-- F-201〜F-206（API クライアント機能 6件）
-- F-301～F-304（ダウンロード機能 4件）
-- F-401～F-406（ファイル管理機能 6件）
-- F-501～F-503（更新管理機能 3件）
-
-### Phase 2: CLI 実装 ✅
-
-主要な CLI コマンドは実装済みです。
-
-### Phase 3: TUI 実装 🧪
-
-`mcpax tui` で利用可能（`textual` の optional dependency が必要）。
-
 ## ドキュメント
 
-### 要件定義（「はじめよう！要件定義」準拠）
+保守対象のドキュメントだけを置いています。
 
-- [企画書](docs/01_project_charter.md)
-- [全体像](docs/02_system_overview.md)
-- [実現したいこと一覧](docs/03_requirements_list.md)
-- [行動シナリオ](docs/04_user_scenarios.md)
-- [概念データモデル](docs/05_conceptual_data_model.md)
-- [UI 定義](docs/06_ui_definition.md)
-- [機能定義](docs/07_function_definition.md)
-- [データ定義](docs/08_data_definition.md)
-- [CRUD マトリックス](docs/09_crud_matrix.md)
-- [一覧](docs/10_summary.md)
 - [アーキテクチャ設計書](docs/11_architecture.md)
-
-### 技術ドキュメント
-
+- [TUI ガイド](docs/12_tui.md)
 - [Modrinth API 仕様メモ](docs/modrinth-api.md)
 
 ## ライセンス

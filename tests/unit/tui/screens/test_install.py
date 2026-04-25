@@ -71,14 +71,16 @@ async def test_install_screen_executes_install_worker(
 
     with (
         patch("mcpax.tui.screens.install.Downloader") as mock_downloader_class,
-        patch("mcpax.tui.screens.install.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.install.ProjectServices") as mock_manager_class,
     ):
         mock_downloader = AsyncMock()
         mock_downloader_class.return_value.__aenter__.return_value = mock_downloader
         mock_downloader_class.return_value.__aexit__.return_value = AsyncMock()
 
         mock_manager = AsyncMock()
-        mock_manager.apply_updates = AsyncMock(return_value=mock_update_result)
+        mock_manager.update_applier.apply_updates = AsyncMock(
+            return_value=mock_update_result
+        )
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
 
@@ -88,7 +90,7 @@ async def test_install_screen_executes_install_worker(
             await app.workers.wait_for_complete()
 
             # Verify apply_updates was called
-            mock_manager.apply_updates.assert_called_once()
+            mock_manager.update_applier.apply_updates.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -106,7 +108,7 @@ async def test_install_screen_cancel_during_installation(
 
     with (
         patch("mcpax.tui.screens.install.Downloader") as mock_downloader_class,
-        patch("mcpax.tui.screens.install.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.install.ProjectServices") as mock_manager_class,
     ):
         mock_downloader = AsyncMock()
         mock_downloader_class.return_value.__aenter__.return_value = mock_downloader
@@ -119,7 +121,7 @@ async def test_install_screen_cancel_during_installation(
             await asyncio.sleep(0.5)
             return mock_update_result
 
-        mock_manager.apply_updates = slow_apply_updates
+        mock_manager.update_applier.apply_updates = slow_apply_updates
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
 
@@ -162,7 +164,7 @@ async def test_install_screen_dismiss_after_cancel(
 
     with (
         patch("mcpax.tui.screens.install.Downloader") as mock_downloader_class,
-        patch("mcpax.tui.screens.install.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.install.ProjectServices") as mock_manager_class,
     ):
         mock_downloader = AsyncMock()
         mock_downloader_class.return_value.__aenter__.return_value = mock_downloader
@@ -175,7 +177,7 @@ async def test_install_screen_dismiss_after_cancel(
             await asyncio.sleep(0.5)
             return mock_update_result
 
-        mock_manager.apply_updates = slow_apply_updates
+        mock_manager.update_applier.apply_updates = slow_apply_updates
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
 
@@ -226,14 +228,16 @@ async def test_install_screen_successful_installation_summary(
 
     with (
         patch("mcpax.tui.screens.install.Downloader") as mock_downloader_class,
-        patch("mcpax.tui.screens.install.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.install.ProjectServices") as mock_manager_class,
     ):
         mock_downloader = AsyncMock()
         mock_downloader_class.return_value.__aenter__.return_value = mock_downloader
         mock_downloader_class.return_value.__aexit__.return_value = AsyncMock()
 
         mock_manager = AsyncMock()
-        mock_manager.apply_updates = AsyncMock(return_value=mock_update_result)
+        mock_manager.update_applier.apply_updates = AsyncMock(
+            return_value=mock_update_result
+        )
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
 
@@ -281,7 +285,7 @@ async def test_install_screen_error_during_installation(
 
     with (
         patch("mcpax.tui.screens.install.Downloader") as mock_downloader_class,
-        patch("mcpax.tui.screens.install.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.install.ProjectServices") as mock_manager_class,
     ):
         mock_downloader = AsyncMock()
         mock_downloader_class.return_value.__aenter__.return_value = mock_downloader
@@ -293,7 +297,7 @@ async def test_install_screen_error_during_installation(
 
         mock_manager = AsyncMock()
         # Simulate a network error during apply_updates
-        mock_manager.apply_updates = AsyncMock(
+        mock_manager.update_applier.apply_updates = AsyncMock(
             side_effect=RuntimeError("Network connection lost")
         )
         mock_manager_class.return_value.__aenter__.return_value = mock_manager

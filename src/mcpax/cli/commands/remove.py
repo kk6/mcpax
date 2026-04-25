@@ -15,24 +15,30 @@ from mcpax.core.config import (
     load_projects,
     save_projects,
 )
-from mcpax.core.manager import ProjectManager
+from mcpax.core.file_service import FileService
+from mcpax.core.state_store import StateStore
+from mcpax.core.uninstaller import ProjectUninstaller
 
 logger = logging.getLogger(__name__)
 
 
-async def _remove_installed_file_with_manager(slug: str) -> tuple[bool, str | None]:
-    """Remove installed file using ProjectManager.
+async def _remove_installed_file(slug: str) -> tuple[bool, str | None]:
+    """Remove an installed file and its state entry.
 
     Args:
         slug: Project slug
 
     Returns:
-        Tuple of (success, filename) where success is True if file was deleted,
-        False if not installed, and filename is the deleted file name or None.
+        Tuple of (file_deleted, filename). filename is None when the project is
+        not tracked as installed. A false file_deleted with a filename means a
+        stale state entry was removed for a file that was already missing.
     """
     config = load_config()
-    async with ProjectManager(config) as manager:
-        return await manager.uninstall_project(slug)
+    uninstaller = ProjectUninstaller(
+        state_store=StateStore(config),
+        file_service=FileService(config),
+    )
+    return await uninstaller.uninstall_project(slug)
 
 
 def remove(
@@ -86,11 +92,14 @@ def remove(
     # Delete installed file if requested
     deleted_filename: str | None = None
     if delete_file:
-        file_deleted, deleted_filename = asyncio.run(
-            _remove_installed_file_with_manager(slug)
-        )
+        file_deleted, deleted_filename = asyncio.run(_remove_installed_file(slug))
         if file_deleted and deleted_filename:
             console.print(f"✓ Deleted {deleted_filename}", style="green")
+        elif deleted_filename:
+            console.print(
+                f"[yellow]Note:[/yellow] '{deleted_filename}' was already missing; "
+                "removed stale install state."
+            )
         else:
             console.print(f"[yellow]Note:[/yellow] '{slug}' was not installed.")
 

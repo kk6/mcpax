@@ -639,7 +639,7 @@ class TestRemoveCommand:
 
         # Mock the file deletion helper
         with patch(
-            "mcpax.cli.commands.remove._remove_installed_file_with_manager"
+            "mcpax.cli.commands.remove._remove_installed_file"
         ) as mock_remove_file:
             mock_remove_file.return_value = (True, "sodium-0.5.0.jar")
 
@@ -677,7 +677,7 @@ class TestRemoveCommand:
 
         # Mock the file deletion helper - returns False (not installed)
         with patch(
-            "mcpax.cli.commands.remove._remove_installed_file_with_manager"
+            "mcpax.cli.commands.remove._remove_installed_file"
         ) as mock_remove_file:
             mock_remove_file.return_value = (False, None)
 
@@ -691,6 +691,44 @@ class TestRemoveCommand:
         projects_file = tmp_path / "mcpax" / "projects.toml"
         content = projects_file.read_text()
         assert "sodium" not in content
+
+    def test_remove_project_delete_file_missing_removes_stale_state(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command reports stale install state."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        with patch(
+            "mcpax.cli.commands.remove._remove_installed_file"
+        ) as mock_remove_file:
+            mock_remove_file.return_value = (False, "sodium-0.5.0.jar")
+
+            # Act
+            result = runner.invoke(app, ["remove", "sodium", "--delete-file", "--yes"])
+
+        # Assert
+        assert result.exit_code == 0
+        mock_remove_file.assert_called_once_with("sodium")
+        assert "already missing" in result.stdout
+        assert "removed stale install state" in result.stdout
 
     def test_remove_project_no_config(
         self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
@@ -732,7 +770,7 @@ class TestRemoveCommand:
 
         # Mock the file deletion helper
         with patch(
-            "mcpax.cli.commands.remove._remove_installed_file_with_manager"
+            "mcpax.cli.commands.remove._remove_installed_file"
         ) as mock_remove_file:
             mock_remove_file.return_value = (True, "sodium-0.5.0.jar")
 
@@ -775,9 +813,9 @@ class TestInstallCommand:
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
-        # Mock ProjectManager for install
-        with patch("mcpax.cli.commands.install.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for install
+        with patch("mcpax.cli.commands.install.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_result = UpdateCheckResult(
@@ -790,7 +828,7 @@ class TestInstallCommand:
                 latest_version_id="v0.5.0",
                 latest_file=None,
             )
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=[mock_check_result]
             )
 
@@ -799,7 +837,7 @@ class TestInstallCommand:
             mock_update_result = UpdateResult(
                 successful=["sodium"], failed=[], backed_up=[]
             )
-            mock_manager_instance.apply_updates = AsyncMock(
+            mock_services.update_applier.apply_updates = AsyncMock(
                 return_value=mock_update_result
             )
 
@@ -848,9 +886,9 @@ class TestInstallCommand:
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "lithium"])
 
-        # Mock ProjectManager for install
-        with patch("mcpax.cli.commands.install.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for install
+        with patch("mcpax.cli.commands.install.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_results = [
@@ -875,7 +913,7 @@ class TestInstallCommand:
                     latest_file=None,
                 ),
             ]
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=mock_check_results
             )
 
@@ -884,7 +922,7 @@ class TestInstallCommand:
             mock_update_result = UpdateResult(
                 successful=["sodium", "lithium"], failed=[], backed_up=[]
             )
-            mock_manager_instance.apply_updates = AsyncMock(
+            mock_services.update_applier.apply_updates = AsyncMock(
                 return_value=mock_update_result
             )
 
@@ -962,9 +1000,9 @@ class TestInstallCommand:
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
-        # Mock ProjectManager to return NOT_COMPATIBLE
-        with patch("mcpax.cli.commands.install.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices to return NOT_COMPATIBLE
+        with patch("mcpax.cli.commands.install.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_result = UpdateCheckResult(
@@ -977,7 +1015,7 @@ class TestInstallCommand:
                 latest_version_id=None,
                 latest_file=None,
             )
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=[mock_check_result]
             )
 
@@ -1012,9 +1050,9 @@ class TestInstallCommand:
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
-        # Mock ProjectManager to return INSTALLED
-        with patch("mcpax.cli.commands.install.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices to return INSTALLED
+        with patch("mcpax.cli.commands.install.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_result = UpdateCheckResult(
@@ -1027,14 +1065,14 @@ class TestInstallCommand:
                 latest_version_id="v0.5.0",
                 latest_file=None,
             )
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=[mock_check_result]
             )
 
             from mcpax.core.models import UpdateResult
 
             mock_update_result = UpdateResult(successful=[], failed=[], backed_up=[])
-            mock_manager_instance.apply_updates = AsyncMock(
+            mock_services.update_applier.apply_updates = AsyncMock(
                 return_value=mock_update_result
             )
 
@@ -1119,9 +1157,9 @@ class TestListCommand:
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_result = UpdateCheckResult(
@@ -1134,7 +1172,7 @@ class TestListCommand:
                 latest_version_id="v0.5.0",
                 latest_file=None,
             )
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=[mock_check_result]
             )
 
@@ -1185,9 +1223,9 @@ class TestListCommand:
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "complementary-unbound"])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_results = [
@@ -1212,7 +1250,7 @@ class TestListCommand:
                     latest_file=None,
                 ),
             ]
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=mock_check_results
             )
 
@@ -1266,9 +1304,9 @@ class TestListCommand:
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "complementary-unbound"])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_results = [
@@ -1293,7 +1331,7 @@ class TestListCommand:
                     latest_file=None,
                 ),
             ]
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=mock_check_results
             )
 
@@ -1349,9 +1387,9 @@ class TestListCommand:
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "complementary-unbound"])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_results = [
@@ -1376,7 +1414,7 @@ class TestListCommand:
                     latest_file=None,
                 ),
             ]
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=mock_check_results
             )
 
@@ -1434,9 +1472,9 @@ class TestListCommand:
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "lithium"])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_results = [
@@ -1461,7 +1499,7 @@ class TestListCommand:
                     latest_file=None,
                 ),
             ]
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=mock_check_results
             )
 
@@ -1519,9 +1557,9 @@ class TestListCommand:
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "lithium"])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_results = [
@@ -1546,7 +1584,7 @@ class TestListCommand:
                     latest_file=None,
                 ),
             ]
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=mock_check_results
             )
 
@@ -1602,9 +1640,9 @@ class TestListCommand:
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "lithium"])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_results = [
@@ -1629,7 +1667,7 @@ class TestListCommand:
                     latest_file=None,
                 ),
             ]
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=mock_check_results
             )
 
@@ -1671,9 +1709,9 @@ class TestListCommand:
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_result = UpdateCheckResult(
@@ -1686,7 +1724,7 @@ class TestListCommand:
                 latest_version_id="v0.5.0",
                 latest_file=None,
             )
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=[mock_check_result]
             )
 
@@ -1797,11 +1835,13 @@ class TestListCommand:
             file_path=file_path,
         )
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
-            mock_manager_instance.get_installed_file = AsyncMock(return_value=installed)
-            mock_manager_instance.check_updates = AsyncMock()
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.state_store.get_installed_file = AsyncMock(
+                return_value=installed
+            )
+            mock_services.update_checker.check_updates = AsyncMock()
 
             with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
@@ -1812,7 +1852,7 @@ class TestListCommand:
 
         # Assert
         assert result.exit_code == 0
-        mock_manager_instance.check_updates.assert_not_called()
+        mock_services.update_checker.check_updates.assert_not_called()
         assert "sodium" in result.stdout.lower() or "Sodium" in result.stdout
 
     def test_list_respects_max_concurrency(
@@ -1863,9 +1903,9 @@ class TestListCommand:
             for project in mock_projects:
                 runner.invoke(app, ["add", project.slug])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
 
             # Note: After Issue #101 optimization, list command no longer makes
             # additional get_project() calls when check_updates() is used.
@@ -1885,7 +1925,7 @@ class TestListCommand:
                 return project_map[slug]
 
             # Mock get_installed_file to return None (not installed)
-            mock_manager_instance.get_installed_file = AsyncMock(return_value=None)
+            mock_services.state_store.get_installed_file = AsyncMock(return_value=None)
 
             with patch("mcpax.cli.commands.list.ModrinthClient") as MockClient2:
                 mock_instance2 = MockClient2.return_value.__aenter__.return_value
@@ -1938,9 +1978,9 @@ class TestListCommand:
             runner.invoke(app, ["add", "sodium"])
             runner.invoke(app, ["add", "lithium"])
 
-        # Mock ProjectManager for listing
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_results = [
@@ -1965,7 +2005,7 @@ class TestListCommand:
                     latest_file=None,
                 ),
             ]
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=mock_check_results
             )
 
@@ -2007,9 +2047,9 @@ class TestListCommand:
             mock_instance.get_project = AsyncMock(return_value=mock_project)
             runner.invoke(app, ["add", "sodium"])
 
-        # Mock ProjectManager for listing with outdated status
-        with patch("mcpax.cli.commands.list.ProjectManager") as MockManager:
-            mock_manager_instance = MockManager.return_value.__aenter__.return_value
+        # Mock ProjectServices for listing with outdated status
+        with patch("mcpax.cli.commands.list.ProjectServices") as MockServices:
+            mock_services = MockServices.return_value.__aenter__.return_value
             from mcpax.core.models import InstallStatus, UpdateCheckResult
 
             mock_check_result = UpdateCheckResult(
@@ -2022,7 +2062,7 @@ class TestListCommand:
                 latest_version_id="v0.6.0",
                 latest_file=None,
             )
-            mock_manager_instance.check_updates = AsyncMock(
+            mock_services.update_checker.check_updates = AsyncMock(
                 return_value=[mock_check_result]
             )
 
@@ -2507,10 +2547,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--check"])
@@ -2560,10 +2602,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--check"])
@@ -2626,10 +2670,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--check"])
@@ -2730,10 +2776,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--check"])
@@ -2810,12 +2858,16 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
             patch("mcpax.cli.commands.update.typer.confirm", return_value=True),
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
-            mock_instance.apply_updates = AsyncMock(return_value=mock_update_result)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
+            mock_services.update_applier.apply_updates = AsyncMock(
+                return_value=mock_update_result
+            )
 
             # Act
             result = runner.invoke(app, ["update"])
@@ -2823,7 +2875,7 @@ class TestUpdateCommand:
         # Assert
         assert result.exit_code == 0
         assert "sodium" in result.stdout
-        mock_instance.apply_updates.assert_called_once()
+        mock_services.update_applier.apply_updates.assert_called_once()
 
     def test_update_cancels_on_no(self) -> None:
         """Test that update cancels when user declines."""
@@ -2885,19 +2937,21 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
             patch("mcpax.cli.commands.update.typer.confirm", return_value=False),
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
-            mock_instance.apply_updates = AsyncMock(return_value=[])
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
+            mock_services.update_applier.apply_updates = AsyncMock(return_value=[])
 
             # Act
             result = runner.invoke(app, ["update"])
 
         # Assert
         assert result.exit_code == 0
-        mock_instance.apply_updates.assert_not_called()
+        mock_services.update_applier.apply_updates.assert_not_called()
 
     def test_update_yes_skips_confirmation(self) -> None:
         """Test that --yes skips confirmation prompt."""
@@ -2964,12 +3018,16 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
             patch("mcpax.cli.commands.update.typer.confirm") as mock_confirm,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
-            mock_instance.apply_updates = AsyncMock(return_value=mock_update_result)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
+            mock_services.update_applier.apply_updates = AsyncMock(
+                return_value=mock_update_result
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--yes"])
@@ -2977,7 +3035,7 @@ class TestUpdateCommand:
         # Assert
         assert result.exit_code == 0
         mock_confirm.assert_not_called()
-        mock_instance.apply_updates.assert_called_once()
+        mock_services.update_applier.apply_updates.assert_called_once()
 
     def test_update_no_updates_available(self) -> None:
         """Test that update shows message when all projects are up to date."""
@@ -3032,10 +3090,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update"])

@@ -45,7 +45,8 @@ Automate the manual update process when managing approximately 30 Minecraft proj
   - `SettingsScreen`: edit `config.toml` values
 - Widgets: `ProjectTable`, `SearchInput`, `SearchResultTable`, `ProgressPanel`, `StatusBar`
 - Core integration:
-  - `ProjectManager` for update checks and installs
+  - `ProjectServices` for core service lifecycle
+  - `UpdateChecker` / `UpdateApplier` for update checks and installs
   - `ModrinthClient` for search
   - `core.config` for reading/writing config + projects
 - Dependency: TUI is provided via optional extra `.[tui]` (Textual)

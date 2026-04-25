@@ -19,13 +19,13 @@ from mcpax.core.config import (
     load_projects,
 )
 from mcpax.core.exceptions import APIError, ProjectNotFoundError
-from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
     InstallStatus,
     ProjectConfig,
     ProjectType,
     UpdateCheckResult,
 )
+from mcpax.core.services import ProjectServices
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ def list_projects(
         no_update: bool,
     ) -> list[dict]:
         async with ModrinthClient(cache=cache) as client:
-            async with ProjectManager(config, api_client=client) as manager:
+            async with ProjectServices(config, api_client=client) as services:
                 # Get installation status
                 if no_update:
                     # In no-update mode, we still need to fetch project info for titles
@@ -131,7 +131,9 @@ def list_projects(
                     async def _local_update(
                         project: ProjectConfig,
                     ) -> UpdateCheckResult:
-                        installed = await manager.get_installed_file(project.slug)
+                        installed = await services.state_store.get_installed_file(
+                            project.slug
+                        )
                         # Fetch project info to get title
                         title: str | None = None
                         async with semaphore:
@@ -173,7 +175,7 @@ def list_projects(
                         *(_local_update(project) for project in projects)
                     )
                 else:
-                    updates = await manager.check_updates(
+                    updates = await services.update_checker.check_updates(
                         projects,
                         max_concurrency=max_concurrency,
                     )

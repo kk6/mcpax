@@ -118,18 +118,18 @@ def make_search_hit():
 
 
 @pytest.fixture
-def mock_project_manager():
-    """Create configured ProjectManager AsyncMock.
+def mock_project_services():
+    """Create configured ProjectServices AsyncMock.
 
     Returns:
-        AsyncMock: Mock with __aenter__, __aexit__, check_updates, and apply_updates
+        AsyncMock: Mock with __aenter__, __aexit__, update_checker, and update_applier
                    configured for async context manager usage.
     """
     mock = AsyncMock()
     mock.__aenter__.return_value = mock
     mock.__aexit__.return_value = None
-    mock.check_updates = AsyncMock(return_value=[])
-    mock.apply_updates = AsyncMock()
+    mock.update_checker.check_updates = AsyncMock(return_value=[])
+    mock.update_applier.apply_updates = AsyncMock()
     return mock
 
 
@@ -186,11 +186,11 @@ def patched_main_screen_dependencies():
     """
     with (
         patch("mcpax.tui.screens.main.load_projects") as mock_load,
-        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class,
     ):
         mock_load.return_value = []
         mock_manager = AsyncMock()
-        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager.update_checker.check_updates = AsyncMock(return_value=[])
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
         yield mock_load, mock_manager_class, mock_manager
