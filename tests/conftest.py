@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from types import TracebackType
+from typing import Self
 
 import pytest
 
@@ -21,6 +23,17 @@ class FakeModrinthClient:
         self.projects: dict[str, ModrinthProject] = {}
         self.versions: dict[str, list[ProjectVersion]] = {}
         self.search_result = SearchResult(hits=[], total_hits=0, offset=0, limit=0)
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        return None
 
     async def get_project(self, slug: str) -> ModrinthProject:
         return self.projects[slug]

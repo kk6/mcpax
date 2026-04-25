@@ -62,13 +62,13 @@ class ProjectServices:
         if self.owns_api_client and self.api_client:
             try:
                 await self.api_client.__aexit__(exc_type, exc_val, exc_tb)
-            except Exception as e:
-                logger.error("Failed to cleanup API client: %s", e)
+            except Exception:
+                logger.exception("Failed to cleanup API client")
         if self.owns_downloader and self.downloader:
             try:
                 await self.downloader.__aexit__(exc_type, exc_val, exc_tb)
-            except Exception as e:
-                logger.error("Failed to cleanup downloader: %s", e)
+            except Exception:
+                logger.exception("Failed to cleanup downloader")
 
     @property
     def update_checker(self) -> UpdateChecker:
