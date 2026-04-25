@@ -19,9 +19,10 @@ mcpax/
         │   ├── downloader.py
         │   ├── file_service.py
         │   ├── install_planner.py
-        │   ├── manager.py
         │   ├── models.py
+        │   ├── services.py
         │   ├── state_store.py
+        │   ├── uninstaller.py
         │   ├── update_applier.py
         │   ├── update_checker.py
         │   └── version_resolver.py
@@ -38,13 +39,14 @@ Presentation Layer
         |
         v
 Core Layer
-  ProjectManager facade
+  ProjectServices
   UpdateChecker
   UpdateApplier
   InstallPlanner
   VersionResolver
   FileService
   StateStore
+  ProjectUninstaller
   Config / Models
         |
         v
@@ -60,11 +62,12 @@ CLI/TUI は core の public API を呼び出し、結果を表示する。更新
 
 ## 3. Core の責務
 
-### `manager.py`
+### `services.py`
 
-`ProjectManager` は後方互換性のための facade。CLI/TUI から既存の呼び出し口として使われるが、主要な判断や I/O は下位サービスへ委譲する。
+`ProjectServices` は CLI/TUI などの操作単位で core service の lifecycle を組み立てる composition helper。
+業務判断は個別 service に置き、`ProjectServices` 自体は依存生成と context 管理に限定する。
 
-主な委譲先:
+主な構成要素:
 
 - update check: `UpdateChecker`
 - update apply: `UpdateApplier`
@@ -72,6 +75,7 @@ CLI/TUI は core の public API を呼び出し、結果を表示する。更新
 - install planning: `InstallPlanner`
 - file operations: `FileService`
 - state persistence: `StateStore`
+- uninstall: `ProjectUninstaller`
 
 ### `version_resolver.py`
 
@@ -142,8 +146,6 @@ Minecraft ディレクトリ配下の配置先解決とファイル操作を担�
 
 Modrinth API v2 の async client。HTTP 通信、retry、rate limit 情報、API response の model 化を担当する。
 
-互換性のため version filtering 系メソッドも残しているが、実装は `VersionResolver` に委譲する。
-
 ### `downloader.py`
 
 ファイルダウンロードと SHA-512 hash verification を担当する。複数 task の並列ダウンロードを提供する。
@@ -154,7 +156,7 @@ Modrinth API v2 の async client。HTTP 通信、retry、rate limit 情報、API
 
 ```text
 CLI/TUI
-  -> ProjectManager.check_updates()
+  -> ProjectServices.update_checker.check_updates()
   -> UpdateChecker.check_updates()
   -> ModrinthClient.get_project()/get_versions()
   -> StateStore.get_installed_file()
@@ -166,7 +168,7 @@ CLI/TUI
 
 ```text
 CLI/TUI
-  -> ProjectManager.apply_updates()
+  -> ProjectServices.update_applier.apply_updates()
   -> UpdateApplier.apply_updates()
   -> InstallPlanner.create_plan()
   -> Downloader.download_all()
@@ -184,7 +186,6 @@ CLI/TUI
 - CLI/TUI に業務ロジックを置かない
 - HTTP、filesystem、TOML/JSON 永続化の詳細を一箇所に集中させる
 - core service は小さく、単体テストしやすく保つ
-- 既存 public API は必要に応じて facade として残す
 - 大きな rewrite ではなく Fowler-style の小さな refactoring を積み上げる
 
 ## 6. テスト方針
@@ -197,5 +198,3 @@ CLI/TUI
 - `UpdateApplier`: download failure、partial success、backup、rollback
 - `FileService`: target directory、place、backup、delete
 - `StateStore`: missing/corrupted state、load/save、installed file helpers
-
-`ProjectManager` のテストは facade としての互換性確認を中心にする。

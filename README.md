@@ -192,7 +192,7 @@ ruff check src
 | config.py | ✅ 完了 | 55/55 パス |
 | api.py | ✅ 完了 | 39/39 パス |
 | downloader.py | ✅ 完了 | 20/20 パス |
-| manager.py | ✅ 完了 | 26/26 パス |
+| services.py | ✅ 完了 | core service lifecycle |
 
 **完了した機能**:
 - F-101～F-107（設定管理機能 7件）

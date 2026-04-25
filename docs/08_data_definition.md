@@ -522,7 +522,7 @@ class InstallStatus(str, Enum):
 
 ```
 config.toml ──┐
-              ├──► ProjectManager ──► Modrinth API
+              ├──► ProjectServices ──► Modrinth API
 projects.toml ┘                              │
                                              ▼
                                     ProjectVersion[]
