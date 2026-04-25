@@ -46,6 +46,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "module"
 addopts = "--cov=src/mcpax --cov-report=term-missing -n auto"
+# To debug with pdb/breakpoint(), override parallelism: pytest -n0
 
 [build-system]
 requires = ["hatchling"]

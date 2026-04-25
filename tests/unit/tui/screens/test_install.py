@@ -116,10 +116,14 @@ async def test_install_screen_cancel_during_installation(
 
         mock_manager = AsyncMock()
 
-        # Block indefinitely so the worker is still running when escape is pressed.
-        # worker.cancel() raises CancelledError inside the wait(), ending the task.
+        # Block until cancelled by worker.cancel() (raises CancelledError).
+        # Timeout guard: if cancellation never arrives the test fails fast
+        # instead of hanging the entire suite.
         async def blocking_apply_updates(*args, **kwargs):
-            await asyncio.Event().wait()
+            try:
+                await asyncio.wait_for(asyncio.Event().wait(), timeout=5)
+            except TimeoutError:
+                pytest.fail("Install worker was not cancelled within 5 seconds")
             return mock_update_result
 
         mock_manager.update_applier.apply_updates = blocking_apply_updates
@@ -173,10 +177,14 @@ async def test_install_screen_dismiss_after_cancel(
 
         mock_manager = AsyncMock()
 
-        # Block indefinitely so the worker is still running when escape is pressed.
-        # worker.cancel() raises CancelledError inside the wait(), ending the task.
+        # Block until cancelled by worker.cancel() (raises CancelledError).
+        # Timeout guard: if cancellation never arrives the test fails fast
+        # instead of hanging the entire suite.
         async def blocking_apply_updates(*args, **kwargs):
-            await asyncio.Event().wait()
+            try:
+                await asyncio.wait_for(asyncio.Event().wait(), timeout=5)
+            except TimeoutError:
+                pytest.fail("Install worker was not cancelled within 5 seconds")
             return mock_update_result
 
         mock_manager.update_applier.apply_updates = blocking_apply_updates

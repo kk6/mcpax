@@ -1,6 +1,7 @@
 """Tests for cache.py."""
 
 import json
+import types
 from pathlib import Path
 
 import mcpax.core.cache
@@ -188,9 +189,14 @@ class TestApiCacheBasicFunctionality:
 
     def test_cache_respects_ttl(self, tmp_path: Path, monkeypatch) -> None:
         """Cache entries should expire after TTL."""
-        # Arrange
+        # Arrange - replace the module-level time reference to avoid patching
+        # the global time.time used by asyncio internals and the test runner.
         fake_now = [1000.0]
-        monkeypatch.setattr(mcpax.core.cache.time, "time", lambda: fake_now[0])
+        monkeypatch.setattr(
+            mcpax.core.cache,
+            "time",
+            types.SimpleNamespace(time=lambda: fake_now[0]),
+        )
 
         cache_file = tmp_path / "cache.json"
         cache = ApiCache(cache_file, ttl_seconds=1)
