@@ -3,6 +3,9 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
+from mcpax.core.exceptions import FileOperationError
 from mcpax.core.file_service import FileService
 from mcpax.core.models import AppConfig, InstalledFile, Loader, ProjectType, StateFile
 from mcpax.core.state_store import StateStore
@@ -34,6 +37,11 @@ def _make_installed_file(slug: str, **overrides) -> InstalledFile:
 def _make_uninstaller(config: AppConfig) -> tuple[ProjectUninstaller, StateStore]:
     state_store = StateStore(config)
     return ProjectUninstaller(state_store, FileService(config)), state_store
+
+
+class _FailingFileService(FileService):
+    async def delete_file(self, file_path: Path) -> bool:
+        raise FileOperationError("permission denied", path=file_path)
 
 
 class TestProjectUninstaller:
@@ -69,9 +77,7 @@ class TestProjectUninstaller:
         assert success is False
         assert filename is None
 
-    async def test_removes_from_state_even_if_file_missing(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_removes_stale_state_if_file_missing(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
         uninstaller, state_store = _make_uninstaller(config)
         file_path = tmp_path / "mods" / "sodium.jar"
@@ -84,7 +90,25 @@ class TestProjectUninstaller:
 
         success, filename = await uninstaller.uninstall_project("sodium")
 
-        assert success is True
+        assert success is False
         assert filename == "sodium.jar"
         result_state = await state_store.load()
         assert "sodium" not in result_state.files
+
+    async def test_keeps_state_if_file_delete_fails(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        state_store = StateStore(config)
+        uninstaller = ProjectUninstaller(state_store, _FailingFileService(config))
+        file_path = tmp_path / "mods" / "sodium.jar"
+        installed = _make_installed_file(
+            "sodium",
+            filename="sodium.jar",
+            file_path=file_path,
+        )
+        await state_store.save(StateFile(version=1, files={"sodium": installed}))
+
+        with pytest.raises(FileOperationError):
+            await uninstaller.uninstall_project("sodium")
+
+        result_state = await state_store.load()
+        assert result_state.files["sodium"] == installed

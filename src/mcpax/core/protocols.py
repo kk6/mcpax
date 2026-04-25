@@ -1,6 +1,7 @@
 """Core service protocols."""
 
-from typing import Protocol
+from types import TracebackType
+from typing import Protocol, Self
 
 from mcpax.core.models import (
     ModrinthProject,
@@ -11,6 +12,15 @@ from mcpax.core.models import (
 
 class ModrinthClientProtocol(Protocol):
     """API client operations used by core business logic."""
+
+    async def __aenter__(self) -> Self: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None: ...
 
     async def get_project(self, slug: str) -> ModrinthProject: ...
 

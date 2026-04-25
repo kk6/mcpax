@@ -29,8 +29,9 @@ async def _remove_installed_file(slug: str) -> tuple[bool, str | None]:
         slug: Project slug
 
     Returns:
-        Tuple of (success, filename) where success is True if file was deleted,
-        False if not installed, and filename is the deleted file name or None.
+        Tuple of (file_deleted, filename). filename is None when the project is
+        not tracked as installed. A false file_deleted with a filename means a
+        stale state entry was removed for a file that was already missing.
     """
     config = load_config()
     uninstaller = ProjectUninstaller(
@@ -94,6 +95,11 @@ def remove(
         file_deleted, deleted_filename = asyncio.run(_remove_installed_file(slug))
         if file_deleted and deleted_filename:
             console.print(f"✓ Deleted {deleted_filename}", style="green")
+        elif deleted_filename:
+            console.print(
+                f"[yellow]Note:[/yellow] '{deleted_filename}' was already missing; "
+                "removed stale install state."
+            )
         else:
             console.print(f"[yellow]Note:[/yellow] '{slug}' was not installed.")
 

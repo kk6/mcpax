@@ -12,11 +12,15 @@ class ProjectUninstaller:
         self._file_service = file_service
 
     async def uninstall_project(self, slug: str) -> tuple[bool, str | None]:
-        """Delete an installed project file and remove its state entry."""
+        """Delete an installed project file and remove its state entry.
+
+        Returns a tuple of (file_deleted, filename). The state entry is removed
+        when the tracked file was deleted or was already missing.
+        """
         installed = await self._state_store.get_installed_file(slug)
         if installed is None:
             return (False, None)
 
-        await self._file_service.delete_file(installed.file_path)
+        file_deleted = await self._file_service.delete_file(installed.file_path)
         await self._state_store.remove_installed_file(slug)
-        return (True, installed.filename)
+        return (file_deleted, installed.filename)

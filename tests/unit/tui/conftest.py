@@ -128,8 +128,8 @@ def mock_project_manager():
     mock = AsyncMock()
     mock.__aenter__.return_value = mock
     mock.__aexit__.return_value = None
-    mock.check_updates = AsyncMock(return_value=[])
-    mock.apply_updates = AsyncMock()
+    mock.update_checker.check_updates = AsyncMock(return_value=[])
+    mock.update_applier.apply_updates = AsyncMock()
     return mock
 
 

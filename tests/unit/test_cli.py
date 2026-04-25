@@ -692,6 +692,44 @@ class TestRemoveCommand:
         content = projects_file.read_text()
         assert "sodium" not in content
 
+    def test_remove_project_delete_file_missing_removes_stale_state(
+        self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        """Test that remove command reports stale install state."""
+        # Arrange
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        runner.invoke(app, ["init", "-y"])
+
+        mock_project = ModrinthProject(
+            id="AANobbMI",
+            slug="sodium",
+            title="Sodium",
+            description="Modern rendering engine",
+            project_type=ProjectType.MOD,
+            downloads=50000000,
+            icon_url=None,
+            versions=["v1"],
+        )
+
+        with patch("mcpax.cli.commands.add.ModrinthClient") as MockClient:
+            mock_instance = MockClient.return_value.__aenter__.return_value
+            mock_instance.get_project = AsyncMock(return_value=mock_project)
+            runner.invoke(app, ["add", "sodium"])
+
+        with patch(
+            "mcpax.cli.commands.remove._remove_installed_file"
+        ) as mock_remove_file:
+            mock_remove_file.return_value = (False, "sodium-0.5.0.jar")
+
+            # Act
+            result = runner.invoke(app, ["remove", "sodium", "--delete-file", "--yes"])
+
+        # Assert
+        assert result.exit_code == 0
+        mock_remove_file.assert_called_once_with("sodium")
+        assert "already missing" in result.stdout
+        assert "removed stale install state" in result.stdout
+
     def test_remove_project_no_config(
         self, tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch"
     ) -> None:

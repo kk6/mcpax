@@ -2,7 +2,7 @@
 
 import logging
 from types import TracebackType
-from typing import Self, cast
+from typing import Self
 
 from mcpax.core.api import ModrinthClient
 from mcpax.core.downloader import Downloader, DownloaderConfig
@@ -61,9 +61,7 @@ class ProjectServices:
     ) -> None:
         if self.owns_api_client and self.api_client:
             try:
-                await cast(ModrinthClient, self.api_client).__aexit__(
-                    exc_type, exc_val, exc_tb
-                )
+                await self.api_client.__aexit__(exc_type, exc_val, exc_tb)
             except Exception as e:
                 logger.error("Failed to cleanup API client: %s", e)
         if self.owns_downloader and self.downloader:
