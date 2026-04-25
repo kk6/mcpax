@@ -58,7 +58,7 @@ def test_create_plan_includes_not_installed_and_outdated_updates(
     assert plan.tasks[0].dest == tmp_path / "sodium.jar"
     assert plan.tasks[0].expected_hash == sodium_file.hashes["sha512"]
     assert plan.tasks[0].version_number == "1.0.0"
-    assert plan.update_info["sodium"] == updates[0]
+    assert plan.check_results["sodium"] == updates[0]
     assert plan.failed == []
 
 
@@ -74,7 +74,7 @@ def test_create_plan_skips_non_actionable_updates(tmp_path: Path) -> None:
 
     assert plan.has_work is False
     assert plan.tasks == []
-    assert plan.update_info == {}
+    assert plan.check_results == {}
     assert plan.failed == []
 
 
@@ -89,7 +89,7 @@ def test_create_plan_reports_actionable_update_without_latest_file(
     plan = InstallPlanner().create_plan(updates, tmp_path)
 
     assert plan.tasks == []
-    assert plan.update_info == {}
+    assert plan.check_results == {}
     assert len(plan.failed) == 1
     assert plan.failed[0].slug == "sodium"
     assert plan.failed[0].error == "No compatible version found"

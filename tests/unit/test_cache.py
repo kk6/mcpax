@@ -47,8 +47,8 @@ class TestApiCacheDirtyFlag:
         # Assert
         assert cache_file.exists()
         data = json.loads(cache_file.read_text())
-        assert "sodium" in data["project"]
-        assert data["project"]["sodium"]["data"]["title"] == "Sodium"
+        assert "sodium" in data["projects"]
+        assert data["projects"]["sodium"]["data"]["title"] == "Sodium"
 
     def test_flush_does_nothing_when_not_dirty(self, tmp_path: Path) -> None:
         """flush should not write to disk when cache is not dirty."""
@@ -77,8 +77,8 @@ class TestApiCacheDirtyFlag:
         # Assert - all data should be present after single flush
         assert cache_file.exists()
         data = json.loads(cache_file.read_text())
-        assert "sodium" in data["project"]
-        assert "lithium" in data["project"]
+        assert "sodium" in data["projects"]
+        assert "lithium" in data["projects"]
         assert "sodium" in data["versions"]
 
 
@@ -97,7 +97,7 @@ class TestApiCacheContextManager:
         # Assert - data should be written after context exit
         assert cache_file.exists()
         data = json.loads(cache_file.read_text())
-        assert "sodium" in data["project"]
+        assert "sodium" in data["projects"]
 
     def test_context_manager_flushes_even_with_no_changes(self, tmp_path: Path) -> None:
         """Context manager should work even with no changes."""
@@ -124,7 +124,7 @@ class TestApiCacheContextManager:
 
         # Assert
         data = json.loads(cache_file.read_text())
-        assert len(data["project"]) == 2
+        assert len(data["projects"]) == 2
         assert len(data["versions"]) == 1
 
 

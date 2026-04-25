@@ -98,7 +98,7 @@ class UpdateApplier:
                     )
                     continue
 
-                update = plan.update_info[slug]
+                update = plan.check_results[slug]
                 final_path: Path | None = None
 
                 try:

@@ -16,7 +16,7 @@ class InstallPlan(BaseModel):
     """Planned download work and planning-time failures."""
 
     tasks: list[DownloadTask] = Field(default_factory=list)
-    update_info: dict[str, UpdateCheckResult] = Field(default_factory=dict)
+    check_results: dict[str, UpdateCheckResult] = Field(default_factory=dict)
     failed: list[FailedUpdate] = Field(default_factory=list)
 
     @property
@@ -58,6 +58,6 @@ class InstallPlanner:
                 version_number=update.latest_version or "unknown",
             )
             plan.tasks.append(task)
-            plan.update_info[update.slug] = update
+            plan.check_results[update.slug] = update
 
         return plan

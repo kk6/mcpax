@@ -18,7 +18,7 @@ class ApiCache:
         self._path = path
         self._ttl_seconds = ttl_seconds
         self._data: dict[str, dict[str, dict[str, object]]] = {
-            "project": {},
+            "projects": {},
             "versions": {},
         }
         self._dirty = False
@@ -32,7 +32,7 @@ class ApiCache:
         except (json.JSONDecodeError, OSError):
             return
         if isinstance(data, dict):
-            self._data["project"] = data.get("project", {}) or {}
+            self._data["projects"] = data.get("projects", {}) or {}
             self._data["versions"] = data.get("versions", {}) or {}
 
     def _save(self) -> None:
@@ -53,7 +53,7 @@ class ApiCache:
             self._dirty = False
 
     def get_project(self, slug: str) -> dict | None:
-        entry = self._data["project"].get(slug)
+        entry = self._data["projects"].get(slug)
         if not isinstance(entry, dict):
             return None
         ts = entry.get("ts")
@@ -67,7 +67,7 @@ class ApiCache:
         return None
 
     def set_project(self, slug: str, data: dict) -> None:
-        self._data["project"][slug] = {"ts": time.time(), "data": data}
+        self._data["projects"][slug] = {"ts": time.time(), "data": data}
         self._dirty = True
 
     def get_versions(self, slug: str) -> list[dict] | None:

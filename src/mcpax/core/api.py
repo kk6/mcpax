@@ -25,7 +25,7 @@ class RateLimitInfo:
 
     remaining: int
     limit: int
-    reset: int  # Unix timestamp
+    reset_at: int  # Unix timestamp
 
 
 class ModrinthClient:
@@ -109,7 +109,7 @@ class ModrinthClient:
             self._rate_limit_info = RateLimitInfo(
                 remaining=int(remaining_str),
                 limit=int(limit_str),
-                reset=int(reset_str),
+                reset_at=int(reset_str),
             )
 
     async def _handle_error_response(

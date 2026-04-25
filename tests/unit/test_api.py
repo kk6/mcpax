@@ -303,7 +303,7 @@ class TestRateLimitTracking:
         assert info is not None
         assert info.remaining == 299
         assert info.limit == 300
-        assert info.reset == 1704067200
+        assert info.reset_at == 1704067200
 
     async def test_handles_missing_rate_limit_headers(
         self,

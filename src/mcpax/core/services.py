@@ -30,8 +30,8 @@ class ProjectServices:
         self.config = config
         self.api_client = api_client
         self.downloader = downloader
-        self.owns_api_client = api_client is None
-        self.owns_downloader = downloader is None
+        self._owns_api_client = api_client is None
+        self._owns_downloader = downloader is None
         self.state_store = StateStore(config)
         self.file_service = FileService(config)
         self.version_resolver = VersionResolver()
@@ -58,14 +58,14 @@ class ProjectServices:
                 await self.downloader.__aenter__()
                 entered_downloader = True
         except Exception:
-            if entered_downloader and self.owns_downloader and self.downloader:
+            if entered_downloader and self._owns_downloader and self.downloader:
                 try:
                     await self.downloader.__aexit__(None, None, None)
                 except Exception:
                     logger.exception(
                         "Failed to cleanup downloader after initialization error"
                     )
-            if entered_api_client and self.owns_api_client and self.api_client:
+            if entered_api_client and self._owns_api_client and self.api_client:
                 try:
                     await self.api_client.__aexit__(None, None, None)
                 except Exception:
@@ -81,12 +81,12 @@ class ProjectServices:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self.owns_api_client and self.api_client:
+        if self._owns_api_client and self.api_client:
             try:
                 await self.api_client.__aexit__(exc_type, exc_val, exc_tb)
             except Exception:
                 logger.exception("Failed to cleanup API client")
-        if self.owns_downloader and self.downloader:
+        if self._owns_downloader and self.downloader:
             try:
                 await self.downloader.__aexit__(exc_type, exc_val, exc_tb)
             except Exception:
