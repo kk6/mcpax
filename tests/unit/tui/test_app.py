@@ -37,12 +37,12 @@ async def test_app_has_status_bar(app_config) -> None:
     with (
         patch("mcpax.tui.app.load_config", return_value=app_config),
         patch("mcpax.tui.screens.main.load_projects", return_value=[]),
-        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class,
     ):
         mock_manager = AsyncMock()
         mock_manager.__aenter__.return_value = mock_manager
         mock_manager.__aexit__.return_value = None
-        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager.update_checker.check_updates = AsyncMock(return_value=[])
         mock_manager_class.return_value = mock_manager
 
         app = McpaxApp()
@@ -70,12 +70,12 @@ async def test_app_loads_config_successfully() -> None:
     with (
         patch("mcpax.tui.app.load_config", return_value=test_app_config),
         patch("mcpax.tui.screens.main.load_projects", return_value=[]),
-        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class,
     ):
         mock_manager = AsyncMock()
         mock_manager.__aenter__.return_value = mock_manager
         mock_manager.__aexit__.return_value = None
-        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager.update_checker.check_updates = AsyncMock(return_value=[])
         mock_manager_class.return_value = mock_manager
 
         app = McpaxApp()

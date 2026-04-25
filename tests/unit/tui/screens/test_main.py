@@ -132,11 +132,13 @@ async def test_main_screen_loads_projects_on_mount(
     with patch("mcpax.tui.screens.main.load_projects") as mock_load_projects:
         mock_load_projects.return_value = ["fabric-api", "sodium"]
 
-        with patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class:
+        with patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class:
             mock_manager = AsyncMock()
             mock_manager.__aenter__.return_value = mock_manager
             mock_manager.__aexit__.return_value = None
-            mock_manager.check_updates = AsyncMock(return_value=test_projects)
+            mock_manager.update_checker.check_updates = AsyncMock(
+                return_value=test_projects
+            )
             mock_manager_class.return_value = mock_manager
 
             app = TestApp()
@@ -146,7 +148,7 @@ async def test_main_screen_loads_projects_on_mount(
 
                 # Verify projects were loaded
                 assert mock_load_projects.called
-                assert mock_manager.check_updates.called
+                assert mock_manager.update_checker.check_updates.called
 
 
 @pytest.mark.asyncio
@@ -185,11 +187,13 @@ async def test_main_screen_action_refresh(app_config, make_update_check_result) 
     with patch("mcpax.tui.screens.main.load_projects") as mock_load_projects:
         mock_load_projects.return_value = ["fabric-api"]
 
-        with patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class:
+        with patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class:
             mock_manager = AsyncMock()
             mock_manager.__aenter__.return_value = mock_manager
             mock_manager.__aexit__.return_value = None
-            mock_manager.check_updates = AsyncMock(return_value=test_projects)
+            mock_manager.update_checker.check_updates = AsyncMock(
+                return_value=test_projects
+            )
             mock_manager_class.return_value = mock_manager
 
             app = TestApp()
@@ -199,7 +203,7 @@ async def test_main_screen_action_refresh(app_config, make_update_check_result) 
                 await pilot.pause()
 
                 # Verify check_updates was called
-                assert mock_manager.check_updates.called
+                assert mock_manager.update_checker.check_updates.called
 
 
 @pytest.mark.asyncio
@@ -242,11 +246,13 @@ async def test_main_screen_action_view_detail_with_selection(
     with patch("mcpax.tui.screens.main.load_projects") as mock_load_projects:
         mock_load_projects.return_value = ["fabric-api", "sodium"]
 
-        with patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class:
+        with patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class:
             mock_manager = AsyncMock()
             mock_manager.__aenter__.return_value = mock_manager
             mock_manager.__aexit__.return_value = None
-            mock_manager.check_updates = AsyncMock(return_value=test_projects)
+            mock_manager.update_checker.check_updates = AsyncMock(
+                return_value=test_projects
+            )
             mock_manager_class.return_value = mock_manager
 
             app = TestApp()
@@ -295,11 +301,13 @@ async def test_main_screen_row_activated_event(
     with patch("mcpax.tui.screens.main.load_projects") as mock_load_projects:
         mock_load_projects.return_value = ["fabric-api"]
 
-        with patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class:
+        with patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class:
             mock_manager = AsyncMock()
             mock_manager.__aenter__.return_value = mock_manager
             mock_manager.__aexit__.return_value = None
-            mock_manager.check_updates = AsyncMock(return_value=test_projects)
+            mock_manager.update_checker.check_updates = AsyncMock(
+                return_value=test_projects
+            )
             mock_manager_class.return_value = mock_manager
 
             app = TestApp()
@@ -344,13 +352,13 @@ async def test_main_screen_search_requested_handler(app_config) -> None:
 
     with (
         patch("mcpax.tui.screens.main.load_projects") as mock_load_projects,
-        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class,
     ):
         mock_load_projects.return_value = []
         mock_manager = AsyncMock()
         mock_manager.__aenter__.return_value = mock_manager
         mock_manager.__aexit__.return_value = None
-        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager.update_checker.check_updates = AsyncMock(return_value=[])
         mock_manager_class.return_value = mock_manager
 
         app = TestApp()
@@ -383,13 +391,13 @@ async def test_main_screen_search_with_empty_query(app_config) -> None:
 
     with (
         patch("mcpax.tui.screens.main.load_projects") as mock_load_projects,
-        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class,
     ):
         mock_load_projects.return_value = []
         mock_manager = AsyncMock()
         mock_manager.__aenter__.return_value = mock_manager
         mock_manager.__aexit__.return_value = None
-        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager.update_checker.check_updates = AsyncMock(return_value=[])
         mock_manager_class.return_value = mock_manager
 
         app = TestApp()
@@ -437,11 +445,11 @@ async def test_main_screen_install_action_no_updates(
 
     with (
         patch("mcpax.tui.screens.main.load_projects") as mock_load,
-        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class,
     ):
         mock_load.return_value = mock_projects
         mock_manager = AsyncMock()
-        mock_manager.check_updates = AsyncMock(return_value=mock_results)
+        mock_manager.update_checker.check_updates = AsyncMock(return_value=mock_results)
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
 
@@ -477,7 +485,7 @@ async def test_main_screen_delete_selected_shows_confirmation(
     mock_load.return_value = [
         ProjectConfig(slug="fabric-api", project_type=ProjectType.MOD)
     ]
-    mock_manager.check_updates = AsyncMock(return_value=test_results)
+    mock_manager.update_checker.check_updates = AsyncMock(return_value=test_results)
 
     class TestApp(App[None]):
         def on_mount(self):
@@ -671,11 +679,11 @@ async def test_main_screen_action_settings_opens_screen(app_config) -> None:
     # Mock load_projects to return empty list
     with (
         patch("mcpax.tui.screens.main.load_projects") as mock_load,
-        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class,
     ):
         mock_load.return_value = []
         mock_manager = AsyncMock()
-        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager.update_checker.check_updates = AsyncMock(return_value=[])
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
 
@@ -714,12 +722,12 @@ async def test_main_screen_on_settings_dismissed_reloads_config(app_config) -> N
     # Mock load_projects to return empty list
     with (
         patch("mcpax.tui.screens.main.load_projects") as mock_load,
-        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class,
         patch("mcpax.tui.screens.main.load_config") as mock_load_config,
     ):
         mock_load.return_value = []
         mock_manager = AsyncMock()
-        mock_manager.check_updates = AsyncMock(return_value=[])
+        mock_manager.update_checker.check_updates = AsyncMock(return_value=[])
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
 
@@ -960,11 +968,11 @@ async def test_main_screen_worker_error_shows_notification(
 
     with (
         patch("mcpax.tui.screens.main.load_projects") as mock_load,
-        patch("mcpax.tui.screens.main.ProjectManager") as mock_manager_class,
+        patch("mcpax.tui.screens.main.ProjectServices") as mock_manager_class,
     ):
         mock_load.return_value = ["fabric-api"]
         mock_manager = AsyncMock()
-        mock_manager.check_updates = AsyncMock(
+        mock_manager.update_checker.check_updates = AsyncMock(
             side_effect=RuntimeError("API connection failed")
         )
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
@@ -1033,7 +1041,7 @@ async def test_main_screen_install_action_with_updates(
     ]
 
     mock_load.return_value = ["fabric-api", "sodium"]
-    mock_manager.check_updates = AsyncMock(return_value=test_results)
+    mock_manager.update_checker.check_updates = AsyncMock(return_value=test_results)
 
     class TestApp(App[None]):
         def on_mount(self):
@@ -1151,7 +1159,7 @@ async def test_main_screen_on_data_table_row_selected(
     ]
 
     mock_load.return_value = ["fabric-api"]
-    mock_manager.check_updates = AsyncMock(return_value=test_projects)
+    mock_manager.update_checker.check_updates = AsyncMock(return_value=test_projects)
 
     class TestApp(App[None]):
         def on_mount(self):

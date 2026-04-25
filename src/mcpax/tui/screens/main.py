@@ -11,7 +11,6 @@ from textual.worker import Worker, WorkerState
 
 from mcpax.core.config import load_config, load_projects, save_projects
 from mcpax.core.exceptions import ConfigValidationError
-from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
     AppConfig,
     InstallStatus,
@@ -20,6 +19,7 @@ from mcpax.core.models import (
     UpdateCheckResult,
     UpdateResult,
 )
+from mcpax.core.services import ProjectServices
 from mcpax.tui.screens.confirm import ConfirmDialog
 from mcpax.tui.screens.detail import ProjectDetailScreen
 from mcpax.tui.screens.install import InstallScreen
@@ -94,8 +94,8 @@ class MainScreen(Screen[None]):
         Returns:
             List of update check results
         """
-        async with ProjectManager(self._config) as manager:
-            return await manager.check_updates(self._projects)
+        async with ProjectServices(self._config) as services:
+            return await services.update_checker.check_updates(self._projects)
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         """Handle worker state changes.

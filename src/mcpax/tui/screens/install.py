@@ -11,8 +11,8 @@ from textual.widgets import Button, Footer, Static
 from textual.worker import Worker, WorkerState
 
 from mcpax.core.downloader import Downloader, DownloaderConfig
-from mcpax.core.manager import ProjectManager
 from mcpax.core.models import AppConfig, UpdateCheckResult, UpdateResult
+from mcpax.core.services import ProjectServices
 from mcpax.tui.widgets.progress_panel import ProgressPanel
 
 logger = logging.getLogger(__name__)
@@ -93,9 +93,9 @@ class InstallScreen(Screen[UpdateResult | None]):
 
         async with (
             downloader,
-            ProjectManager(self._config, downloader=downloader) as manager,
+            ProjectServices(self._config, downloader=downloader) as services,
         ):
-            return await manager.apply_updates(self._updates)
+            return await services.update_applier.apply_updates(self._updates)
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         """Handle worker state changes.
