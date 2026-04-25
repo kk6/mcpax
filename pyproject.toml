@@ -24,6 +24,7 @@ dev = [
     "ruff>=0.8",
     "ty>=0.0.1a6",
     "pre-commit>=4.0",
+    "pytest-xdist>=3.8.0",
 ]
 tui = ["textual>=0.50"]
 
@@ -43,7 +44,7 @@ docstring-code-format = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
+asyncio_default_fixture_loop_scope = "module"
 addopts = "--cov=src/mcpax --cov-report=term-missing"
 
 [build-system]

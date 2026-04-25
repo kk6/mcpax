@@ -40,10 +40,15 @@ lint:
 typecheck:
     uv run ty check src
 
-# Run tests (pass args: just test -v)
+# Run tests in parallel (pass extra args: just test -v)
 [group('dev')]
 test *args:
-    uv run pytest {{ args }}
+    uv run pytest -n auto {{ args }}
+
+# Run tests without parallelism for pdb/breakpoint() debugging
+[group('dev')]
+test-debug *args:
+    uv run pytest -n0 {{ args }}
 
 # Run all quality checks (format, lint, typecheck, test)
 [group('dev')]

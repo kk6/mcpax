@@ -1,9 +1,10 @@
 """Tests for cache.py."""
 
 import json
-import time
+import types
 from pathlib import Path
 
+import mcpax.core.cache
 from mcpax.core.cache import ApiCache
 
 
@@ -186,16 +187,24 @@ class TestApiCacheBasicFunctionality:
         # Assert
         assert result == project_data
 
-    def test_cache_respects_ttl(self, tmp_path: Path) -> None:
+    def test_cache_respects_ttl(self, tmp_path: Path, monkeypatch) -> None:
         """Cache entries should expire after TTL."""
-        # Arrange
+        # Arrange - replace the module-level time reference to avoid patching
+        # the global time.time used by asyncio internals and the test runner.
+        fake_now = [1000.0]
+        monkeypatch.setattr(
+            mcpax.core.cache,
+            "time",
+            types.SimpleNamespace(time=lambda: fake_now[0]),
+        )
+
         cache_file = tmp_path / "cache.json"
-        cache = ApiCache(cache_file, ttl_seconds=1)  # 1 second TTL
+        cache = ApiCache(cache_file, ttl_seconds=1)
         cache.set_project("sodium", {"title": "Sodium"})
         cache.flush()
 
-        # Act - wait for TTL to expire
-        time.sleep(1.1)
+        # Act - advance clock past TTL without sleeping
+        fake_now[0] += 2.0
         result = cache.get_project("sodium")
 
         # Assert - should return None after expiration

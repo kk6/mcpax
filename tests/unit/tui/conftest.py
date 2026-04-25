@@ -32,7 +32,7 @@ def app_config() -> AppConfig:
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def make_update_check_result():
     """Create UpdateCheckResult factory fixture.
 
@@ -75,7 +75,7 @@ def make_update_check_result():
     return _make_result
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def make_search_hit():
     """Create SearchHit factory fixture.
 

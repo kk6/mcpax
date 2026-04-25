@@ -62,19 +62,19 @@ def fixed_terminal_width(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LINES", "50")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def fixtures_dir() -> Path:
     """Return the path to the fixtures directory."""
     return Path(__file__).parent / "fixtures"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def sample_config(fixtures_dir: Path) -> Path:
     """Return the path to the sample config.toml."""
     return fixtures_dir / "config.toml"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def sample_projects(fixtures_dir: Path) -> Path:
     """Return the path to the sample projects.toml."""
     return fixtures_dir / "projects.toml"
