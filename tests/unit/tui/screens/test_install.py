@@ -116,12 +116,13 @@ async def test_install_screen_cancel_during_installation(
 
         mock_manager = AsyncMock()
 
-        # Make apply_updates take some time so we can cancel
-        async def slow_apply_updates(*args, **kwargs):
-            await asyncio.sleep(0.5)
+        # Block indefinitely so the worker is still running when escape is pressed.
+        # worker.cancel() raises CancelledError inside the wait(), ending the task.
+        async def blocking_apply_updates(*args, **kwargs):
+            await asyncio.Event().wait()
             return mock_update_result
 
-        mock_manager.update_applier.apply_updates = slow_apply_updates
+        mock_manager.update_applier.apply_updates = blocking_apply_updates
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
 
@@ -172,12 +173,13 @@ async def test_install_screen_dismiss_after_cancel(
 
         mock_manager = AsyncMock()
 
-        # Make apply_updates take some time so we can cancel
-        async def slow_apply_updates(*args, **kwargs):
-            await asyncio.sleep(0.5)
+        # Block indefinitely so the worker is still running when escape is pressed.
+        # worker.cancel() raises CancelledError inside the wait(), ending the task.
+        async def blocking_apply_updates(*args, **kwargs):
+            await asyncio.Event().wait()
             return mock_update_result
 
-        mock_manager.update_applier.apply_updates = slow_apply_updates
+        mock_manager.update_applier.apply_updates = blocking_apply_updates
         mock_manager_class.return_value.__aenter__.return_value = mock_manager
         mock_manager_class.return_value.__aexit__.return_value = AsyncMock()
 
