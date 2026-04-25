@@ -2507,10 +2507,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--check"])
@@ -2560,10 +2562,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--check"])
@@ -2626,10 +2630,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--check"])
@@ -2730,10 +2736,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--check"])
@@ -2810,12 +2818,16 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
             patch("mcpax.cli.commands.update.typer.confirm", return_value=True),
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
-            mock_instance.apply_updates = AsyncMock(return_value=mock_update_result)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
+            mock_services.update_applier.apply_updates = AsyncMock(
+                return_value=mock_update_result
+            )
 
             # Act
             result = runner.invoke(app, ["update"])
@@ -2823,7 +2835,7 @@ class TestUpdateCommand:
         # Assert
         assert result.exit_code == 0
         assert "sodium" in result.stdout
-        mock_instance.apply_updates.assert_called_once()
+        mock_services.update_applier.apply_updates.assert_called_once()
 
     def test_update_cancels_on_no(self) -> None:
         """Test that update cancels when user declines."""
@@ -2885,19 +2897,21 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
             patch("mcpax.cli.commands.update.typer.confirm", return_value=False),
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
-            mock_instance.apply_updates = AsyncMock(return_value=[])
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
+            mock_services.update_applier.apply_updates = AsyncMock(return_value=[])
 
             # Act
             result = runner.invoke(app, ["update"])
 
         # Assert
         assert result.exit_code == 0
-        mock_instance.apply_updates.assert_not_called()
+        mock_services.update_applier.apply_updates.assert_not_called()
 
     def test_update_yes_skips_confirmation(self) -> None:
         """Test that --yes skips confirmation prompt."""
@@ -2964,12 +2978,16 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
             patch("mcpax.cli.commands.update.typer.confirm") as mock_confirm,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
-            mock_instance.apply_updates = AsyncMock(return_value=mock_update_result)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
+            mock_services.update_applier.apply_updates = AsyncMock(
+                return_value=mock_update_result
+            )
 
             # Act
             result = runner.invoke(app, ["update", "--yes"])
@@ -2977,7 +2995,7 @@ class TestUpdateCommand:
         # Assert
         assert result.exit_code == 0
         mock_confirm.assert_not_called()
-        mock_instance.apply_updates.assert_called_once()
+        mock_services.update_applier.apply_updates.assert_called_once()
 
     def test_update_no_updates_available(self) -> None:
         """Test that update shows message when all projects are up to date."""
@@ -3032,10 +3050,12 @@ class TestUpdateCommand:
             patch(
                 "mcpax.cli.commands.update.load_projects", return_value=mock_projects
             ),
-            patch("mcpax.cli.commands.update.ProjectManager") as MockManager,
+            patch("mcpax.cli.commands.update.ProjectServices") as MockServices,
         ):
-            mock_instance = MockManager.return_value.__aenter__.return_value
-            mock_instance.check_updates = AsyncMock(return_value=mock_results)
+            mock_services = MockServices.return_value.__aenter__.return_value
+            mock_services.update_checker.check_updates = AsyncMock(
+                return_value=mock_results
+            )
 
             # Act
             result = runner.invoke(app, ["update"])

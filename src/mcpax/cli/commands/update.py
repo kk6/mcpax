@@ -15,12 +15,12 @@ from mcpax.core.config import (
     load_config,
     load_projects,
 )
-from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
     InstallStatus,
     UpdateCheckResult,
     UpdateResult,
 )
+from mcpax.core.services import ProjectServices
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +75,9 @@ def update(
     console.print("Checking for updates...")
 
     async def _update_flow() -> tuple[list[UpdateCheckResult], UpdateResult | None]:
-        async with ProjectManager(config) as manager:
+        async with ProjectServices(config) as services:
             # Check for updates
-            results = await manager.check_updates(projects)
+            results = await services.update_checker.check_updates(projects)
 
             # Group results by status
             grouped: dict[InstallStatus, list[UpdateCheckResult]] = defaultdict(list)
@@ -145,7 +145,7 @@ def update(
 
             # Apply updates
             console.print("\nApplying updates...")
-            return results, await manager.apply_updates(results)
+            return results, await services.update_applier.apply_updates(results)
 
     results, update_result = asyncio.run(_update_flow())
 
