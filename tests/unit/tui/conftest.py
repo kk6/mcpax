@@ -118,7 +118,7 @@ def make_search_hit():
 
 
 @pytest.fixture
-def mock_project_manager():
+def mock_project_services():
     """Create configured ProjectServices AsyncMock.
 
     Returns:

@@ -40,17 +40,39 @@ class ProjectServices:
         self._update_applier: UpdateApplier | None = None
 
     async def __aenter__(self) -> Self:
-        if self.api_client is None:
-            self.api_client = ModrinthClient()
-            await self.api_client.__aenter__()
-        if self.downloader is None:
-            self.downloader = Downloader(
-                config=DownloaderConfig(
-                    max_concurrent=self.config.max_concurrent_downloads,
-                    verify_hash=self.config.verify_hash,
+        entered_api_client = False
+        entered_downloader = False
+
+        try:
+            if self.api_client is None:
+                self.api_client = ModrinthClient()
+                await self.api_client.__aenter__()
+                entered_api_client = True
+            if self.downloader is None:
+                self.downloader = Downloader(
+                    config=DownloaderConfig(
+                        max_concurrent=self.config.max_concurrent_downloads,
+                        verify_hash=self.config.verify_hash,
+                    )
                 )
-            )
-            await self.downloader.__aenter__()
+                await self.downloader.__aenter__()
+                entered_downloader = True
+        except Exception:
+            if entered_downloader and self.owns_downloader and self.downloader:
+                try:
+                    await self.downloader.__aexit__(None, None, None)
+                except Exception:
+                    logger.exception(
+                        "Failed to cleanup downloader after initialization error"
+                    )
+            if entered_api_client and self.owns_api_client and self.api_client:
+                try:
+                    await self.api_client.__aexit__(None, None, None)
+                except Exception:
+                    logger.exception(
+                        "Failed to cleanup API client after initialization error"
+                    )
+            raise
         return self
 
     async def __aexit__(
