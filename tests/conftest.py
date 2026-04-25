@@ -7,14 +7,11 @@ import pytest
 
 from mcpax.core.api import ModrinthClient
 from mcpax.core.models import (
-    Loader,
     ModrinthProject,
-    ProjectType,
     ProjectVersion,
     ReleaseChannel,
     SearchResult,
 )
-from mcpax.core.version_resolver import VersionCriteria, VersionResolver
 
 
 class FakeModrinthClient:
@@ -24,7 +21,6 @@ class FakeModrinthClient:
         self.projects: dict[str, ModrinthProject] = {}
         self.versions: dict[str, list[ProjectVersion]] = {}
         self.search_result = SearchResult(hits=[], total_hits=0, offset=0, limit=0)
-        self.version_resolver = VersionResolver()
 
     async def get_project(self, slug: str) -> ModrinthProject:
         return self.projects[slug]
@@ -40,26 +36,6 @@ class FakeModrinthClient:
         facets: str | None = None,
     ) -> SearchResult:
         return self.search_result
-
-    def get_latest_compatible_version(
-        self,
-        versions: list[ProjectVersion],
-        minecraft_version: str,
-        loader: Loader,
-        channel: ReleaseChannel = ReleaseChannel.RELEASE,
-        project_type: ProjectType | None = None,
-        shader_loader: Loader | None = None,
-    ) -> ProjectVersion | None:
-        return self.version_resolver.latest_compatible_version(
-            versions,
-            VersionCriteria(
-                minecraft_version=minecraft_version,
-                mod_loader=loader,
-                channel=channel,
-                project_type=project_type,
-                shader_loader=shader_loader,
-            ),
-        )
 
 
 @pytest.fixture(autouse=True)

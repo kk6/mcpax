@@ -9,6 +9,7 @@ from textual.worker import Worker, WorkerState
 
 from mcpax.core.api import ModrinthClient
 from mcpax.core.models import Loader, ProjectType, ProjectVersion, ReleaseChannel
+from mcpax.core.version_resolver import VersionCriteria, VersionResolver
 
 # Version selection result constants
 VERSION_SELECT_CANCELLED: None = None
@@ -120,18 +121,19 @@ class VersionSelectScreen(Screen[str | None]):
         # Store versions mapping for later retrieval
         self._versions = {version.id: version for version in versions}
 
-        client = ModrinthClient()
         loader = Loader(self._mod_loader)
         shader_loader_enum = (
             Loader(self._shader_loader) if self._shader_loader else None
         )
-        compatible_versions = client.filter_compatible_versions(
-            versions=versions,
-            minecraft_version=self._minecraft_version,
-            loader=loader,
-            channel=ReleaseChannel.ALPHA,  # TUI shows all channels
-            project_type=self._project_type,
-            shader_loader=shader_loader_enum,
+        compatible_versions = VersionResolver().filter_compatible_versions(
+            versions,
+            VersionCriteria(
+                minecraft_version=self._minecraft_version,
+                mod_loader=loader,
+                channel=ReleaseChannel.ALPHA,  # TUI shows all channels
+                project_type=self._project_type,
+                shader_loader=shader_loader_enum,
+            ),
         )
         compatible_ids = {v.id for v in compatible_versions}
         compatible = [v for v in versions if v.id in compatible_ids]

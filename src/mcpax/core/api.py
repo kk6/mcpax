@@ -12,14 +12,11 @@ from mcpax import __version__
 from mcpax.core.cache import ApiCache
 from mcpax.core.exceptions import APIError, ProjectNotFoundError, RateLimitError
 from mcpax.core.models import (
-    Loader,
     ModrinthProject,
-    ProjectType,
     ProjectVersion,
-    ReleaseChannel,
     SearchResult,
 )
-from mcpax.core.version_resolver import VersionCriteria, VersionResolver
+from mcpax.core.version_resolver import VersionResolver
 
 
 @dataclass
@@ -289,78 +286,6 @@ class ModrinthClient:
             params["facets"] = facets
         response = await self._request("GET", "/search", params=params)
         return SearchResult.model_validate(response.json())
-
-    # --- Version Filtering ---
-
-    def filter_compatible_versions(
-        self,
-        versions: list[ProjectVersion],
-        minecraft_version: str,
-        loader: Loader,
-        channel: ReleaseChannel = ReleaseChannel.RELEASE,
-        project_type: ProjectType | None = None,
-        shader_loader: Loader | None = None,
-    ) -> list[ProjectVersion]:
-        """Filter versions compatible with given criteria.
-
-        Args:
-            versions: List of versions to filter
-            minecraft_version: Target Minecraft version
-            loader: Target mod loader
-            channel: The most unstable release channel to include. For example,
-                `BETA` will include `BETA` and `RELEASE` versions, but exclude
-                `ALPHA`. `ALPHA` includes all channels.
-            project_type: Project type (mod, shader, etc.).
-            shader_loader: Shader loader (iris, optifine). Used only when
-                project_type is SHADER.
-
-        Returns:
-            Filtered list of compatible versions (newest first)
-        """
-        return VersionResolver().filter_compatible_versions(
-            versions,
-            VersionCriteria(
-                minecraft_version=minecraft_version,
-                mod_loader=loader,
-                channel=channel,
-                project_type=project_type,
-                shader_loader=shader_loader,
-            ),
-        )
-
-    def get_latest_compatible_version(
-        self,
-        versions: list[ProjectVersion],
-        minecraft_version: str,
-        loader: Loader,
-        channel: ReleaseChannel = ReleaseChannel.RELEASE,
-        project_type: ProjectType | None = None,
-        shader_loader: Loader | None = None,
-    ) -> ProjectVersion | None:
-        """Get the latest compatible version.
-
-        Args:
-            versions: List of versions to filter
-            minecraft_version: Target Minecraft version
-            loader: Target mod loader
-            channel: Minimum release channel
-            project_type: Project type (mod, shader, etc.).
-            shader_loader: Shader loader (iris, optifine). Used only when
-                project_type is SHADER.
-
-        Returns:
-            Latest compatible ProjectVersion or None
-        """
-        return VersionResolver().latest_compatible_version(
-            versions,
-            VersionCriteria(
-                minecraft_version=minecraft_version,
-                mod_loader=loader,
-                channel=channel,
-                project_type=project_type,
-                shader_loader=shader_loader,
-            ),
-        )
 
     def find_version_by_number(
         self,

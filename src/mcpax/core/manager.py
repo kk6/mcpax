@@ -109,7 +109,7 @@ class _ServiceFactory(_FileFacade):
                 minecraft_dir=self._config.minecraft_dir,
                 downloader=self._downloader,
                 install_planner=self._install_planner,
-                file_service=_ProjectManagerFileServiceAdapter(self),
+                file_service=self._file_service,
                 state_store=self._state_store,
             )
         return self._update_applier
@@ -202,26 +202,3 @@ class ProjectManager(_ServiceFactory):
 
     def _get_temp_download_dir(self) -> Path:
         return self._get_update_applier().get_temp_download_dir()
-
-
-class _ProjectManagerFileServiceAdapter:
-    """Route file operations through ProjectManager compatibility methods."""
-
-    def __init__(self, manager: _FileFacade) -> None:
-        self._manager = manager
-
-    def get_target_directory(self, project_type: ProjectType) -> Path:
-        return self._manager.get_target_directory(project_type)
-
-    async def place_file(self, src: Path, dest_dir: Path) -> Path:
-        return await self._manager.place_file(src, dest_dir)
-
-    async def backup_file(
-        self,
-        file_path: Path,
-        backup_dir: Path | None = None,
-    ) -> Path:
-        return await self._manager.backup_file(file_path, backup_dir)
-
-    async def delete_file(self, file_path: Path) -> bool:
-        return await self._manager.delete_file(file_path)

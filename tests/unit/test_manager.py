@@ -2029,7 +2029,7 @@ class TestApplyUpdatesRollback:
         async def place_file_fail(src: Path, dest_dir: Path) -> Path:
             raise FileOperationError("move failed", path=src)
 
-        monkeypatch.setattr(manager, "place_file", place_file_fail)
+        monkeypatch.setattr(manager._file_service, "place_file", place_file_fail)
 
         # Act
         result = await manager.apply_updates([update], backup=False)
@@ -2104,7 +2104,7 @@ class TestApplyUpdatesRollback:
             file_path.unlink()
             return True
 
-        monkeypatch.setattr(manager, "delete_file", delete_file_spy)
+        monkeypatch.setattr(manager._file_service, "delete_file", delete_file_spy)
 
         # Act
         result = await manager.apply_updates([update], backup=False)
@@ -2180,7 +2180,7 @@ class TestApplyUpdatesRollback:
             file_path.unlink()
             return True
 
-        monkeypatch.setattr(manager, "delete_file", delete_file_fail)
+        monkeypatch.setattr(manager._file_service, "delete_file", delete_file_fail)
 
         # Act
         result = await manager.apply_updates([update], backup=False)
@@ -2244,7 +2244,11 @@ class TestApplyUpdatesRollback:
         def get_target_directory_fail(project_type: ProjectType) -> Path:
             raise RuntimeError("Unexpected internal error")
 
-        monkeypatch.setattr(manager, "get_target_directory", get_target_directory_fail)
+        monkeypatch.setattr(
+            manager._file_service,
+            "get_target_directory",
+            get_target_directory_fail,
+        )
 
         # Act & Assert
         with pytest.raises(RuntimeError, match="Unexpected internal error"):
@@ -2364,7 +2368,7 @@ class TestApplyUpdatesRollback:
         async def place_file_fail(src: Path, dest_dir: Path) -> Path:
             raise FileOperationError("placement failed", path=src)
 
-        monkeypatch.setattr(manager, "place_file", place_file_fail)
+        monkeypatch.setattr(manager._file_service, "place_file", place_file_fail)
 
         # Act
         result = await manager.apply_updates([update], backup=False)
