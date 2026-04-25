@@ -4,11 +4,11 @@
 
 ## Project Structure & Module Organization
 - `README.md` covers usage and development commands.
-- `docs/` holds requirements, architecture, and API notes (see `docs/10_summary.md` for an index).
+- `docs/` holds maintained architecture, TUI, and API notes.
 - Source code lives under `src/mcpax/` with `core/`, `cli/`, and `tui/` layers (documented in `CLAUDE.md`).
 - `core/` contains the business logic and should stay independent of CLI/TUI presentation concerns.
 - `core/version_resolver.py` owns Modrinth version compatibility and pinned-version resolution.
-- `core/manager.py` is a compatibility facade. Keep new update/install logic in focused services such as `UpdateChecker`, `UpdateApplier`, `InstallPlanner`, `FileService`, and `StateStore`.
+- `core/services.py` provides `ProjectServices` for core service lifecycle. Keep update/install logic in focused services such as `UpdateChecker`, `UpdateApplier`, `InstallPlanner`, `FileService`, and `StateStore`.
 - Tests live under `tests/` with `unit/`, `integration/`, and `fixtures/` (also in `CLAUDE.md`).
 
 ## Build, Test, and Development Commands
@@ -65,4 +65,4 @@ This project uses **git** for version control. Development happens on `main`; fe
 
 ## Configuration Tips
 - Local config files are `config.toml` and `projects.toml` (examples in `README.md`).
-- State tracking is expected in `.mcpax-state.json` (see `docs/10_summary.md`).
+- State tracking is expected in `.mcpax-state.json`.
