@@ -639,7 +639,7 @@ class TestRemoveCommand:
 
         # Mock the file deletion helper
         with patch(
-            "mcpax.cli.commands.remove._remove_installed_file_with_manager"
+            "mcpax.cli.commands.remove._remove_installed_file"
         ) as mock_remove_file:
             mock_remove_file.return_value = (True, "sodium-0.5.0.jar")
 
@@ -677,7 +677,7 @@ class TestRemoveCommand:
 
         # Mock the file deletion helper - returns False (not installed)
         with patch(
-            "mcpax.cli.commands.remove._remove_installed_file_with_manager"
+            "mcpax.cli.commands.remove._remove_installed_file"
         ) as mock_remove_file:
             mock_remove_file.return_value = (False, None)
 
@@ -732,7 +732,7 @@ class TestRemoveCommand:
 
         # Mock the file deletion helper
         with patch(
-            "mcpax.cli.commands.remove._remove_installed_file_with_manager"
+            "mcpax.cli.commands.remove._remove_installed_file"
         ) as mock_remove_file:
             mock_remove_file.return_value = (True, "sodium-0.5.0.jar")
 

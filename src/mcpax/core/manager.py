@@ -69,14 +69,6 @@ class _FileFacade(_StateFacade):
     async def delete_file(self, file_path: Path) -> bool:
         return await self._file_service.delete_file(file_path)
 
-    async def uninstall_project(self, slug: str) -> tuple[bool, str | None]:
-        installed = await self.get_installed_file(slug)
-        if installed is None:
-            return (False, None)
-        await self.delete_file(installed.file_path)
-        await self._remove_installed_file(slug)
-        return (True, installed.filename)
-
 
 class _ServiceFactory(_FileFacade):
     _api_client: ModrinthClientProtocol | None
