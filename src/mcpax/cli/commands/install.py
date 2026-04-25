@@ -13,10 +13,10 @@ from mcpax.core.config import (
     load_config,
     load_projects,
 )
-from mcpax.core.manager import ProjectManager
 from mcpax.core.models import (
     InstallStatus,
 )
+from mcpax.core.services import ProjectServices
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +78,9 @@ def install(
 
     # Install projects
     async def _install_projects() -> None:
-        async with ProjectManager(config) as manager:
+        async with ProjectServices(config) as services:
             # Check updates
-            updates = await manager.check_updates(target_projects)
+            updates = await services.update_checker.check_updates(target_projects)
 
             # Filter out compatible versions and show warnings
             for update in updates:
@@ -95,7 +95,7 @@ def install(
                     )
 
             # Apply updates
-            result = await manager.apply_updates(updates, backup=True)
+            result = await services.update_applier.apply_updates(updates, backup=True)
 
             # Show results
             if result.successful:

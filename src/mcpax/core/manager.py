@@ -1,14 +1,10 @@
-"""Project management facade."""
+"""Project management compatibility facade."""
 
-import logging
 from pathlib import Path
 from types import TracebackType
-from typing import Self, cast
+from typing import Self
 
-from mcpax.core.api import ModrinthClient
-from mcpax.core.downloader import Downloader, DownloaderConfig
-from mcpax.core.file_service import FileService
-from mcpax.core.install_planner import InstallPlanner
+from mcpax.core.downloader import Downloader
 from mcpax.core.models import (
     AppConfig,
     InstalledFile,
@@ -21,12 +17,10 @@ from mcpax.core.models import (
     UpdateResult,
 )
 from mcpax.core.protocols import ModrinthClientProtocol
+from mcpax.core.services import ProjectServices
 from mcpax.core.state_store import StateStore
 from mcpax.core.update_applier import UpdateApplier
 from mcpax.core.update_checker import UpdateChecker
-from mcpax.core.version_resolver import VersionResolver
-
-logger = logging.getLogger(__name__)
 
 
 class ProjectManager:
@@ -41,17 +35,12 @@ class ProjectManager:
         api_client: ModrinthClientProtocol | None = None,
         downloader: Downloader | None = None,
     ) -> None:
-        self._config = config
-        self._api_client = api_client
-        self._downloader = downloader
-        self._owns_api_client = api_client is None
-        self._owns_downloader = downloader is None
-        self._state_store = StateStore(config)
-        self._file_service = FileService(config)
-        self._version_resolver = VersionResolver()
-        self._install_planner = InstallPlanner()
-        self._update_checker: UpdateChecker | None = None
-        self._update_applier: UpdateApplier | None = None
+        self._services = ProjectServices(
+            config, api_client=api_client, downloader=downloader
+        )
+        self._config = self._services.config
+        self._state_store = self._services.state_store
+        self._file_service = self._services.file_service
 
     @property
     def _state_file_path(self) -> Path:
@@ -87,44 +76,13 @@ class ProjectManager:
         return await self._file_service.delete_file(file_path)
 
     def _get_update_checker(self) -> UpdateChecker:
-        if self._api_client is None:
-            msg = "API client not initialized. Use async context manager."
-            raise RuntimeError(msg)
-        if self._update_checker is None:
-            self._update_checker = UpdateChecker(
-                config=self._config,
-                api_client=self._api_client,
-                state_store=self._state_store,
-                version_resolver=self._version_resolver,
-            )
-        return self._update_checker
+        return self._services.update_checker
 
     def _get_update_applier(self) -> UpdateApplier:
-        if self._downloader is None:
-            msg = "Downloader not initialized. Use async context manager."
-            raise RuntimeError(msg)
-        if self._update_applier is None:
-            self._update_applier = UpdateApplier(
-                minecraft_dir=self._config.minecraft_dir,
-                downloader=self._downloader,
-                install_planner=self._install_planner,
-                file_service=self._file_service,
-                state_store=self._state_store,
-            )
-        return self._update_applier
+        return self._services.update_applier
 
     async def __aenter__(self) -> Self:
-        if self._api_client is None:
-            self._api_client = ModrinthClient()
-            await self._api_client.__aenter__()
-        if self._downloader is None:
-            self._downloader = Downloader(
-                config=DownloaderConfig(
-                    max_concurrent=self._config.max_concurrent_downloads,
-                    verify_hash=self._config.verify_hash,
-                )
-            )
-            await self._downloader.__aenter__()
+        await self._services.__aenter__()
         return self
 
     async def __aexit__(
@@ -133,18 +91,7 @@ class ProjectManager:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self._owns_api_client and self._api_client:
-            try:
-                await cast(ModrinthClient, self._api_client).__aexit__(
-                    exc_type, exc_val, exc_tb
-                )
-            except Exception as e:
-                logger.error("Failed to cleanup API client: %s", e)
-        if self._owns_downloader and self._downloader:
-            try:
-                await self._downloader.__aexit__(exc_type, exc_val, exc_tb)
-            except Exception as e:
-                logger.error("Failed to cleanup downloader: %s", e)
+        await self._services.__aexit__(exc_type, exc_val, exc_tb)
 
     async def get_install_status(
         self, slug: str, project_config: ProjectConfig | None = None
@@ -169,9 +116,6 @@ class ProjectManager:
     async def apply_updates(
         self, updates: list[UpdateCheckResult], backup: bool = True
     ) -> UpdateResult:
-        if self._api_client is None or self._downloader is None:
-            msg = "API client or downloader not initialized. Use async context manager."
-            raise RuntimeError(msg)
         return await self._get_update_applier().apply_updates(updates, backup)
 
     def _get_temp_download_dir(self) -> Path:

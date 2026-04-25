@@ -14,6 +14,7 @@ from mcpax.core.file_service import FileService
 from mcpax.core.install_planner import InstallPlan, InstallPlanner
 from mcpax.core.manager import ProjectManager
 from mcpax.core.protocols import ModrinthClientProtocol
+from mcpax.core.services import ProjectServices
 from mcpax.core.state_store import StateStore
 from mcpax.core.uninstaller import ProjectUninstaller
 from mcpax.core.update_applier import UpdateApplier
@@ -32,6 +33,7 @@ __all__ = [
     "ModrinthClientProtocol",
     "ProjectManager",
     "ProjectNotFoundError",
+    "ProjectServices",
     "ProjectUninstaller",
     "RateLimitError",
     "RateLimitInfo",
