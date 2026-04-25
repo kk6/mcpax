@@ -29,8 +29,29 @@ from mcpax.core.version_resolver import VersionResolver
 logger = logging.getLogger(__name__)
 
 
-class _StateFacade:
-    _state_store: StateStore
+class ProjectManager:
+    """Compatibility facade over focused core services."""
+
+    STATE_FILE_NAME = StateStore.STATE_FILE_NAME
+    STATE_VERSION = 1
+
+    def __init__(
+        self,
+        config: AppConfig,
+        api_client: ModrinthClientProtocol | None = None,
+        downloader: Downloader | None = None,
+    ) -> None:
+        self._config = config
+        self._api_client = api_client
+        self._downloader = downloader
+        self._owns_api_client = api_client is None
+        self._owns_downloader = downloader is None
+        self._state_store = StateStore(config)
+        self._file_service = FileService(config)
+        self._version_resolver = VersionResolver()
+        self._install_planner = InstallPlanner()
+        self._update_checker: UpdateChecker | None = None
+        self._update_applier: UpdateApplier | None = None
 
     @property
     def _state_file_path(self) -> Path:
@@ -51,10 +72,6 @@ class _StateFacade:
     async def get_installed_file(self, slug: str) -> InstalledFile | None:
         return await self._state_store.get_installed_file(slug)
 
-
-class _FileFacade(_StateFacade):
-    _file_service: FileService
-
     def get_target_directory(self, project_type: ProjectType) -> Path:
         return self._file_service.get_target_directory(project_type)
 
@@ -68,16 +85,6 @@ class _FileFacade(_StateFacade):
 
     async def delete_file(self, file_path: Path) -> bool:
         return await self._file_service.delete_file(file_path)
-
-
-class _ServiceFactory(_FileFacade):
-    _api_client: ModrinthClientProtocol | None
-    _config: AppConfig
-    _downloader: Downloader | None
-    _install_planner: InstallPlanner
-    _update_applier: UpdateApplier | None
-    _update_checker: UpdateChecker | None
-    _version_resolver: VersionResolver
 
     def _get_update_checker(self) -> UpdateChecker:
         if self._api_client is None:
@@ -105,31 +112,6 @@ class _ServiceFactory(_FileFacade):
                 state_store=self._state_store,
             )
         return self._update_applier
-
-
-class ProjectManager(_ServiceFactory):
-    """Compatibility facade over focused core services."""
-
-    STATE_FILE_NAME = StateStore.STATE_FILE_NAME
-    STATE_VERSION = 1
-
-    def __init__(
-        self,
-        config: AppConfig,
-        api_client: ModrinthClientProtocol | None = None,
-        downloader: Downloader | None = None,
-    ) -> None:
-        self._config = config
-        self._api_client = api_client
-        self._downloader = downloader
-        self._owns_api_client = api_client is None
-        self._owns_downloader = downloader is None
-        self._state_store = StateStore(config)
-        self._file_service = FileService(config)
-        self._version_resolver = VersionResolver()
-        self._install_planner = InstallPlanner()
-        self._update_checker: UpdateChecker | None = None
-        self._update_applier: UpdateApplier | None = None
 
     async def __aenter__(self) -> Self:
         if self._api_client is None:
